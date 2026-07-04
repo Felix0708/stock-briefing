@@ -1,0 +1,49 @@
+# 매일 아침 자동으로 브리핑 파이프라인 실행
+#
+# 왜 GitHub Actions인가:
+# - public 저장소면 실행 시간 무제한 무료 → 서버 비용 0원
+# - cron 스케줄 + secrets 관리가 내장 → 이것 자체가 CI/CD 포트폴리오 요소
+#
+# 시간 주의: cron은 UTC 기준. 22:30 UTC = 07:30 KST/JST
+name: daily-briefing
+
+on:
+  schedule:
+    - cron: "30 22 * * 0-4" # 화~토 아침 발송 (한국 기준 월~금 장 마감 다음날)
+  workflow_dispatch: # Actions 탭에서 수동 실행 버튼 활성화 (테스트용)
+
+permissions:
+  contents: write # 브리핑 JSON을 저장소에 커밋하기 위해 필요
+
+jobs:
+  briefing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run briefing pipeline
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+        run: python -m pipeline.main
+
+      # 생성된 브리핑 JSON을 저장소에 커밋 → GitHub Pages 대시보드에 반영됨
+      - name: Commit briefing data
+        run: |
+          git config user.name "briefing-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add docs/data
+          git diff --cached --quiet || git commit -m "briefing: $(TZ=Asia/Seoul date +%F)"
+          git push

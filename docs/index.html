@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📈 아침 공시 브리핑</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1c1e21; --muted: #8a8f98;
+    --accent: #2563eb; --border: #e5e7eb; --chip: #eff6ff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101214; --card: #1a1d21; --text: #e8eaed; --muted: #8a8f98;
+      --accent: #60a5fa; --border: #2d3138; --chip: #1e2a3d;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', -apple-system, sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 20px 16px 60px; }
+  header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+  h1 { font-size: 1.35rem; }
+  select {
+    background: var(--card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px; font-size: 0.95rem;
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  }
+  .company { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+  .company h2 { font-size: 1.1rem; }
+  .count {
+    background: var(--chip); color: var(--accent); font-size: 0.75rem;
+    padding: 2px 10px; border-radius: 99px; font-weight: 600;
+  }
+  .card ul { padding-left: 20px; margin: 8px 0; }
+  .card li { margin-bottom: 8px; font-size: 0.95rem; }
+  .links { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); }
+  .links a {
+    color: var(--muted); font-size: 0.8rem; text-decoration: none; margin-right: 12px;
+  }
+  .links a:hover { color: var(--accent); }
+  .empty { text-align: center; padding: 60px 0; color: var(--muted); }
+  .meta { color: var(--muted); font-size: 0.8rem; margin-bottom: 16px; }
+  footer { color: var(--muted); font-size: 0.72rem; margin-top: 40px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📈 아침 공시 브리핑</h1>
+    <select id="datePicker" aria-label="날짜 선택"></select>
+  </header>
+  <div id="meta" class="meta"></div>
+  <main id="content"><div class="empty">불러오는 중...</div></main>
+  <footer>
+    본 페이지의 요약은 AI가 생성한 것으로 오류가 있을 수 있으며, 투자 권유가 아닙니다.<br>
+    데이터 출처: 금융감독원 DART · 요약: Gemini
+  </footer>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+// XSS 방어: AI 요약 HTML에서 <ul>/<li>/<b> 등 허용 태그만 남기고 제거
+function sanitize(html) {
+  const allowed = new Set(["UL", "OL", "LI", "B", "STRONG", "EM", "BR", "P", "SPAN"]);
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  doc.body.querySelectorAll("*").forEach((el) => {
+    if (!allowed.has(el.tagName)) { el.replaceWith(...el.childNodes); return; }
+    [...el.attributes].forEach((a) => el.removeAttribute(a.name));
+  });
+  return doc.body.innerHTML;
+}
+
+function render(briefing) {
+  $("meta").textContent = `생성 시각: ${briefing.generated_at.replace("T", " ")}`;
+  const main = $("content");
+  if (!briefing.sections.length) {
+    main.innerHTML = '<div class="empty">이 날은 관심 종목의 신규 공시가 없습니다 ☕</div>';
+    return;
+  }
+  main.innerHTML = briefing.sections.map((s) => `
+    <div class="card">
+      <div class="company">
+        <h2>${s.company}</h2>
+        <span class="count">공시 ${s.filings.length}건</span>
+      </div>
+      ${sanitize(s.summary_html)}
+      <div class="links">
+        ${s.filings.map((f) => `<a href="${f.url}" target="_blank" rel="noopener">📄 ${f.report_nm}</a>`).join("")}
+      </div>
+    </div>`).join("");
+}
+
+async function loadDate(date) {
+  const res = await fetch(`data/briefings/${date}.json`);
+  render(await res.json());
+}
+
+async function init() {
+  try {
+    const res = await fetch("data/index.json");
+    const { dates } = await res.json();
+    if (!dates.length) throw new Error("no data");
+    const picker = $("datePicker");
+    picker.innerHTML = dates.map((d) => `<option value="${d}">${d}</option>`).join("");
+    picker.onchange = () => loadDate(picker.value);
+    await loadDate(dates[0]); // 최신 날짜부터 표시
+  } catch {
+    $("content").innerHTML =
+      '<div class="empty">아직 브리핑 데이터가 없습니다.<br>파이프라인 첫 실행 후 이곳에 표시됩니다.</div>';
+  }
+}
+init();
+</script>
+</body>
+</html>
