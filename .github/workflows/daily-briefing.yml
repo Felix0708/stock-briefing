@@ -32,11 +32,16 @@ jobs:
 
       - name: Run briefing pipeline
         env:
+          # 모델명은 비밀이 아니므로 secrets 대신 평문으로 지정
+          GEMINI_MODEL: gemini-2.5-flash-lite
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
+          # Phase 2 (RAG): 아래 두 secrets를 등록하면 임베딩 저장이 자동 활성화됨
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
         run: python -m pipeline.main
 
       # 생성된 브리핑 JSON을 저장소에 커밋 → GitHub Pages 대시보드에 반영됨

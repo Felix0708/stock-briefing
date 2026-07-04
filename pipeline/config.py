@@ -26,6 +26,12 @@ class Settings:
     # --- Gemini ---
     # 무료 티어 정책이 바뀌면 여기(환경변수)만 바꾸면 됨
     gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    embedding_model: str = os.getenv("EMBEDDING_MODEL", "gemini-embedding-001")
+    embedding_dim: int = int(os.getenv("EMBEDDING_DIM", "768"))  # db/schema.sql의 vector(768)과 일치해야 함
+
+    # --- Supabase (Phase 2 RAG용. 비워두면 임베딩 저장을 건너뜀) ---
+    supabase_url: str = os.getenv("SUPABASE_URL", "")
+    supabase_secret_key: str = os.getenv("SUPABASE_SECRET_KEY", "")
 
     # --- 메일 (Gmail 기준. 앱 비밀번호 필요 → SETUP.md 참고) ---
     smtp_host: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
@@ -60,6 +66,11 @@ class Settings:
         missing = [name for name, value in required if not value]
         if missing:
             raise SystemExit(f"환경변수 누락: {', '.join(missing)} (.env 또는 secrets 확인)")
+
+    @property
+    def rag_enabled(self) -> bool:
+        """Supabase 설정이 있으면 임베딩 저장(RAG 인덱싱)을 수행."""
+        return bool(self.supabase_url and self.supabase_secret_key)
 
 
 def load_settings() -> Settings:

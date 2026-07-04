@@ -66,6 +66,19 @@ python -m http.server 8000 --directory docs
 # 브라우저에서 http://localhost:8000 접속
 ```
 
+## 7. Phase 2 — RAG 인덱싱 켜기 (Supabase)
+
+1. Supabase 대시보드 → **SQL Editor** → `db/schema.sql` 내용 전체 붙여넣기 → **Run**
+   (테이블 + 검색 함수가 생성됨. "Success"만 나오면 성공)
+2. `.env`에 추가:
+   ```
+   SUPABASE_URL=https://<프로젝트ID>.supabase.co
+   SUPABASE_SECRET_KEY=sb_secret_... (Settings → API Keys → Secret keys)
+   ```
+3. GitHub 저장소 secrets에도 같은 이름으로 2개 등록
+4. 이후 파이프라인이 돌 때마다 공시 원문이 자동으로 벡터 DB에 쌓임
+   (설정이 없으면 이 단계는 조용히 건너뛰므로 Phase 1 동작에는 영향 없음)
+
 ## 문제 해결
 
 - **"'회사명'을 찾지 못함"**: watchlist.yaml의 이름이 DART 등록 법인명과 달라서 그런 것. dart.fss.or.kr에서 회사 검색해 정확한 명칭 확인.

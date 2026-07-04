@@ -11,7 +11,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import dart, emailer, publish, summarize
+from . import dart, emailer, embed, publish, summarize
 from .config import load_settings
 
 
@@ -44,10 +44,31 @@ def run(dry_run: bool = False) -> None:
         }
 
         print(f"[3/4] {company}: Gemini 요약 생성...")
-        summary_html = summarize.summarize_company(
-            settings.gemini_api_key, settings.gemini_model, company, filings, doc_texts
-        )
+        # 종목 단위 격리: 한 종목의 요약 실패가 전체 브리핑을 죽이지 않게 한다.
+        # 실패한 종목은 요약 대신 공시 목록만 표시 (링크는 살아있으므로 정보 가치 유지)
+        try:
+            summary_html = summarize.summarize_company(
+                settings.gemini_api_key, settings.gemini_model, company, filings, doc_texts
+            )
+        except Exception as e:
+            print(f"  ⚠ {company} 요약 실패 (공시 목록만 표시): {e}")
+            summary_html = (
+                "<ul>"
+                + "".join(f"<li>{f['report_nm']} ({f['rcept_dt']})</li>" for f in filings)
+                + "</ul><p><i>AI 요약 생성에 실패해 목록만 표시합니다.</i></p>"
+            )
         sections.append({"company": company, "summary_html": summary_html, "filings": filings})
+
+        # Phase 2: RAG용 임베딩 저장 (Supabase 설정이 있을 때만, dry-run 제외)
+        # 실패해도 브리핑 자체는 계속되도록 개별 공시 단위로 예외 처리
+        if settings.rag_enabled and not dry_run:
+            for f in filings:
+                try:
+                    n = embed.index_filing(settings, company, f, doc_texts.get(f["rcept_no"], ""))
+                    if n:
+                        print(f"  - RAG 인덱싱: {f['report_nm']} ({n} 청크)")
+                except Exception as e:
+                    print(f"  ⚠ RAG 인덱싱 실패 ({f['report_nm']}): {e}")
 
     # 웹 대시보드용 JSON 저장 (공시 없는 날도 기록)
     # dry-run은 배포 대상(docs/data)을 건드리지 않고 .preview/에 저장

@@ -8,6 +8,8 @@
 
 from google import genai
 
+from .retry import with_retry
+
 SYSTEM_PROMPT = """당신은 한국 주식 공시 분석 어시스턴트입니다.
 주어진 공시들을 개인 투자자가 아침에 30초 안에 읽을 수 있도록 요약하세요.
 
@@ -35,10 +37,13 @@ def summarize_company(
         parts.append("")
 
     client = genai.Client(api_key=api_key)
-    response = client.models.generate_content(
-        model=model,
-        contents="\n".join(parts),
-        config={"system_instruction": SYSTEM_PROMPT, "temperature": 0.3},
+    response = with_retry(
+        lambda: client.models.generate_content(
+            model=model,
+            contents="\n".join(parts),
+            config={"system_instruction": SYSTEM_PROMPT, "temperature": 0.3},
+        ),
+        label=f"{company} 요약",
     )
     html = (response.text or "").strip()
     # 모델이 규칙을 어기고 코드블록으로 감쌌을 경우 방어
