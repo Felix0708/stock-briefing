@@ -4,4 +4,5 @@
 __pycache__/
 *.pyc
 briefing_preview.html
+.preview/
 .venv/

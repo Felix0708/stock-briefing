@@ -15,12 +15,18 @@ from pathlib import Path
 DATA_DIR = Path(__file__).resolve().parent.parent / "docs" / "data"
 
 
-def publish(sections: list[dict]) -> Path:
+def publish(
+    sections: list[dict],
+    base_dir: Path | None = None,
+    watchlist: list[str] | None = None,
+) -> Path:
     """오늘의 브리핑을 JSON으로 저장하고 날짜 인덱스를 갱신한다.
 
     공시가 없는 날도 저장한다 → 대시보드에서 '오늘은 공시 없음'을 보여주기 위함.
+    base_dir을 주면 docs/data 대신 그곳에 저장한다 (dry-run용 → git 충돌 방지).
     """
-    briefings_dir = DATA_DIR / "briefings"
+    data_dir = base_dir if base_dir is not None else DATA_DIR
+    briefings_dir = data_dir / "briefings"
     briefings_dir.mkdir(parents=True, exist_ok=True)
 
     today = datetime.now().strftime("%Y-%m-%d")
@@ -32,9 +38,13 @@ def publish(sections: list[dict]) -> Path:
     out_file = briefings_dir / f"{today}.json"
     out_file.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    # 날짜 인덱스 갱신 (최신순)
+    # 날짜 인덱스 갱신 (최신순) + 워치리스트 동봉
+    # → 대시보드가 공시 0건인 종목도 목록에 표시할 수 있게 함
     dates = sorted((p.stem for p in briefings_dir.glob("*.json")), reverse=True)
-    index_file = DATA_DIR / "index.json"
-    index_file.write_text(json.dumps({"dates": dates}, ensure_ascii=False), encoding="utf-8")
+    index_file = data_dir / "index.json"
+    index_file.write_text(
+        json.dumps({"dates": dates, "watchlist": watchlist or []}, ensure_ascii=False),
+        encoding="utf-8",
+    )
 
     return out_file

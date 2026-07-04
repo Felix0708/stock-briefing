@@ -49,8 +49,13 @@ def run(dry_run: bool = False) -> None:
         )
         sections.append({"company": company, "summary_html": summary_html, "filings": filings})
 
-    # 웹 대시보드용 JSON은 항상 저장 (공시 없는 날도 기록)
-    out_json = publish.publish(sections)
+    # 웹 대시보드용 JSON 저장 (공시 없는 날도 기록)
+    # dry-run은 배포 대상(docs/data)을 건드리지 않고 .preview/에 저장
+    # → 로컬 테스트가 git 충돌을 만들지 않도록 분리
+    if dry_run:
+        out_json = publish.publish(sections, base_dir=Path(".preview"), watchlist=settings.watchlist)
+    else:
+        out_json = publish.publish(sections, watchlist=settings.watchlist)
     print(f"[4/4] 웹 대시보드 데이터 저장: {out_json}")
 
     if not settings.send_email:

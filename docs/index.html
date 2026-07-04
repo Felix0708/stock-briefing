@@ -7,12 +7,14 @@
 <style>
   :root {
     --bg: #f6f7f9; --card: #ffffff; --text: #1c1e21; --muted: #8a8f98;
-    --accent: #2563eb; --border: #e5e7eb; --chip: #eff6ff;
+    --accent: #2563eb; --accent-soft: #eff6ff; --border: #e5e7eb;
+    --chip-bg: #eef0f3; --shadow: 0 1px 3px rgba(0,0,0,.06);
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #101214; --card: #1a1d21; --text: #e8eaed; --muted: #8a8f98;
-      --accent: #60a5fa; --border: #2d3138; --chip: #1e2a3d;
+      --accent: #60a5fa; --accent-soft: #1e2a3d; --border: #2d3138;
+      --chip-bg: #23272d; --shadow: 0 1px 3px rgba(0,0,0,.3);
     }
   }
   * { box-sizing: border-box; margin: 0; }
@@ -21,43 +23,83 @@
     font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', -apple-system, sans-serif;
     line-height: 1.6;
   }
-  .wrap { max-width: 720px; margin: 0 auto; padding: 20px 16px 60px; }
-  header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
-  h1 { font-size: 1.35rem; }
-  select {
+  .wrap { max-width: 760px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { font-size: 1.35rem; margin-bottom: 16px; }
+
+  /* 상단 컨트롤 */
+  .tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+  .tab {
+    border: 1px solid var(--border); background: var(--card); color: var(--muted);
+    padding: 7px 16px; border-radius: 99px; cursor: pointer; font-size: 0.9rem;
+  }
+  .tab.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  select, input[type="search"] {
     background: var(--card); color: var(--text); border: 1px solid var(--border);
-    border-radius: 8px; padding: 8px 12px; font-size: 0.95rem;
+    border-radius: 10px; padding: 9px 12px; font-size: 0.92rem;
   }
+  input[type="search"] { flex: 1; min-width: 140px; }
+
+  /* 통계 칩 */
+  .stats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+  .stat {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 10px 16px; box-shadow: var(--shadow);
+  }
+  .stat b { font-size: 1.15rem; color: var(--accent); margin-right: 4px; }
+  .stat span { font-size: 0.78rem; color: var(--muted); }
+
+  /* 카드 */
   .card {
-    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
-    padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 20px; margin-bottom: 14px; box-shadow: var(--shadow);
   }
-  .company { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
-  .company h2 { font-size: 1.1rem; }
-  .count {
-    background: var(--chip); color: var(--accent); font-size: 0.75rem;
+  .company-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .company-row h2 { font-size: 1.08rem; }
+  .badge {
+    background: var(--accent-soft); color: var(--accent); font-size: 0.72rem;
     padding: 2px 10px; border-radius: 99px; font-weight: 600;
   }
+  .badge.date { background: var(--chip-bg); color: var(--muted); font-weight: 500; }
   .card ul { padding-left: 20px; margin: 8px 0; }
-  .card li { margin-bottom: 8px; font-size: 0.95rem; }
+  .card li { margin-bottom: 8px; font-size: 0.94rem; }
   .links { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); }
-  .links a {
-    color: var(--muted); font-size: 0.8rem; text-decoration: none; margin-right: 12px;
-  }
+  .links a { color: var(--muted); font-size: 0.8rem; text-decoration: none; margin-right: 12px; }
   .links a:hover { color: var(--accent); }
+
+  /* 종목 칩 */
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .chip {
+    background: var(--chip-bg); border: 1px solid var(--border); color: var(--text);
+    padding: 6px 14px; border-radius: 99px; cursor: pointer; font-size: 0.88rem;
+  }
+  .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .chip small { color: inherit; opacity: 0.7; margin-left: 4px; }
+
   .empty { text-align: center; padding: 60px 0; color: var(--muted); }
-  .meta { color: var(--muted); font-size: 0.8rem; margin-bottom: 16px; }
+  .meta { color: var(--muted); font-size: 0.78rem; margin-bottom: 14px; }
   footer { color: var(--muted); font-size: 0.72rem; margin-top: 40px; text-align: center; }
+  .hidden { display: none !important; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <h1>📈 아침 공시 브리핑</h1>
+  <h1>📈 아침 공시 브리핑</h1>
+
+  <div class="tabs">
+    <button class="tab active" id="tabDaily">📅 날짜별</button>
+    <button class="tab" id="tabStock">🏢 종목별</button>
+  </div>
+
+  <div class="controls">
     <select id="datePicker" aria-label="날짜 선택"></select>
-  </header>
+  </div>
+
+  <div class="stats" id="stats"></div>
+  <div class="chips hidden" id="chips"></div>
   <div id="meta" class="meta"></div>
   <main id="content"><div class="empty">불러오는 중...</div></main>
+
   <footer>
     본 페이지의 요약은 AI가 생성한 것으로 오류가 있을 수 있으며, 투자 권유가 아닙니다.<br>
     데이터 출처: 금융감독원 DART · 요약: Gemini
@@ -66,8 +108,9 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
+const state = { mode: "daily", briefings: {}, dates: [], company: null, watchlist: [] };
 
-// XSS 방어: AI 요약 HTML에서 <ul>/<li>/<b> 등 허용 태그만 남기고 제거
+// XSS 방어: AI 요약 HTML에서 허용 태그만 남기고 제거
 function sanitize(html) {
   const allowed = new Set(["UL", "OL", "LI", "B", "STRONG", "EM", "BR", "P", "SPAN"]);
   const doc = new DOMParser().parseFromString(html, "text/html");
@@ -78,40 +121,121 @@ function sanitize(html) {
   return doc.body.innerHTML;
 }
 
-function render(briefing) {
-  $("meta").textContent = `생성 시각: ${briefing.generated_at.replace("T", " ")}`;
-  const main = $("content");
-  if (!briefing.sections.length) {
-    main.innerHTML = '<div class="empty">이 날은 관심 종목의 신규 공시가 없습니다 ☕</div>';
-    return;
-  }
-  main.innerHTML = briefing.sections.map((s) => `
+function cardHTML(section, dateBadge) {
+  return `
     <div class="card">
-      <div class="company">
-        <h2>${s.company}</h2>
-        <span class="count">공시 ${s.filings.length}건</span>
+      <div class="company-row">
+        <h2>${section.company}</h2>
+        <span class="badge">공시 ${section.filings.length}건</span>
+        ${dateBadge ? `<span class="badge date">${dateBadge}</span>` : ""}
       </div>
-      ${sanitize(s.summary_html)}
+      ${sanitize(section.summary_html)}
       <div class="links">
-        ${s.filings.map((f) => `<a href="${f.url}" target="_blank" rel="noopener">📄 ${f.report_nm}</a>`).join("")}
+        ${section.filings.map((f) => `<a href="${f.url}" target="_blank" rel="noopener">📄 ${f.report_nm}</a>`).join("")}
       </div>
-    </div>`).join("");
+    </div>`;
 }
 
-async function loadDate(date) {
-  const res = await fetch(`data/briefings/${date}.json`);
-  render(await res.json());
+function setStats(items) {
+  $("stats").innerHTML = items
+    .map(([n, label]) => `<div class="stat"><b>${n}</b><span>${label}</span></div>`)
+    .join("");
+}
+
+/* ---------- 날짜별 보기 ---------- */
+function renderDaily() {
+  const date = $("datePicker").value;
+  const b = state.briefings[date];
+  if (!b) return;
+  $("meta").textContent = `생성 시각: ${b.generated_at.replace("T", " ")}`;
+  const sections = b.sections;
+  const filingCount = sections.reduce((n, s) => n + s.filings.length, 0);
+  setStats([[filingCount, "공시 건수"], [sections.length, "종목"]]);
+  $("content").innerHTML = sections.length
+    ? sections.map((s) => cardHTML(s)).join("")
+    : '<div class="empty">이 날은 관심 종목의 신규 공시가 없습니다 ☕</div>';
+}
+
+/* ---------- 종목별 보기 ---------- */
+function companyIndex() {
+  // {회사명: [{date, section}, ...]} — 전체 아카이브를 종목 기준으로 재구성
+  const idx = {};
+  for (const date of state.dates) {
+    for (const s of (state.briefings[date]?.sections ?? [])) {
+      (idx[s.company] ??= []).push({ date, section: s });
+    }
+  }
+  return idx;
+}
+
+function renderStock() {
+  const idx = companyIndex();
+  // 워치리스트 종목은 공시 0건이어도 항상 목록에 표시
+  const names = [...new Set([...state.watchlist, ...Object.keys(idx)])].sort();
+  if (!state.company || !names.includes(state.company)) state.company = names[0] ?? null;
+
+  const countOf = (n) => (idx[n] ?? []).reduce((sum, e) => sum + e.section.filings.length, 0);
+  const box = $("chips");
+  // 종목이 적으면 칩(한 번에 다 보임), 많으면 드롭다운(스크롤 방지)
+  if (names.length > 8) {
+    box.innerHTML = `<select id="companyPicker" aria-label="종목 선택">${names
+      .map((n) => `<option value="${n}" ${n === state.company ? "selected" : ""}>${n} (공시 ${countOf(n)}건)</option>`)
+      .join("")}</select>`;
+    box.querySelector("select").onchange = (e) => { state.company = e.target.value; renderStock(); };
+  } else {
+    box.innerHTML = names
+      .map((n) => `<button class="chip ${n === state.company ? "active" : ""}" data-name="${n}">${n}<small>${countOf(n)}</small></button>`)
+      .join("");
+    box.querySelectorAll(".chip").forEach((c) => {
+      c.onclick = () => { state.company = c.dataset.name; renderStock(); };
+    });
+  }
+
+  if (!state.company) {
+    setStats([]);
+    $("meta").textContent = "";
+    $("content").innerHTML = '<div class="empty">watchlist.yaml에 종목을 추가하면 여기에 표시됩니다.</div>';
+    return;
+  }
+  const entries = idx[state.company] ?? []; // 이미 최신 날짜순
+  const total = entries.reduce((n, e) => n + e.section.filings.length, 0);
+  setStats([[total, "누적 공시"], [entries.length, "브리핑 일수"]]);
+  $("meta").textContent = `${state.company} — 아카이브 전체 기간`;
+  $("content").innerHTML = entries.length
+    ? entries.map((e) => cardHTML(e.section, e.date)).join("")
+    : '<div class="empty">아직 이 종목의 공시가 수집되지 않았습니다 ☕</div>';
+}
+
+/* ---------- 모드 전환 & 초기화 ---------- */
+function render() { state.mode === "daily" ? renderDaily() : renderStock(); }
+
+function setMode(mode) {
+  state.mode = mode;
+  $("tabDaily").classList.toggle("active", mode === "daily");
+  $("tabStock").classList.toggle("active", mode === "stock");
+  $("datePicker").classList.toggle("hidden", mode !== "daily");
+  $("chips").classList.toggle("hidden", mode !== "stock");
+  render();
 }
 
 async function init() {
   try {
-    const res = await fetch("data/index.json");
-    const { dates } = await res.json();
+    const { dates, watchlist } = await (await fetch("data/index.json")).json();
     if (!dates.length) throw new Error("no data");
+    state.dates = dates;
+    state.watchlist = watchlist ?? [];
+    // 아카이브 전체를 병렬 로드 (하루 1파일이라 수백 일치도 가벼움)
+    const loaded = await Promise.all(
+      dates.map(async (d) => [d, await (await fetch(`data/briefings/${d}.json`)).json()])
+    );
+    state.briefings = Object.fromEntries(loaded);
+
     const picker = $("datePicker");
     picker.innerHTML = dates.map((d) => `<option value="${d}">${d}</option>`).join("");
-    picker.onchange = () => loadDate(picker.value);
-    await loadDate(dates[0]); // 최신 날짜부터 표시
+    picker.onchange = render;
+    $("tabDaily").onclick = () => setMode("daily");
+    $("tabStock").onclick = () => setMode("stock");
+    render();
   } catch {
     $("content").innerHTML =
       '<div class="empty">아직 브리핑 데이터가 없습니다.<br>파이프라인 첫 실행 후 이곳에 표시됩니다.</div>';
