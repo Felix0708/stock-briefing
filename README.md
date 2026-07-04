@@ -9,22 +9,22 @@
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  GitHub Actions (cron: 평일 아침 07:30 KST)      │
+│  GitHub Actions (cron: 평일 아침 07:30 KST)      　│
 │                                                 │
 │  watchlist.yaml                                 │
 │       │                                         │
 │       ▼                                         │
-│  ① dart.py ──── DART OpenAPI                    │
-│  │   기업코드 매핑(캐시) → 신규 공시 목록 → 원문   │
+│  ① dart.py ──── DART OpenAPI                  　│
+│  │   기업코드 매핑(캐시) → 신규 공시 목록 → 원문   │     │
 │  ▼                                              │
-│  ② summarize.py ──── Gemini Flash (무료 티어)    │
-│  │   종목당 1회 호출로 공시 묶음 요약 (쿼터 절약)  │
+│  ② summarize.py ──── Gemini Flash (무료 티어)     │
+│  │   종목당 1회 호출로 공시 묶음 요약 (쿼터 절약)  │　　　　│
+│  ▼                                       　　　　　│
+│  ③ publish.py ──── docs/data/*.json 저장　　　　　　│
+│  │   → GitHub Pages 웹 대시보드에 자동 반영　　　　　　  │
 │  ▼                                              │
-│  ③ publish.py ──── docs/data/*.json 저장         │
-│  │   → GitHub Pages 웹 대시보드에 자동 반영        │
-│  ▼                                              │
-│  ④ emailer.py ──── Gmail SMTP (선택)             │
-│      HTML 브리핑 메일 발송                        │
+│  ④ emailer.py ──── Gmail SMTP (선택)　　　　　　　　　│
+│      HTML 브리핑 메일 발송                          │
 └─────────────────────────────────────────────────┘
 ```
 
