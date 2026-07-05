@@ -17,6 +17,8 @@ from xml.etree import ElementTree
 
 import requests
 
+from .retry import with_retry
+
 BASE = "https://opendart.fss.or.kr/api"
 CACHE_DIR = Path(__file__).resolve().parent.parent / ".cache"
 
@@ -29,9 +31,13 @@ class DartError(RuntimeError):
 
 
 def _get(url: str, params: dict, timeout: int = 30) -> requests.Response:
-    resp = requests.get(url, params=params, timeout=timeout)
-    resp.raise_for_status()
-    return resp
+    """DART API 호출. 타임아웃·일시 오류는 재시도 (해외 IP에서 응답이 튀는 경우 대비)."""
+    def call() -> requests.Response:
+        resp = requests.get(url, params=params, timeout=timeout)
+        resp.raise_for_status()
+        return resp
+
+    return with_retry(call, label="DART")
 
 
 def load_corp_codes(api_key: str) -> dict[str, str]:

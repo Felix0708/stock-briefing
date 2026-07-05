@@ -18,7 +18,14 @@ def with_retry(fn, *, attempts: int = 4, base_wait: float = 15.0, label: str = "
             return fn()
         except Exception as e:
             msg = str(e)
-            transient = any(code in msg for code in ("429", "503", "500", "UNAVAILABLE", "RESOURCE_EXHAUSTED"))
+            transient = any(
+                marker in msg
+                for marker in (
+                    "429", "503", "500", "502", "504",
+                    "UNAVAILABLE", "RESOURCE_EXHAUSTED",
+                    "timed out", "timeout", "Max retries exceeded", "Connection",
+                )
+            )
             last_try = i == attempts - 1
             if not transient or last_try:
                 raise
