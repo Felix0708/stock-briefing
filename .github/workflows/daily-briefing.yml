@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: write # 브리핑 JSON을 저장소에 커밋하기 위해 필요
+  actions: write # 커밋 후 Pages 배포 워크플로우를 트리거하기 위해 필요
 
 jobs:
   briefing:
@@ -52,3 +53,9 @@ jobs:
           git add docs/data
           git diff --cached --quiet || git commit -m "briefing: $(TZ=Asia/Seoul date +%F)"
           git push
+
+      # 봇 커밋은 push 트리거를 깨우지 못하므로(GitHub 보안 정책) 배포를 직접 호출
+      - name: Trigger pages deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-pages.yml --ref main

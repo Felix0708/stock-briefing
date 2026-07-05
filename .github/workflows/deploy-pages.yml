@@ -1,0 +1,40 @@
+# GitHub Pages 배포 (Actions 방식)
+#
+# 기존 "Deploy from a branch" 방식이 간헐적으로 실패해서 교체.
+# docs/ 폴더가 바뀔 때만 실행되고, 공식 액션으로 직접 배포한다.
+# 전환 방법: Settings → Pages → Source를 "GitHub Actions"로 변경
+name: deploy-pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["docs/**"] # 대시보드/데이터가 바뀔 때만 배포
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 연속 푸시 시 이전 배포를 취소하고 최신 것만 배포 (충돌 방지)
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
