@@ -1,8 +1,29 @@
-.env
-.DS_Store
+# 로컬 환경변수/Secret: 예시 파일만 추적
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+
+# JavaScript / Next.js / Vercel 산출물
+**/node_modules/
+**/.next/
+**/out/
+**/.vercel/
+**/*.tsbuildinfo
+npm-debug.log*
+
+# Python 로컬 환경과 캐시
+.venv/
+**/__pycache__/
+*.py[cod]
 .cache/
-__pycache__/
-*.pyc
+
+# 로컬 실행 산출물
 briefing_preview.html
 .preview/
-.venv/
+
+# OS / 인증서 파일
+.DS_Store
+*.pem
+*.key
+*.p12

@@ -16,6 +16,10 @@ permissions:
   contents: write # 브리핑 JSON을 저장소에 커밋하기 위해 필요
   actions: write # 커밋 후 Pages 배포 워크플로우를 트리거하기 위해 필요
 
+concurrency:
+  group: daily-briefing
+  cancel-in-progress: false
+
 jobs:
   briefing:
     runs-on: ubuntu-latest
@@ -29,12 +33,13 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: python -m pip install --disable-pip-version-check -r requirements.txt
 
       - name: Run briefing pipeline
         env:
           # 모델명은 비밀이 아니므로 secrets 대신 평문으로 지정
-          GEMINI_MODEL: gemini-2.5-flash-lite
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash-lite' }}
+          SEND_EMAIL: ${{ vars.SEND_EMAIL || 'true' }}
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
@@ -47,15 +52,22 @@ jobs:
 
       # 생성된 브리핑 JSON을 저장소에 커밋 → GitHub Pages 대시보드에 반영됨
       - name: Commit briefing data
+        id: commit
         run: |
           git config user.name "briefing-bot"
           git config user.email "actions@users.noreply.github.com"
           git add docs/data
-          git diff --cached --quiet || git commit -m "briefing: $(TZ=Asia/Seoul date +%F)"
-          git push
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "briefing: $(TZ=Asia/Seoul date +%F)"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
 
       # 봇 커밋은 push 트리거를 깨우지 못하므로(GitHub 보안 정책) 배포를 직접 호출
       - name: Trigger pages deploy
+        if: steps.commit.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run deploy-pages.yml --ref main

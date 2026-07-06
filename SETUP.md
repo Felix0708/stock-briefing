@@ -41,19 +41,24 @@ python -m pipeline.main             # 실제 메일 발송 테스트
 
 1. GitHub에 **public** 저장소 생성 (public이어야 Actions 무료 무제한)
 2. 코드 push (`.env`는 .gitignore 덕분에 자동 제외됨 — 절대 직접 올리지 말 것)
-3. 저장소 → Settings → Secrets and variables → Actions → **New repository secret** 으로 아래 5개 등록:
+3. 저장소 → Settings → Secrets and variables → Actions → **New repository secret** 으로 등록:
    - `DART_API_KEY`
    - `GEMINI_API_KEY`
    - `SMTP_USER`
    - `SMTP_PASSWORD`
    - `MAIL_TO`
-4. Actions 탭 → daily-briefing → **Run workflow** 로 수동 실행해서 메일 오는지 확인
-5. 이후 매일 아침 07:30(한국/일본 시간)에 자동 발송됨
+   - `SUPABASE_URL` (RAG 인덱싱 사용 시)
+   - `SUPABASE_SECRET_KEY` (RAG 인덱싱 사용 시)
+4. 같은 화면의 **Variables**에 선택 설정을 등록:
+   - `GEMINI_MODEL` (미등록 시 `gemini-2.5-flash-lite`)
+   - `SEND_EMAIL` (미등록 시 `true`, 메일을 끄려면 `false`)
+5. Actions 탭 → daily-briefing → **Run workflow** 로 수동 실행해서 메일 오는지 확인
+6. 이후 매일 아침 07:30(한국/일본 시간)에 자동 발송됨
 
 ## 6. 웹 대시보드 켜기 (GitHub Pages, 2분)
 
 1. 저장소 → Settings → **Pages**
-2. Source: **Deploy from a branch** / Branch: `main` / Folder: **`/docs`** → Save
+2. Source를 **GitHub Actions**로 선택
 3. 1~2분 뒤 `https://<깃허브아이디>.github.io/<저장소이름>/` 에서 대시보드 접속 가능
 4. 폰 브라우저로 열어도 반응형으로 잘 보임. 홈 화면에 추가하면 앱처럼 사용 가능
 5. 이메일이 필요 없으면 secrets에 `SEND_EMAIL=false` 대신 워크플로우 env에 추가하거나,
@@ -78,6 +83,11 @@ python -m http.server 8000 --directory docs
 3. GitHub 저장소 secrets에도 같은 이름으로 2개 등록
 4. 이후 파이프라인이 돌 때마다 공시 원문이 자동으로 벡터 DB에 쌓임
    (설정이 없으면 이 단계는 조용히 건너뛰므로 Phase 1 동작에는 영향 없음)
+
+## 8. Phase 2-2 — 질문 웹앱과 Vercel
+
+웹앱의 로컬 실행, Vercel Root Directory, 환경변수와 배포 전 검증은
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)를 기준으로 관리합니다.
 
 ## 문제 해결
 
