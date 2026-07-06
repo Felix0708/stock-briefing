@@ -27,3 +27,8 @@ briefing_preview.html
 *.pem
 *.key
 *.p12
+
+# 동구리 오피스 작업 산출물 (로컬에만 보관, GitHub에는 안 올림)
+office-reports/
+scripts/
+.github/workflows/quality.yml
