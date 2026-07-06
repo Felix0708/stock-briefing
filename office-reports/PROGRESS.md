@@ -2,6 +2,18 @@
 
 ## 2026-07-06
 
+- [정사원 · 23:09 JST · 완료한 일] 배포 실브라우저 QA의 현재 판정을 확정했다. Vercel 프로젝트 연결 자체는 PASS지만 검증 대상 URL이 저장소·보고서에 없고, 로컬 Vercel/GitHub 읽기 조회는 외부 연결 차단, 인앱 브라우저는 0개여서 정상 질문·DART 출처·빈 결과/필터 해제·429·503·60초 timeout·사용자 취소·모바일·다크·IME·키보드·접근성·라이트 대비를 실제 실행하지 못했다. `PHASE2_2_FRONTEND_QA.md`를 항목별 `FAIL(미검증)` 체크리스트로 갱신했으며 제품 코드·운영 설정·배포는 변경하지 않았다. · [다음 할 일] 검증 대상 Vercel URL을 기록하고 그 URL을 연 인앱 브라우저 탭을 연결한 뒤 전 항목을 재실행해 화면·Network 증거를 남긴다. 전 항목 PASS 전에는 작업완료로 판정하지 않는다.
+
+- [오차장 · 23:08 JST · 완료한 일] 배포 후 인프라 실사를 마쳤다. Vercel 프로젝트 링크와 HEAD=`origin/main` `d609155`는 PASS, 로컬 환경변수 존재·확정값 일치와 소스·Git 이력 Secret 0건도 PASS다. 그러나 외부 DNS 차단으로 Production/Preview HTTP 200, Vercel 원격 env, WAF, GitHub Actions를 조회하지 못했고, 직전 코드 커밋에는 lockfile이 없어 quality의 `npm ci` 통과가 불가능하며 `.next/static`도 없어 번들 Secret 검사는 SKIP됐다. 최종 판정은 FAIL이며 결과를 `office-reports/2026-07-06_2308_배포 후 인프라 실사.md`에 기록했다. 진단 중 노출된 IP HMAC 키는 Git에는 없지만 교체 대상으로 표시했다. · [다음 할 일] 외부 연결 환경에서 HMAC 키를 로컬·Vercel 동시 교체하고 Vercel env/WAF/Production·Preview HTTP, GitHub quality, 새 번들 Secret 검사를 재실행한다.
+
+- [강대리 · 23:01 JST · 완료한 일] 운영 Supabase 읽기 검증을 종료했다. 실제 `.env`의 HTTPS URL·Secret 존재를 값 비노출로 확인하고 service_role로 임베딩 실데이터 SELECT→저장 벡터 4인자 `match_filings` 자기검색을 시도했으나 운영 호스트 DNS 해석 실패로 HTTP 응답 전에 종료됐다. `SUPABASE_DB_URL`·Management Token·`psql`·연결 브라우저(0개)가 없어 `verify_schema.sql`, RLS·HNSW 카탈로그 검증도 실행하지 못했다. 운영 DB 변경은 0건이며 로컬 DB 계약 회귀만 3/3 PASS다. 결과를 `2026-07-06_2301_운영 Supabase 읽기 검증.md`에 기록하고 운영 정상 여부 미실증으로 검증 판정을 FAIL 처리했다. · [다음 할 일] 네트워크 가능한 환경에서 `verify_schema.sql` 최종 PASS와 service_role 실데이터 SELECT·4인자 RPC HTTP 200을 확보하면 PASS로 전환한다.
+
+- [오차장 · 23:05 JST · 완료한 일] 배포 후 인프라 실사에 착수해 현재 HEAD `d609155`와 로컬 원격 추적 `origin/main`이 일치(앞/뒤 0)하고 Vercel 프로젝트 `web` 링크가 생성된 것을 확인했다. 반면 인앱 브라우저는 0개이고 셸·별도 런타임 모두 Vercel·GitHub·배포 후보 호스트 DNS가 `ENOTFOUND`라 Vercel 환경변수·배포 URL·WAF와 GitHub Actions를 원격 조회하지 못했다. 로컬에는 `web/package-lock.json`과 `web/.next/static`이 없어 CI 재현 및 번들 Secret 검사는 아직 PASS 처리할 수 없다. · [다음 할 일] 커밋·workflow·Secret 추적 상태를 정적으로 대조하고, 가능한 공개 경로를 한 번 더 확인한 뒤 항목별 PASS/FAIL 최종 보고서를 작성한다.
+
+- [정사원 · 23:00 JST · 완료한 일] 배포 후 실브라우저 QA를 재개했다. 최신 단일 승인 보고서와 현재 저장소를 대조한 결과, 이전 보고 시점과 달리 HEAD가 `d609155`로 전진했고 `web/.vercel/project.json`·배포 커밋이 존재함을 확인했다. 다만 인앱 브라우저 연결 목록은 여전히 0개이며 문서에는 확정 배포 URL이 기록돼 있지 않다. · [다음 할 일] Vercel 프로젝트 메타데이터와 읽기 전용 배포 조회로 실제 URL을 확정한 뒤, 브라우저 연결이 확보되면 시나리오별 기능·접근성 QA를 실행한다.
+
+- [강대리 · 22:59 JST · 완료한 일] 운영 Supabase 읽기 검증을 재개했다. 최신 DB 적용 보고서와 `db/schema.sql`, `db/verify_schema.sql`, 실제 웹·파이프라인의 Supabase 호출 경로를 대조해 검증 범위를 스키마 PASS, 4인자 RPC service_role 호출, RLS·HNSW 인덱스, 실데이터 임베딩 검색으로 고정했다. 운영 DB는 무변경 원칙을 유지한다. · [다음 할 일] 현재 환경의 DB/Data API 연결 가능 여부를 Secret 비노출 방식으로 확인하고 가능한 운영 검증을 실행한다.
+
 - [최과장 · 22:09 JST · 완료한 일] Gemini 실측 원본 한도를 답변 10 RPM/20 RPD, 임베딩 100 RPM/1,000 RPD로 확정하고 80% 운영값을 답변 8 RPM/16 RPD, 임베딩 80 RPM/800 RPD로 정책·배포 문서·환경변수 예시·웹 README·백엔드 현행 보고서에 정합화했다. AI Studio 재확인·잠정값 표현을 현행 문서에서 제거하고, 답변 16 RPD가 재시도 포함 전 사용자 합산 상한이라 실사용 유입 시 무료 티어 병목이라는 caveat를 기록했다. 런타임은 모델별 값을 필수 환경변수로 fail-closed 처리하고 테스트 픽스처가 확정값을 전달함을 대조했으며, API·클라이언트·DB 회귀 26/26과 `git diff --check`가 통과했다. 과거 날짜형 보고서·역사 스냅샷은 당시 기록으로 보존했고 커밋·push·배포는 하지 않았다. · [다음 할 일] 배포 담당이 확정값을 Vercel 환경변수에 등록하고 Preview에서 실제 Upstash 한도·429 동작을 검증한다.
 
 - [오차장 · 22:09 JST · 완료한 일] 루트 `.env`에 64바이트 랜덤 `RATE_LIMIT_IP_HASH_KEY`와 확정 모델 RPM(답변 8, 임베딩 80)을 값 노출 없이 추가하고 파일 권한을 600으로 고정했다. npm Registry·Vercel API는 모두 DNS 해석 실패였고 온라인 lockfile 생성은 90초 후 중단, 오프라인 생성은 `eslint` 캐시 부재 `ENOTCACHED`로 실패했다. 현재 회귀 26/26, 직접 TypeScript strict, 소스·Git 이력 Secret, 금지 `NEXT_PUBLIC_` 0건, `git diff --check`는 통과했다. · [다음 할 일] 외부 DNS가 허용되면 lockfile 생성부터 전체 빌드 게이트를 재실행하고, 모두 종료 0인 뒤 Vercel 프로젝트·환경변수·Preview·WAF를 적용한다. Production은 사장 승인 전까지 금지한다.
