@@ -1,10 +1,12 @@
+import Link from "next/link";
+
 import { AskPanel } from "@/components/ask-panel";
 
 export default function Home() {
   return (
     <main className="page-shell">
       <header className="site-header">
-        <a className="brand" href="/" aria-label="Stock Briefing 홈">
+        <Link className="brand" href="/" aria-label="Stock Briefing 홈">
           <span className="brand-mark" aria-hidden="true">
             <svg viewBox="0 0 24 24" role="img">
               <path d="M4 17.5 9 12l3.2 3.2L20 7.5" />
@@ -12,8 +14,11 @@ export default function Home() {
             </svg>
           </span>
           <span>Stock Briefing</span>
-        </a>
-        <span className="service-badge">공시 AI 검색</span>
+        </Link>
+        <nav className="pf-nav">
+          <Link href="/portfolio">내 포트폴리오</Link>
+          <span className="service-badge">공시 AI 검색</span>
+        </nav>
       </header>
 
       <section className="hero" aria-labelledby="page-title">

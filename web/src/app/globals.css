@@ -1030,3 +1030,202 @@ a.source-item:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ==================== 포트폴리오 (Phase 3) ==================== */
+.pf-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.pf-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+
+.pf-card h2 {
+  font-size: 1.05rem;
+  margin-bottom: 12px;
+}
+
+.pf-muted { color: var(--text-muted); font-size: 0.9rem; }
+.pf-hint { margin-top: 10px; }
+.pf-error { color: var(--danger); margin-top: 12px; font-size: 0.9rem; }
+.pf-notice {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  font-size: 0.9rem;
+}
+
+.pf-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+}
+
+.pf-primary {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pf-primary:hover { background: var(--primary-dark); }
+.pf-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.pf-ghost {
+  background: var(--surface-soft);
+  color: var(--text-soft);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.pf-ghost:hover { color: var(--text); }
+.pf-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.pf-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+  max-width: 380px;
+}
+.pf-auth-form input,
+.pf-add-form input,
+.pf-add-form select {
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  color: var(--text);
+  font-family: inherit;
+}
+.pf-auth-actions { display: flex; gap: 8px; }
+
+.pf-add-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+.pf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 140px;
+}
+.pf-field label { font-size: 0.8rem; color: var(--text-muted); }
+
+.pf-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.pf-list-tools { display: flex; align-items: center; gap: 10px; }
+.pf-asof { font-size: 0.8rem; }
+
+.pf-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.pf-summary > div {
+  flex: 1 1 150px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pf-summary strong { font-size: 1.05rem; }
+
+.pf-table-wrap { overflow-x: auto; }
+.pf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.pf-table th {
+  text-align: left;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.8rem;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.pf-table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.pf-ratio { margin-left: 6px; font-size: 0.8rem; }
+.pf-gain { color: #dc2626; }   /* 한국 관례: 상승 = 빨강 */
+.pf-loss { color: #2563eb; }   /* 하락 = 파랑 */
+
+.pf-delete {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.pf-delete:hover { color: var(--danger); background: var(--danger-soft); }
+
+.pf-pie {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+.pf-pie svg { width: 180px; height: 180px; flex: none; }
+.pf-pie-track { fill: none; stroke: var(--surface-soft); stroke-width: 22; }
+.pf-legend {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.9rem;
+  padding: 0;
+  margin: 0;
+}
+.pf-legend li { display: flex; align-items: center; gap: 8px; }
+.pf-legend strong { margin-left: 4px; }
+.pf-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+  margin-right: 6px;
+  flex: none;
+}
+
+.pf-nav { display: flex; align-items: center; gap: 14px; }
+.pf-nav a { color: var(--text-soft); font-size: 0.9rem; text-decoration: none; }
+.pf-nav a:hover { color: var(--text); }
+
+@media (prefers-color-scheme: dark) {
+  .pf-gain { color: #f87171; }
+  .pf-loss { color: #7dabff; }
+}
