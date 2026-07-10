@@ -8,78 +8,92 @@
 > 🛠 **[개발 여정 보기 (DEVLOG.md)](DEVLOG.md)** — 7일간 무엇을 왜 그렇게 만들었는지의 기록
 >
 > 기획 배경과 로드맵은 [docs/PLAN.md](docs/PLAN.md), 설치는 [SETUP.md](SETUP.md),
-> Phase 2-2 최신 검증 상태는 [office-reports/PHASE2_2_FINAL_DEPLOYMENT_APPROVAL.md](office-reports/PHASE2_2_FINAL_DEPLOYMENT_APPROVAL.md),
 > CI/CD와 Vercel 설정은 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) 참고.
+
+## 주요 기능
+
+| 기능 | 설명 |
+|---|---|
+| 🌅 **아침 맞춤 브리핑** | 매일 07:30, 회원별로 자기 보유 종목의 신규 공시만 AI 요약해 메일 발송. 유상증자·합병 등 중요 공시는 제목에 ⚠️ 표시 |
+| 💬 **공시 Q&A (RAG)** | "삼성전자 시설투자 얼마야?" → 벡터 검색으로 관련 공시 원문을 찾아 근거 링크와 함께 답변 |
+| 📥 **온디맨드 수집** | DB에 없는 종목을 질문하면 그 자리에서 수집 버튼 → GitHub Actions가 최근 90일 공시를 인덱싱 → 완료 시 자동 재검색 |
+| 💼 **3개 시장 포트폴리오** | 한국·미국·일본 종목 등록(수량·평단가) → 실시간 시세 + USD/JPY 환율 자동 환산 → 원화 기준 수익률·비중 도넛차트 |
+| 🔍 **종목 자동완성** | "skt", "삼전", "apple" 같은 입력도 정식 종목명·코드로 해석 |
+| 👤 **회원 시스템** | 이메일 로그인(httpOnly 쿠키 세션), 닉네임, 알림 수신 토글. 보유 종목은 RLS로 본인만 접근 |
 
 ## 아키텍처
 
 ```
-┌─────────────────────────────────────────────────┐
-│  GitHub Actions (cron: 평일 아침 07:30 KST)      　│
-│                                                 │
-│  watchlist.yaml                                 │
-│       │                                         │
-│       ▼                                         │
-│  ① dart.py ──── DART OpenAPI                  　│
-│  │   기업코드 매핑(캐시) → 신규 공시 목록 → 원문   │     │
-│  ▼                                              │
-│  ② summarize.py ──── Gemini Flash (무료 티어)     │
-│  │   종목당 1회 호출로 공시 묶음 요약 (쿼터 절약)  │　　　　│
-│  ▼                                       　　　　　│
-│  ③ publish.py ──── docs/data/*.json 저장　　　　　　│
-│  │   → GitHub Pages 웹 대시보드에 자동 반영　　　　　　  │
-│  ▼                                              │
-│  ④ emailer.py ──── Gmail SMTP (선택)　　　　　　　　　│
-│      HTML 브리핑 메일 발송                          │
-└─────────────────────────────────────────────────┘
-```
+[배치 축 — GitHub Actions, 평일 07:30 KST]
+  watchlist.yaml + 회원 보유 종목(Supabase)
+      → dart.py (DART OpenAPI: 공시 목록·원문)
+      → summarize.py (Gemini flash-lite 요약)
+      → embed.py (Gemini 임베딩 → Supabase pgvector, RAG 인덱싱)
+      → publish.py (GitHub Pages 대시보드 JSON)
+      → emailer.py + notify.py (회원별 맞춤 메일, 중요 공시 ⚠️)
 
-**보는 방법 2가지** (둘 다 켜거나 하나만 켜도 됨):
-- 🌐 웹 대시보드: `https://<아이디>.github.io/<저장소>/` — 모바일 반응형, 날짜별 아카이브
-- 📧 이메일: 매일 아침 받은편지함으로 (`SEND_EMAIL=false`로 끌 수 있음)
+[웹 축 — Next.js on Vercel]
+  /            공시 Q&A: 질문 → 임베딩 → match_filings 벡터검색 → Gemini 답변+출처
+  /portfolio   로그인 · 종목 등록 · 실시간 시세/환율 · 수익률/비중 차트
+  /api/*       ask · auth · holdings · quotes · stocks · coverage · collect
+                └ collect는 workflow_dispatch로 배치 축의 수집을 원격 실행
+
+[데이터 축 — Supabase]
+  filings(공시 청크 + pgvector) · holdings(보유 종목, RLS) · Auth(회원)
+```
 
 ## 모듈 구조
 
 | 파일 | 역할 |
 |---|---|
-| `pipeline/config.py` | 환경변수·watchlist 로드. 외부 설정 접근의 단일 창구 |
+| `pipeline/main.py` | 오케스트레이터. `--dry-run`, `--index-only`, `--companies`, `--lookback` 지원 |
 | `pipeline/dart.py` | DART API 클라이언트 (기업코드 캐시, 공시 목록, 원문 추출) |
-| `pipeline/summarize.py` | Gemini 요약. 모델명 주입식 (정책 변경 대비) |
-| `pipeline/publish.py` | 웹 대시보드용 JSON 저장 (날짜별 아카이브) |
-| `pipeline/emailer.py` | HTML 메일 빌드 + SMTP 발송 (선택) |
-| `docs/index.html` | GitHub Pages 대시보드 (반응형, 다크모드, 빌드 도구 없음) |
-| `pipeline/main.py` | 오케스트레이터. `--dry-run` 지원 |
-| `db/schema.sql` | Supabase pgvector 테이블, RLS, 검색 RPC 정의 |
-| `web/src/` | Next.js 질문 UI, API Route, 서버 전용 RAG 모듈 |
-| `office-reports/` | 구현·QA 보고서와 진행 기록 |
+| `pipeline/summarize.py` | Gemini 요약 (모델명 주입식, 재시도·종목별 실패 격리) |
+| `pipeline/embed.py` | 공시 청크 임베딩 → Supabase 저장 (중복 스킵) |
+| `pipeline/holdings.py` | 회원 보유 종목·구독자 조회 (수집 개인화의 데이터원) |
+| `pipeline/notify.py` | 회원별 맞춤 메일 (중요 공시 키워드 감지, 발송 상한) |
+| `pipeline/emailer.py` / `publish.py` | HTML 메일 발송 / 대시보드 JSON 저장 |
+| `web/src/app/api/ask` | RAG 질문 답변 (rate limit, 일일 예산 관리) |
+| `web/src/app/api/auth` | 회원 가입·로그인·닉네임·설정 (GoTrue REST + httpOnly 쿠키) |
+| `web/src/app/api/holdings` | 보유 종목 CRUD (사용자 토큰 → PostgREST, RLS 강제) |
+| `web/src/app/api/quotes` | 한·미·일 시세 + 환율 프록시 (교체 가능하게 격리) |
+| `web/src/app/api/stocks` | 종목 자동완성 (국가별 필터) |
+| `web/src/app/api/collect` | 온디맨드 수집 트리거 (종목명 자동 해석 → Actions 원격 실행) |
+| `db/schema*.sql` | pgvector · holdings · RLS · 권한 (단계별 마이그레이션) |
 
-## 설계 결정 기록
+## 설계 결정 기록 (요약)
 
-- **이메일 우선, 웹 없음 (Phase 1)**: 프론트를 빼서 완성 속도 확보. 제품 = 아침 메일.
-- **종목당 Gemini 1회 호출**: 공시별 호출 대비 무료 쿼터 소모 1/N.
-- **원문 추출 실패는 무시**: 제목만으로도 요약 가능하므로 파이프라인을 죽이지 않음.
-- **기업코드 일 단위 캐시**: 10만 건 zip을 매 실행마다 받지 않음.
+자세한 배경은 [DEVLOG.md](DEVLOG.md) 참고.
+
+- **GitHub Actions를 서버로**: public 저장소 무료 무제한 → 유지비 0원 배치.
+- **실패 격리 원칙**: 종목·회원·API 하나의 실패가 전체를 멈추지 않는다.
+- **비밀은 서버에만**: `NEXT_PUBLIC_` 금지, httpOnly 쿠키 세션, RLS로 행 단위 접근 제어.
+- **교체 가능성 격리**: 비공식 시세 API는 `/api/quotes` 한 파일에 가둠 — 공식 API 전환 시 이 파일만 교체.
+- **수익률은 현지 통화, 평가액은 원화**: 주가 변동과 환율 변동을 한 숫자에 뭉개지 않는다.
 
 ## 실행
 
 ```bash
-python -m pipeline.main --dry-run   # briefing_preview.html 생성 (발송 없음)
-python -m pipeline.main             # 실제 발송
-```
+# 파이프라인 (로컬)
+python -m pipeline.main --dry-run                     # 미리보기 (발송 없음)
+python -m pipeline.main                               # 전체 실행
+python -m pipeline.main --index-only --companies "현대차" --lookback 90   # 특정 종목 인덱싱만
 
-전체 저장소 QA는 루트에서 실행합니다.
-
-```bash
-scripts/qa.sh          # Secret, Python, 웹 정적 검사
-scripts/qa.sh --build  # production build와 브라우저 번들 Secret 검사 포함
+# 웹 (web/)
+npm run dev          # 로컬 개발
+npm run typecheck && npm run lint && npm run test:api  # 검증
 ```
 
 ## 로드맵
 
 - [x] Phase 1: 공시 수집 → AI 요약 → 메일 브리핑 자동화
 - [x] Phase 2-1: 공시 임베딩 + pgvector 인덱싱
-- [ ] Phase 2-2: RAG Q&A 웹앱 실연동 QA와 Vercel 배포
-- [ ] Phase 3: 구독 결제 실험
+- [x] Phase 2-2: RAG Q&A 웹앱 + Vercel 배포
+- [x] Phase 3: 회원(로그인) · 포트폴리오(수익률·비중) · 회원별 맞춤 알림
+- [x] Phase 3.5: 보유 종목 기반 수집 개인화 · 온디맨드 수집 · 종목 자동완성
+- [x] Phase 4: 미국·일본 주식 (해외 시세 + 환율 자동 환산)
+- [ ] Phase 5: 해외 공시 (미국 SEC EDGAR · 일본 EDINET)
+- [ ] Phase 6: 구독 결제 실험 (시세의 공식 API 전환 검토)
 
 ---
-*본 프로젝트의 요약은 투자 권유가 아니며, 투자 판단의 책임은 이용자 본인에게 있습니다.*
+*본 프로젝트의 요약·답변은 투자 권유가 아니며, 투자 판단의 책임은 이용자 본인에게 있습니다.*
