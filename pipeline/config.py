@@ -77,8 +77,9 @@ def load_settings() -> Settings:
     settings = Settings()
     watchlist_path = ROOT / "watchlist.yaml"
     with open(watchlist_path, encoding="utf-8") as f:
-        data = yaml.safe_load(f)
-    settings.watchlist = data.get("companies", [])
+        data = yaml.safe_load(f) or {}
+    settings.watchlist = data.get("companies") or []
     if not settings.watchlist:
-        raise SystemExit("watchlist.yaml에 종목이 없습니다.")
+        # Phase 3부터 watchlist는 선택사항 — 사용자 보유 종목만으로도 수집 가능
+        print("watchlist.yaml이 비어 있음 → 사용자 보유 종목만 수집합니다.")
     return settings

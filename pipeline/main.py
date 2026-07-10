@@ -46,6 +46,10 @@ def run(
         except Exception as e:
             print(f"⚠ 보유 종목 조회 실패 (watchlist만 사용): {e}")
 
+    if not targets:
+        print("수집 대상이 없습니다 (watchlist 비어 있음 + 등록된 보유 종목 없음). 정상 종료.")
+        return
+
     print(f"[1/4] 기업 코드 로드 중... (대상: {targets})")
     corp_codes = dart.load_corp_codes(settings.dart_api_key)
 
