@@ -74,6 +74,74 @@ async function fetchJson(url: string): Promise<unknown> {
   }
 }
 
+// 해외 공통: 미국 티커(문자 시작) + 일본 종목코드(숫자 4~5자리) 모두 허용
+const WORLD_CODE_PATTERN = /^[0-9A-Z][0-9A-Z.\-]{0,9}$/;
+const KR_LIKE = /^[0-9]{6}$/; // 국내 코드가 해외 결과에 섞이는 것 방지
+const US_SUFFIXES = [".O", ".K", ".A", ".N", ".T"];
+
+function stripUsSuffix(code: string): string {
+  for (const suffix of US_SUFFIXES) {
+    if (code.endsWith(suffix)) return code.slice(0, -suffix.length);
+  }
+  return code;
+}
+
+// 미국 종목: reutersCode/symbolCode 형태의 티커를 찾아낸다
+function extractWorldMatches(data: unknown, list: StockMatch[]): void {
+  if (!data) return;
+  if (Array.isArray(data)) {
+    data.forEach((item) => extractWorldMatches(item, list));
+    return;
+  }
+  if (typeof data === "object") {
+    const row = data as Record<string, unknown>;
+    const rawCode = row.reutersCode ?? row.symbolCode ?? row.itemCode ?? row.code;
+    const name =
+      row.stockName ?? row.stockNameKor ?? row.name ?? row.stockNameEng ?? row.itemName;
+    if (typeof rawCode === "string" && typeof name === "string") {
+      const ticker = stripUsSuffix(rawCode.toUpperCase());
+      if (WORLD_CODE_PATTERN.test(ticker) && !KR_LIKE.test(ticker) && name.trim()) {
+        if (!list.some((item) => item.code === ticker)) {
+          const market = row.stockExchangeName ?? row.exchangeName ?? row.category;
+          list.push({
+            code: ticker,
+            name: name.trim(),
+            market: typeof market === "string" ? market : "US",
+          });
+        }
+      }
+    }
+    Object.values(row).forEach((value) => {
+      if (value && typeof value === "object") extractWorldMatches(value, list);
+    });
+  }
+}
+
+export async function lookupWorldStocks(query: string): Promise<StockMatch[]> {
+  const trimmed = query.trim();
+  if (!trimmed || trimmed.length > 30) return [];
+
+  const cacheKey = `US:${trimmed}`;
+  const cached = cache.get(cacheKey);
+  if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.items;
+
+  const items: StockMatch[] = [];
+  const encoded = encodeURIComponent(trimmed);
+
+  for (const url of [
+    `https://m.stock.naver.com/front-api/search/autoComplete?query=${encoded}&target=worldstock`,
+    `https://api.stock.naver.com/search/stock?query=${encoded}&target=worldstock`,
+    `https://m.stock.naver.com/front-api/search/autoComplete?query=${encoded}&target=stock%2Cworldstock`,
+  ]) {
+    extractWorldMatches(await fetchJson(url), items);
+    if (items.length > 0) break;
+  }
+
+  const limited = items.slice(0, 8);
+  cache.set(cacheKey, { items: limited, at: Date.now() });
+  return limited;
+}
+
 export async function lookupStocks(query: string): Promise<StockMatch[]> {
   const trimmed = query.trim();
   if (!trimmed || trimmed.length > 30) return [];

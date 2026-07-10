@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { lookupStocks } from "@/lib/server/stock-lookup";
+import { lookupStocks, lookupWorldStocks } from "@/lib/server/stock-lookup";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,6 +12,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (!query || query.length > 30) {
     return NextResponse.json({ items: [] });
   }
-  const items = await lookupStocks(query);
+  const market = req.nextUrl.searchParams.get("market");
+  const items =
+    market === "US" || market === "JP" ? await lookupWorldStocks(query) : await lookupStocks(query);
   return NextResponse.json({ items });
 }

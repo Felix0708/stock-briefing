@@ -22,9 +22,12 @@ export type Holding = {
   stock_name: string;
   quantity: number;
   avg_price: number;
+  market: "KR" | "US" | "JP";
 };
 
 const CODE_PATTERN = /^[0-9]{6}$/;
+const US_CODE_PATTERN = /^[A-Z][A-Z0-9.\-]{0,9}$/;
+const JP_CODE_PATTERN = /^[0-9A-Z]{4,5}$/;
 const MAX_HOLDINGS = 50;
 
 function withSession(res: NextResponse, session: Session): NextResponse {
@@ -79,12 +82,22 @@ async function restFetch<T>(
 
 function parseHolding(body: unknown): Holding | string {
   const row = (body ?? {}) as Record<string, unknown>;
-  const stockCode = typeof row.stock_code === "string" ? row.stock_code.trim() : "";
+  const market = row.market === "US" ? "US" : row.market === "JP" ? "JP" : "KR";
+  const rawCode = typeof row.stock_code === "string" ? row.stock_code.trim() : "";
+  const stockCode = market === "KR" ? rawCode : rawCode.toUpperCase();
   const stockName = typeof row.stock_name === "string" ? row.stock_name.trim() : "";
   const quantity = Number(row.quantity);
   const avgPrice = Number(row.avg_price);
 
-  if (!CODE_PATTERN.test(stockCode)) return "종목코드는 숫자 6자리여야 합니다.";
+  if (market === "KR" && !CODE_PATTERN.test(stockCode)) {
+    return "국내 종목코드는 숫자 6자리여야 합니다.";
+  }
+  if (market === "US" && !US_CODE_PATTERN.test(stockCode)) {
+    return "미국 티커 형식을 확인해 주세요. (예: AAPL)";
+  }
+  if (market === "JP" && !JP_CODE_PATTERN.test(stockCode)) {
+    return "일본 종목코드 형식을 확인해 주세요. (예: 7203)";
+  }
   if (!stockName || stockName.length > 50) return "종목명을 확인해 주세요.";
   if (!Number.isFinite(quantity) || quantity <= 0) return "보유 수량을 확인해 주세요.";
   if (!Number.isFinite(avgPrice) || avgPrice <= 0) return "평균 단가를 확인해 주세요.";
@@ -94,6 +107,7 @@ function parseHolding(body: unknown): Holding | string {
     stock_name: stockName,
     quantity,
     avg_price: avgPrice,
+    market,
   };
 }
 
@@ -104,7 +118,7 @@ export async function GET(): Promise<NextResponse> {
 
     const rows = await restFetch<Holding[]>(
       session,
-      "holdings?select=stock_code,stock_name,quantity,avg_price&order=created_at.asc",
+      "holdings?select=stock_code,stock_name,quantity,avg_price,market&order=created_at.asc",
       { method: "GET" },
     );
     return withSession(NextResponse.json({ holdings: rows }), session);
@@ -146,7 +160,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // 같은 종목 재등록은 수량·단가 갱신으로 처리 (upsert)
     const rows = await restFetch<Holding[]>(
       session,
-      "holdings?on_conflict=user_id,stock_code&select=stock_code,stock_name,quantity,avg_price",
+      "holdings?on_conflict=user_id,stock_code&select=stock_code,stock_name,quantity,avg_price,market",
       {
         method: "POST",
         headers: { Prefer: "resolution=merge-duplicates,return=representation" },
@@ -164,8 +178,8 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
     const session = await getSession();
     if (!session) return unauthorized();
 
-    const code = req.nextUrl.searchParams.get("code")?.trim() ?? "";
-    if (!CODE_PATTERN.test(code)) {
+    const code = req.nextUrl.searchParams.get("code")?.trim().toUpperCase() ?? "";
+    if (!CODE_PATTERN.test(code) && !US_CODE_PATTERN.test(code) && !JP_CODE_PATTERN.test(code)) {
       return NextResponse.json({ error: "종목코드를 확인해 주세요." }, { status: 400 });
     }
 

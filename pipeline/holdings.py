@@ -72,9 +72,10 @@ def fetch_holding_companies(settings: Settings) -> list[str]:
     if not settings.rag_enabled:
         return []
 
+    # 미국 종목은 DART에 없으므로 국내(KR)만 수집 대상에 합친다
     response = requests.get(
         f"{settings.supabase_url}/rest/v1/holdings",
-        params={"select": "stock_name", "order": "created_at.asc"},
+        params={"select": "stock_name", "market": "eq.KR", "order": "created_at.asc"},
         headers=_secret_headers(settings),
         timeout=_TIMEOUT,
     )

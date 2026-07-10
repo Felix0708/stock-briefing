@@ -4,11 +4,16 @@
 
 export type StockSuggestion = { code: string; name: string; market: string | null };
 
-export async function searchStocks(query: string): Promise<StockSuggestion[]> {
+export async function searchStocks(
+  query: string,
+  market: "KR" | "US" | "JP" = "KR",
+): Promise<StockSuggestion[]> {
   const trimmed = query.trim();
   if (trimmed.length < 1) return [];
   try {
-    const response = await fetch(`/api/stocks?q=${encodeURIComponent(trimmed)}`);
+    const response = await fetch(
+      `/api/stocks?q=${encodeURIComponent(trimmed)}${market === "KR" ? "" : `&market=${market}`}`,
+    );
     if (!response.ok) return [];
     const data = (await response.json()) as { items?: StockSuggestion[] };
     return Array.isArray(data.items) ? data.items : [];

@@ -10,6 +10,7 @@ type Holding = {
   stock_name: string;
   quantity: number;
   avg_price: number;
+  market: "KR" | "US" | "JP";
 };
 
 type Quote = {
@@ -17,7 +18,26 @@ type Quote = {
   name: string | null;
   price: number;
   changeRatio: number;
+  currency: "KRW" | "USD" | "JPY";
 };
+
+function quoteKey(holding: Holding): string {
+  return holding.market === "KR" ? holding.stock_code : `${holding.market}:${holding.stock_code}`;
+}
+
+function currencyOf(market: "KR" | "US" | "JP"): "KRW" | "USD" | "JPY" {
+  return market === "US" ? "USD" : market === "JP" ? "JPY" : "KRW";
+}
+
+function formatMoney(value: number, currency: "KRW" | "USD" | "JPY"): string {
+  if (currency === "USD") {
+    return `$${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+  }
+  if (currency === "JPY") {
+    return `¥${Math.round(value).toLocaleString("ja-JP")}`;
+  }
+  return `${Math.round(value).toLocaleString("ko-KR")}`;
+}
 
 type SessionUser = { email: string; nickname?: string | null; briefingEmail?: boolean } | null;
 
@@ -73,6 +93,8 @@ export function PortfolioPanel() {
   const [holdings, setHoldings] = useState<Holding[]>([]);
   const [quotes, setQuotes] = useState<Record<string, Quote>>({});
   const [quotesAsOf, setQuotesAsOf] = useState<string | null>(null);
+  const [usdKrw, setUsdKrw] = useState<number | null>(null);
+  const [jpyKrw, setJpyKrw] = useState<number | null>(null);
   const [listBusy, setListBusy] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
 
@@ -87,7 +109,8 @@ export function PortfolioPanel() {
 
   const isCustom = selectedPreset === "custom";
 
-  // 종목 자동완성
+  // 종목 자동완성 (직접 입력 시 시장 선택)
+  const [customMarket, setCustomMarket] = useState<"KR" | "US" | "JP">("KR");
   const [stockQuery, setStockQuery] = useState("");
   const [stockSuggests, setStockSuggests] = useState<StockSuggestion[]>([]);
   const suggestTimerRef = useRef<number | null>(null);
@@ -100,7 +123,7 @@ export function PortfolioPanel() {
       return;
     }
     suggestTimerRef.current = window.setTimeout(() => {
-      void searchStocks(value).then(setStockSuggests);
+      void searchStocks(value, customMarket).then(setStockSuggests);
     }, 250);
   };
 
@@ -116,11 +139,16 @@ export function PortfolioPanel() {
       return;
     }
     try {
-      const codes = rows.map((row) => row.stock_code).join(",");
-      const data = await api<{ quotes: Record<string, Quote>; asOf: string }>(
-        `/api/quotes?codes=${codes}`,
-      );
+      const codes = rows.map((row) => quoteKey(row)).join(",");
+      const data = await api<{
+        quotes: Record<string, Quote>;
+        usdKrw: number | null;
+        jpyKrw: number | null;
+        asOf: string;
+      }>(`/api/quotes?codes=${codes}`);
       setQuotes(data.quotes);
+      setUsdKrw(data.usdKrw ?? null);
+      setJpyKrw(data.jpyKrw ?? null);
       setQuotesAsOf(data.asOf);
     } catch {
       // 시세 실패는 치명적이지 않다 — 표에서 "시세 없음"으로 표시
@@ -245,6 +273,7 @@ export function PortfolioPanel() {
     const owned = holdings.find((row) => row.stock_code === selectedPreset);
     const stockCode = isCustom ? customCode.trim() : owned?.stock_code ?? "";
     const stockName = isCustom ? customName.trim() : owned?.stock_name ?? "";
+    const market = isCustom ? customMarket : owned?.market ?? "KR";
 
     try {
       await api("/api/holdings", {
@@ -254,6 +283,7 @@ export function PortfolioPanel() {
           stock_name: stockName,
           quantity: Number(quantity),
           avg_price: Number(avgPrice),
+          market,
         }),
       });
       setQuantity("");
@@ -263,9 +293,8 @@ export function PortfolioPanel() {
       setStockQuery("");
       await loadHoldings();
 
-      // 아직 공시가 수집 안 된 종목이면 백그라운드로 수집 요청
-      // (내일부터 아침 브리핑에도 자동 포함되고, 몇 분 뒤엔 질문도 가능해진다)
-      void (async () => {
+      // 아직 공시가 수집 안 된 종목이면 백그라운드로 수집 요청 (국내 종목만 — 미국 공시는 미지원)
+      if (market === "KR") void (async () => {
         try {
           const cov = await api<{ covered: boolean }>(
             `/api/coverage?company=${encodeURIComponent(stockName)}`,
@@ -298,32 +327,46 @@ export function PortfolioPanel() {
 
   // ---------- 계산 ----------
   const computed = useMemo(() => {
+    // 모든 합산은 원화(KRW) 기준. 해외 종목은 해당 환율로 환산한다.
+    const toKrw = (amount: number, currency: "KRW" | "USD" | "JPY"): number | null => {
+      if (currency === "USD") return usdKrw ? amount * usdKrw : null;
+      if (currency === "JPY") return jpyKrw ? amount * jpyKrw : null;
+      return amount;
+    };
+
     const rows = holdings.map((holding) => {
-      const quote = quotes[holding.stock_code] ?? null;
-      const cost = holding.quantity * holding.avg_price;
-      const value = quote ? holding.quantity * quote.price : null;
-      const pl = value !== null ? value - cost : null;
-      const plRatio = pl !== null && cost > 0 ? (pl / cost) * 100 : null;
-      return { holding, quote, cost, value, pl, plRatio };
+      const currency = currencyOf(holding.market);
+      const quote = quotes[quoteKey(holding)] ?? null;
+      const costNative = holding.quantity * holding.avg_price;
+      const costKrw = toKrw(costNative, currency);
+      const valueNative = quote ? holding.quantity * quote.price : null;
+      const valueKrw = valueNative !== null ? toKrw(valueNative, currency) : null;
+      const pl = valueKrw !== null && costKrw !== null ? valueKrw - costKrw : null;
+      // 수익률은 환율과 무관하게 통화 그대로 계산
+      const plRatio =
+        quote && holding.avg_price > 0
+          ? ((quote.price - holding.avg_price) / holding.avg_price) * 100
+          : null;
+      return { holding, quote, currency, costKrw, valueKrw, pl, plRatio };
     });
 
-    const totalCost = rows.reduce((sum, row) => sum + row.cost, 0);
-    const priced = rows.filter((row) => row.value !== null);
-    const totalValue = priced.reduce((sum, row) => sum + (row.value ?? 0), 0);
-    const pricedCost = priced.reduce((sum, row) => sum + row.cost, 0);
+    const costed = rows.filter((row) => row.costKrw !== null);
+    const totalCost = costed.reduce((sum, row) => sum + (row.costKrw ?? 0), 0);
+    const priced = rows.filter((row) => row.valueKrw !== null && row.costKrw !== null);
+    const totalValue = priced.reduce((sum, row) => sum + (row.valueKrw ?? 0), 0);
+    const pricedCost = priced.reduce((sum, row) => sum + (row.costKrw ?? 0), 0);
     const totalPl = totalValue - pricedCost;
     const totalPlRatio = pricedCost > 0 ? (totalPl / pricedCost) * 100 : 0;
 
-    // 비중: 시세가 있으면 평가금액, 없으면 매입금액 기준으로 섞이지 않게
-    // "평가금액(없으면 매입금액)"을 사용해 항상 100%가 되도록 한다.
-    const weightBase = rows.map((row) => row.value ?? row.cost);
+    // 비중: 평가금액(없으면 매입금액, 환산 불가면 0) 기준으로 100% 분배
+    const weightBase = rows.map((row) => row.valueKrw ?? row.costKrw ?? 0);
     const weightTotal = weightBase.reduce((sum, value) => sum + value, 0);
     const weights = rows.map((_, index) =>
       weightTotal > 0 ? (weightBase[index] / weightTotal) * 100 : 0,
     );
 
     return { rows, totalCost, totalValue, totalPl, totalPlRatio, weights, hasQuotes: priced.length > 0 };
-  }, [holdings, quotes]);
+  }, [holdings, quotes, usdKrw, jpyKrw]);
 
   // ---------- 렌더 ----------
   if (checking) {
@@ -448,11 +491,35 @@ export function PortfolioPanel() {
           </div>
           {isCustom && (
             <>
+              <div className="pf-field">
+                <label htmlFor="pf-market">시장</label>
+                <select
+                  id="pf-market"
+                  value={customMarket}
+                  onChange={(event) => {
+                    setCustomMarket(event.target.value as "KR" | "US" | "JP");
+                    setStockQuery("");
+                    setStockSuggests([]);
+                    setCustomCode("");
+                    setCustomName("");
+                  }}
+                >
+                  <option value="KR">🇰🇷 국내</option>
+                  <option value="US">🇺🇸 미국</option>
+                  <option value="JP">🇯🇵 일본</option>
+                </select>
+              </div>
               <div className="pf-field pf-suggest-wrap">
                 <label htmlFor="pf-search">종목 검색</label>
                 <input
                   id="pf-search"
-                  placeholder="예: skt, 삼전, 현대차"
+                  placeholder={
+                    customMarket === "US"
+                      ? "예: apple, TSLA"
+                      : customMarket === "JP"
+                        ? "예: 도요타, 7203"
+                        : "예: skt, 삼전, 현대차"
+                  }
                   value={stockQuery}
                   autoComplete="off"
                   onChange={(event) => handleStockQuery(event.target.value)}
@@ -484,12 +551,14 @@ export function PortfolioPanel() {
                 )}
               </div>
               <div className="pf-field">
-                <label htmlFor="pf-code">종목코드 (6자리)</label>
+                <label htmlFor="pf-code">
+                  {customMarket === "US" ? "티커" : "종목코드 (6자리)"}
+                </label>
                 <input
                   id="pf-code"
                   required
-                  pattern="[0-9]{6}"
-                  placeholder="예: 005380"
+                  pattern={customMarket === "US" ? "[A-Za-z][A-Za-z0-9.\-]{0,9}" : "[0-9]{6}"}
+                  placeholder={customMarket === "US" ? "예: AAPL" : "예: 005380"}
                   value={customCode}
                   onChange={(event) => setCustomCode(event.target.value)}
                 />
@@ -521,14 +590,28 @@ export function PortfolioPanel() {
             />
           </div>
           <div className="pf-field">
-            <label htmlFor="pf-price">평균 단가 (원)</label>
+            <label htmlFor="pf-price">
+              평균 단가 (
+              {isCustom && customMarket === "US"
+                ? "USD"
+                : isCustom && customMarket === "JP"
+                  ? "JPY"
+                  : "원"}
+              )
+            </label>
             <input
               id="pf-price"
               required
               type="number"
               min="1"
               step="any"
-              placeholder="예: 58300"
+              placeholder={
+                isCustom && customMarket === "US"
+                  ? "예: 225.50"
+                  : isCustom && customMarket === "JP"
+                    ? "예: 2850"
+                    : "예: 58300"
+              }
               value={avgPrice}
               onChange={(event) => setAvgPrice(event.target.value)}
             />
@@ -548,6 +631,8 @@ export function PortfolioPanel() {
             {quotesAsOf && (
               <span className="pf-muted pf-asof">
                 시세 {new Date(quotesAsOf).toLocaleTimeString("ko-KR")} 기준
+                {usdKrw ? ` · ${formatKrw(usdKrw)}원/$` : ""}
+                {jpyKrw ? ` · ${jpyKrw.toFixed(1)}원/¥` : ""}
               </span>
             )}
             <button
@@ -615,11 +700,11 @@ export function PortfolioPanel() {
                         {row.holding.stock_name}
                       </td>
                       <td>{row.holding.quantity.toLocaleString("ko-KR")}</td>
-                      <td>{formatKrw(row.holding.avg_price)}</td>
+                      <td>{formatMoney(row.holding.avg_price, row.currency)}</td>
                       <td>
                         {row.quote ? (
                           <>
-                            {formatKrw(row.quote.price)}
+                            {formatMoney(row.quote.price, row.quote.currency)}
                             <span className={`pf-ratio ${plClass(row.quote.changeRatio)}`}>
                               {formatPercent(row.quote.changeRatio)}
                             </span>
@@ -628,7 +713,7 @@ export function PortfolioPanel() {
                           <span className="pf-muted">시세 없음</span>
                         )}
                       </td>
-                      <td>{row.value !== null ? formatKrw(row.value) : "—"}</td>
+                      <td>{row.valueKrw !== null ? formatKrw(row.valueKrw) : "—"}</td>
                       <td className={row.pl !== null ? plClass(row.pl) : ""}>
                         {row.pl !== null ? formatSigned(row.pl) : "—"}
                       </td>
