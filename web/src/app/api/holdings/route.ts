@@ -45,8 +45,14 @@ function handleKnownError(error: unknown): NextResponse {
     if (error.status === 409) {
       return NextResponse.json({ error: "이미 등록된 종목입니다." }, { status: 409 });
     }
+    if (error.status === 404) {
+      return NextResponse.json(
+        { error: "holdings 테이블을 찾을 수 없습니다. db/schema_phase3.sql을 Supabase SQL Editor에서 실행했는지 확인해 주세요." },
+        { status: 502 },
+      );
+    }
     return NextResponse.json(
-      { error: "데이터 서버 요청에 실패했습니다. 잠시 후 다시 시도해 주세요." },
+      { error: `데이터 서버 요청에 실패했습니다. (오류 ${error.status ?? "네트워크"}) ${error.message}` },
       { status: 502 },
     );
   }
@@ -63,7 +69,9 @@ async function restFetch<T>(
     headers: { ...userHeaders(session.accessToken), ...(init.headers ?? {}) },
   });
   if (!response.ok) {
-    throw new UpstreamError("Supabase", response.status);
+    const detail = await response.text().catch(() => "");
+    console.error(`[holdings] PostgREST ${response.status}: ${detail.slice(0, 300)}`);
+    throw new UpstreamError("Supabase", response.status, detail.slice(0, 200) || undefined);
   }
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
