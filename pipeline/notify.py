@@ -72,7 +72,11 @@ def send_personalized(settings: Settings, sections: list[dict]) -> None:
             if len(important) > 1:
                 subject += f" 외 {len(important) - 1}건"
 
-        html = emailer.build_html(my_sections)
+        quiet = [n for n in names if n not in section_by_company]
+        extra_note = (
+            f"오늘 신규 공시가 없었던 내 종목: {', '.join(quiet)}" if quiet else None
+        )
+        html = emailer.build_html(my_sections, extra_note=extra_note)
         try:
             emailer.send(
                 settings.smtp_host,

@@ -15,7 +15,7 @@ DISCLAIMER = (
 )
 
 
-def build_html(sections: list[dict]) -> str:
+def build_html(sections: list[dict], extra_note: str | None = None) -> str:
     """sections: [{"company": str, "summary_html": str, "filings": [dict]}]"""
     today = datetime.now().strftime("%Y-%m-%d")
     blocks = []
@@ -36,6 +36,8 @@ def build_html(sections: list[dict]) -> str:
         )
 
     body = "\n".join(blocks) if blocks else "<p>오늘은 관심 종목의 신규 공시가 없습니다.</p>"
+    if extra_note:
+        body += f'<p style="color:#999;font-size:13px;margin-top:20px;">{extra_note}</p>' 
     return f"""
     <html><body style="font-family:'Apple SD Gothic Neo',sans-serif;max-width:640px;margin:0 auto;padding:16px;color:#222;">
       <h1 style="font-size:20px;">📈 아침 공시 브리핑 <span style="font-size:14px;color:#999;">{today}</span></h1>
