@@ -24,6 +24,7 @@ export type AuthTokens = {
 export type AuthUser = {
   id: string;
   email: string;
+  nickname: string | null;
 };
 
 type GoTrueSession = {
@@ -132,17 +133,36 @@ async function refreshSession(refreshToken: string): Promise<AuthTokens | null> 
 
 export async function fetchUser(accessToken: string): Promise<AuthUser | null> {
   try {
-    const user = await requestJson<{ id?: string; email?: string }>(
+    const user = await requestJson<{
+      id?: string;
+      email?: string;
+      user_metadata?: { nickname?: unknown };
+    }>(
       "Supabase Auth",
       `${supabaseUrl()}/auth/v1/user`,
       { method: "GET", headers: userHeaders(accessToken) },
       { attempts: 1 },
     );
     if (!user.id || !user.email) return null;
-    return { id: user.id, email: user.email };
+    const nickname =
+      typeof user.user_metadata?.nickname === "string" ? user.user_metadata.nickname : null;
+    return { id: user.id, email: user.email, nickname };
   } catch {
     return null;
   }
+}
+
+export async function updateNickname(accessToken: string, nickname: string): Promise<void> {
+  await requestJson(
+    "Supabase Auth",
+    `${supabaseUrl()}/auth/v1/user`,
+    {
+      method: "PUT",
+      headers: userHeaders(accessToken),
+      body: JSON.stringify({ data: { nickname } }),
+    },
+    { attempts: 1 },
+  );
 }
 
 export async function signOut(accessToken: string): Promise<void> {

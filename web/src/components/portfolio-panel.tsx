@@ -17,19 +17,7 @@ type Quote = {
   changeRatio: number;
 };
 
-type SessionUser = { email: string } | null;
-
-// watchlist.yaml의 8종목 — 빠른 등록용 프리셋
-const PRESETS: { code: string; name: string }[] = [
-  { code: "000660", name: "SK하이닉스" },
-  { code: "017670", name: "SK텔레콤" },
-  { code: "096770", name: "SK이노베이션" },
-  { code: "035420", name: "NAVER" },
-  { code: "005930", name: "삼성전자" },
-  { code: "108490", name: "로보티즈" },
-  { code: "004020", name: "현대제철" },
-  { code: "009830", name: "한화솔루션" },
-];
+type SessionUser = { email: string; nickname?: string | null } | null;
 
 const PIE_COLORS = [
   "#2563eb", "#f59e0b", "#10b981", "#ef4444",
@@ -86,8 +74,8 @@ export function PortfolioPanel() {
   const [listBusy, setListBusy] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
 
-  // 등록 폼
-  const [selectedPreset, setSelectedPreset] = useState<string>(PRESETS[0].code);
+  // 등록 폼 ("직접 입력" 또는 내가 이미 등록한 종목의 수량·단가 갱신)
+  const [selectedPreset, setSelectedPreset] = useState<string>("custom");
   const [customCode, setCustomCode] = useState("");
   const [customName, setCustomName] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -96,6 +84,11 @@ export function PortfolioPanel() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const isCustom = selectedPreset === "custom";
+
+  // 닉네임
+  const [editingNick, setEditingNick] = useState(false);
+  const [nickInput, setNickInput] = useState("");
+  const [nickBusy, setNickBusy] = useState(false);
 
   const loadQuotes = useCallback(async (rows: Holding[]) => {
     if (rows.length === 0) {
@@ -151,6 +144,12 @@ export function PortfolioPanel() {
     if (user) void loadHoldings();
   }, [user, loadHoldings]);
 
+  useEffect(() => {
+    if (selectedPreset !== "custom" && !holdings.some((h) => h.stock_code === selectedPreset)) {
+      setSelectedPreset("custom");
+    }
+  }, [holdings, selectedPreset]);
+
   async function handleAuth(event: FormEvent, mode: "login" | "signup") {
     event.preventDefault();
     setAuthBusy(true);
@@ -182,6 +181,23 @@ export function PortfolioPanel() {
     }
   }
 
+  async function handleNickname(event: FormEvent) {
+    event.preventDefault();
+    const nickname = nickInput.trim();
+    if (!nickname) return;
+    setNickBusy(true);
+    try {
+      await api("/api/auth/nickname", { method: "POST", body: JSON.stringify({ nickname }) });
+      const me = await api<{ user: SessionUser }>("/api/auth/me");
+      setUser(me.user);
+      setEditingNick(false);
+    } catch (error) {
+      setListError(error instanceof Error ? error.message : "닉네임 저장에 실패했습니다.");
+    } finally {
+      setNickBusy(false);
+    }
+  }
+
   async function handleLogout() {
     await api("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     setUser(null);
@@ -194,9 +210,9 @@ export function PortfolioPanel() {
     setFormBusy(true);
     setFormError(null);
 
-    const preset = PRESETS.find((row) => row.code === selectedPreset);
-    const stockCode = isCustom ? customCode.trim() : preset?.code ?? "";
-    const stockName = isCustom ? customName.trim() : preset?.name ?? "";
+    const owned = holdings.find((row) => row.stock_code === selectedPreset);
+    const stockCode = isCustom ? customCode.trim() : owned?.stock_code ?? "";
+    const stockName = isCustom ? customName.trim() : owned?.stock_name ?? "";
 
     try {
       await api("/api/holdings", {
@@ -333,10 +349,42 @@ export function PortfolioPanel() {
   return (
     <div className="pf-stack">
       <section className="pf-card pf-toolbar">
-        <span className="pf-muted">{user.email}</span>
-        <button type="button" className="pf-ghost" onClick={handleLogout}>
-          로그아웃
-        </button>
+        <div className="pf-who">
+          <strong>{user.nickname || user.email}</strong>
+          {user.nickname && <span className="pf-muted">{user.email}</span>}
+        </div>
+        <div className="pf-toolbar-actions">
+          {editingNick ? (
+            <form className="pf-nick-form" onSubmit={handleNickname}>
+              <input
+                maxLength={20}
+                placeholder="닉네임"
+                value={nickInput}
+                onChange={(event) => setNickInput(event.target.value)}
+              />
+              <button type="submit" className="pf-primary" disabled={nickBusy}>
+                {nickBusy ? "저장 중" : "저장"}
+              </button>
+              <button type="button" className="pf-ghost" onClick={() => setEditingNick(false)}>
+                취소
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              className="pf-ghost"
+              onClick={() => {
+                setNickInput(user.nickname ?? "");
+                setEditingNick(true);
+              }}
+            >
+              {user.nickname ? "닉네임 변경" : "닉네임 설정"}
+            </button>
+          )}
+          <button type="button" className="pf-ghost" onClick={handleLogout}>
+            로그아웃
+          </button>
+        </div>
       </section>
 
       <section className="pf-card" aria-labelledby="pf-add-title">
@@ -349,12 +397,12 @@ export function PortfolioPanel() {
               value={selectedPreset}
               onChange={(event) => setSelectedPreset(event.target.value)}
             >
-              {PRESETS.map((preset) => (
-                <option key={preset.code} value={preset.code}>
-                  {preset.name} ({preset.code})
+              <option value="custom">직접 입력 (새 종목)</option>
+              {holdings.map((row) => (
+                <option key={row.stock_code} value={row.stock_code}>
+                  {row.stock_name} ({row.stock_code}) — 수량·단가 갱신
                 </option>
               ))}
-              <option value="custom">직접 입력...</option>
             </select>
           </div>
           {isCustom && (

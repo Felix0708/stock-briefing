@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { AskSuccessResponse, FilingSource } from "@/lib/ask-types";
 import {
@@ -21,12 +21,6 @@ type ExecuteQuestionOptions = {
   preserveCompanyInput?: boolean;
 };
 
-const EXAMPLE_QUESTIONS = [
-  "삼성전자의 최근 시설투자 내용은?",
-  "현대차의 최근 배당 관련 공시를 요약해줘",
-  "SK하이닉스의 자금 조달 내역이 있어?",
-];
-
 const POPULAR_COMPANIES = [
   "삼성전자",
   "SK하이닉스",
@@ -37,6 +31,13 @@ const POPULAR_COMPANIES = [
 ];
 
 const MAX_QUESTION_LENGTH = 1_000;
+const DEFAULT_QUESTION = "최근 공시 내용을 요약해줘";
+const RECENT_COMPANIES_KEY = "sb_recent_companies";
+const EXAMPLE_TEMPLATES = [
+  "{c}의 최근 시설투자 내용은?",
+  "{c}의 최근 배당 관련 공시를 요약해줘",
+  "{c}의 자금 조달 내역이 있어?",
+];
 const MAX_COMPANY_LENGTH = 100;
 type ActiveRequest = {
   controller: AbortController;
@@ -90,6 +91,40 @@ export function AskPanel() {
   const [collectState, setCollectState] = useState<"idle" | "requesting" | "collecting" | "failed">("idle");
   const [collectMessage, setCollectMessage] = useState<string | null>(null);
   const collectTimerRef = useRef<number | null>(null);
+  const [recentCompanies, setRecentCompanies] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(RECENT_COMPANIES_KEY) ?? "[]");
+      if (Array.isArray(saved)) {
+        setRecentCompanies(
+          saved.filter((item): item is string => typeof item === "string").slice(0, 6),
+        );
+      }
+    } catch {
+      // 저장소 접근 실패는 무시
+    }
+  }, []);
+
+  const rememberCompany = (name: string) => {
+    setRecentCompanies((current) => {
+      const next = [name, ...current.filter((item) => item !== name)].slice(0, 6);
+      try {
+        window.localStorage.setItem(RECENT_COMPANIES_KEY, JSON.stringify(next));
+      } catch {
+        // 무시
+      }
+      return next;
+    });
+  };
+
+  // 예시 질문: 최근 검색 종목 기반으로 동적 생성 (없으면 기본 종목)
+  const exampleQuestions = useMemo(() => {
+    const pool = recentCompanies.length ? recentCompanies : ["삼성전자", "현대차", "SK하이닉스"];
+    return EXAMPLE_TEMPLATES.map((template, index) =>
+      template.replace("{c}", pool[index % pool.length]),
+    );
+  }, [recentCompanies]);
   const outcomeRef = useRef<HTMLDivElement>(null);
   const companyInputRef = useRef<HTMLInputElement>(null);
   const activeRequestRef = useRef<ActiveRequest | null>(null);
@@ -162,11 +197,12 @@ export function AskPanel() {
     companyCandidate = company,
     options: ExecuteQuestionOptions = {},
   ) => {
-    const trimmedQuestion = candidate.trim();
+    const trimmedQuestion = candidate.trim() || DEFAULT_QUESTION;
     const trimmedCompany = companyCandidate.trim();
-    if (!trimmedQuestion || isLoading || isRetryBlocked) return;
+    if (isLoading || isRetryBlocked) return;
+    if (trimmedCompany) rememberCompany(trimmedCompany);
 
-    setQuestion(candidate);
+    setQuestion(trimmedQuestion);
     if (!options.preserveCompanyInput) {
       setCompany(companyCandidate);
     }
@@ -347,9 +383,9 @@ export function AskPanel() {
           <div
             className="company-quick"
             role="group"
-            aria-label="자주 찾는 종목 빠른 선택"
+            aria-label="최근 검색 종목 빠른 선택"
           >
-            {POPULAR_COMPANIES.map((name) => {
+            {(recentCompanies.length ? recentCompanies : POPULAR_COMPANIES).map((name) => {
               const active = selectedCompany === name;
               return (
                 <button
@@ -384,7 +420,7 @@ export function AskPanel() {
                 event.currentTarget.form?.requestSubmit();
               }
             }}
-            placeholder="예: 삼성전자의 최근 시설투자 규모와 목적은?"
+            placeholder="비워두고 질문하기를 눌러도 돼요 — 최근 공시를 요약해 드립니다"
             rows={3}
             maxLength={MAX_QUESTION_LENGTH}
             disabled={isLoading}
@@ -395,8 +431,8 @@ export function AskPanel() {
           </span>
         </div>
         <div className="form-actions">
-          <p id="question-help">Enter로 질문 · Shift + Enter로 줄바꿈</p>
-          <button type="submit" disabled={!question.trim() || isLoading || isRetryBlocked}>
+          <p id="question-help">Enter로 질문 · 비워두면 &quot;최근 공시 요약&quot;으로 검색</p>
+          <button type="submit" disabled={isLoading || isRetryBlocked}>
             {isLoading ? (
               <>
                 <span className="spinner" aria-hidden="true" />
@@ -418,7 +454,7 @@ export function AskPanel() {
         <div className="examples" aria-label="질문 예시">
           <p>이렇게 물어보세요</p>
           <div className="example-list">
-            {EXAMPLE_QUESTIONS.map((example) => (
+            {exampleQuestions.map((example) => (
               <button
                 key={example}
                 type="button"

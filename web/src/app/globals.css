@@ -1241,3 +1241,23 @@ a.source-item:focus-visible {
   color: var(--text-soft);
 }
 .collect-error { margin-top: 8px; font-size: 0.85rem; color: var(--danger); }
+
+/* 근거 없음 카드의 액션 버튼 정렬 (높낮이 보정) */
+.empty-card { flex-wrap: wrap; }
+.empty-card .empty-retry { align-self: center; }
+.collect-box { flex-basis: 100%; }
+
+/* 닉네임 */
+.pf-who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pf-toolbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pf-nick-form { display: flex; gap: 6px; align-items: center; }
+.pf-nick-form input {
+  margin: 0;
+  width: 140px;
+  padding: 8px 10px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 0.9rem;
+}

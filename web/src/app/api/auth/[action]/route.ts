@@ -8,6 +8,7 @@ import {
   signIn,
   signOut,
   signUp,
+  updateNickname,
 } from "@/lib/server/auth";
 import { ConfigurationError } from "@/lib/server/config";
 import { UpstreamError } from "@/lib/server/http";
@@ -92,6 +93,27 @@ export async function POST(req: NextRequest, { params }: Params): Promise<NextRe
       return res;
     }
 
+    if (action === "nickname") {
+      const session = await getSession();
+      if (!session) {
+        return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
+      }
+      let body: unknown;
+      try {
+        body = await req.json();
+      } catch {
+        return badRequest("요청 본문이 올바르지 않습니다.");
+      }
+      const nickname = String((body as { nickname?: unknown })?.nickname ?? "").trim();
+      if (!nickname || nickname.length > 20) {
+        return badRequest("닉네임은 1~20자로 입력해 주세요.");
+      }
+      await updateNickname(session.accessToken, nickname);
+      const res = NextResponse.json({ ok: true });
+      if (session.renewedTokens) applySessionCookies(res, session.renewedTokens);
+      return res;
+    }
+
     if (action === "logout") {
       const session = await getSession();
       if (session) await signOut(session.accessToken);
@@ -115,7 +137,7 @@ export async function GET(_req: NextRequest, { params }: Params): Promise<NextRe
     if (!session) return NextResponse.json({ user: null });
 
     const user = await fetchUser(session.accessToken);
-    const res = NextResponse.json({ user: user ? { email: user.email } : null });
+    const res = NextResponse.json({ user: user ? { email: user.email, nickname: user.nickname } : null });
     if (session.renewedTokens) applySessionCookies(res, session.renewedTokens);
     if (!user) clearSessionCookies(res);
     return res;
