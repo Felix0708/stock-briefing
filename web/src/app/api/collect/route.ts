@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getSession } from "@/lib/server/auth";
+import { resolveStockName } from "@/lib/server/stock-lookup";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,10 +28,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   } catch {
     return NextResponse.json({ error: "요청 본문이 올바르지 않습니다." }, { status: 400 });
   }
-  const company = String((body as { company?: unknown })?.company ?? "").trim();
-  if (!company || company.length > 50) {
+  const rawCompany = String((body as { company?: unknown })?.company ?? "").trim();
+  if (!rawCompany || rawCompany.length > 50) {
     return NextResponse.json({ error: "종목명을 확인해 주세요." }, { status: 400 });
   }
+
+  // "skt" 같은 별칭·축약 입력을 정식 종목명으로 해석 (DART는 정확한 법인명만 매칭됨)
+  const company = await resolveStockName(rawCompany);
 
   const token = process.env.GITHUB_DISPATCH_TOKEN?.trim();
   const repo = process.env.GITHUB_REPO?.trim();
@@ -75,7 +79,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     recentRequests.set(company, Date.now());
     return NextResponse.json({
       ok: true,
-      message: `'${company}' 공시 수집을 시작했습니다. 보통 2~5분 걸립니다.`,
+      resolvedCompany: company,
+      message:
+        company === rawCompany
+          ? `'${company}' 공시 수집을 시작했습니다. 보통 2~5분 걸립니다.`
+          : `'${rawCompany}' → '${company}'(으)로 인식해 수집을 시작했습니다. 보통 2~5분 걸립니다.`,
     });
   } catch {
     return NextResponse.json({ error: "수집 실행 요청에 실패했습니다." }, { status: 502 });

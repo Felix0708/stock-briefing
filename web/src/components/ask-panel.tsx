@@ -314,6 +314,7 @@ export function AskPanel() {
       const data = (await response.json().catch(() => ({}))) as {
         message?: string;
         error?: string;
+        resolvedCompany?: string;
       };
       if (!response.ok) {
         setCollectState("failed");
@@ -322,13 +323,15 @@ export function AskPanel() {
       }
       setCollectState("collecting");
       setCollectMessage(data.message ?? "수집을 시작했습니다.");
+      const effective = data.resolvedCompany || target;
+      if (effective !== target) rememberCompany(effective);
 
       let attempts = 0;
       collectTimerRef.current = window.setInterval(() => {
         void (async () => {
           attempts += 1;
           try {
-            const res = await fetch(`/api/coverage?company=${encodeURIComponent(target)}`);
+            const res = await fetch(`/api/coverage?company=${encodeURIComponent(effective)}`);
             const cov = (await res.json().catch(() => ({}))) as { covered?: boolean };
             if (cov.covered) {
               if (collectTimerRef.current) window.clearInterval(collectTimerRef.current);
@@ -336,18 +339,18 @@ export function AskPanel() {
               if (!isMountedRef.current) return;
               setCollectState("idle");
               setCollectMessage(null);
-              void executeQuestion(submittedQuestion || question, target);
+              void executeQuestion(submittedQuestion || question, effective);
               return;
             }
           } catch {
             // 일시 오류는 다음 폴링에서 재시도
           }
-          if (attempts >= 18) {
+          if (attempts >= 36) {
             if (collectTimerRef.current) window.clearInterval(collectTimerRef.current);
             collectTimerRef.current = null;
             if (!isMountedRef.current) return;
             setCollectState("failed");
-            setCollectMessage("수집이 오래 걸리고 있습니다. 몇 분 뒤 같은 질문을 다시 시도해 보세요.");
+            setCollectMessage("수집이 오래 걸리고 있습니다. 완료돼도 자동 반영은 멈췄으니, 잠시 후 같은 질문을 다시 해보세요.");
           }
         })();
       }, 20_000);
