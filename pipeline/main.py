@@ -11,7 +11,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import dart, emailer, embed, holdings, publish, summarize
+from . import dart, emailer, embed, holdings, notify, publish, summarize
 from .config import load_settings
 
 # 온디맨드(--index-only) 수집 시 종목당 인덱싱할 최대 공시 수 (임베딩 예산 보호)
@@ -123,6 +123,14 @@ def run(
     else:
         out_json = publish.publish(sections, watchlist=settings.watchlist)
     print(f"[4/4] 웹 대시보드 데이터 저장: {out_json}")
+
+    # Phase 3 알림: 수신 동의 회원에게 보유 종목 공시만 맞춤 발송
+    # (관리자 메일과 독립적으로 동작. 실패해도 브리핑은 계속)
+    if not dry_run and sections and settings.rag_enabled and settings.smtp_user and settings.smtp_password:
+        try:
+            notify.send_personalized(settings, sections)
+        except Exception as e:
+            print(f"⚠ 회원 알림 발송 실패: {e}")
 
     if not settings.send_email:
         print("SEND_EMAIL=false → 메일 발송 생략 (웹 대시보드로 확인)")

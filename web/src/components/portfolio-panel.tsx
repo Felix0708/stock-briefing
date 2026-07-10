@@ -19,7 +19,7 @@ type Quote = {
   changeRatio: number;
 };
 
-type SessionUser = { email: string; nickname?: string | null } | null;
+type SessionUser = { email: string; nickname?: string | null; briefingEmail?: boolean } | null;
 
 const PIE_COLORS = [
   "#2563eb", "#f59e0b", "#10b981", "#ef4444",
@@ -217,6 +217,19 @@ export function PortfolioPanel() {
     }
   }
 
+  async function handleBriefingToggle(next: boolean) {
+    setUser((current) => (current ? { ...current, briefingEmail: next } : current));
+    try {
+      await api("/api/auth/prefs", {
+        method: "POST",
+        body: JSON.stringify({ briefing_email: next }),
+      });
+    } catch (error) {
+      setUser((current) => (current ? { ...current, briefingEmail: !next } : current));
+      setListError(error instanceof Error ? error.message : "설정 저장에 실패했습니다.");
+    }
+  }
+
   async function handleLogout() {
     await api("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     setUser(null);
@@ -374,6 +387,14 @@ export function PortfolioPanel() {
           {user.nickname && <span className="pf-muted">{user.email}</span>}
         </div>
         <div className="pf-toolbar-actions">
+          <label className="pf-mail-toggle" title="매일 아침, 내 보유 종목의 신규 공시만 골라 메일로 보내드립니다">
+            <input
+              type="checkbox"
+              checked={!!user.briefingEmail}
+              onChange={(event) => void handleBriefingToggle(event.target.checked)}
+            />
+            아침 브리핑 메일
+          </label>
           {editingNick ? (
             <form className="pf-nick-form" onSubmit={handleNickname}>
               <input

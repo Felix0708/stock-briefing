@@ -25,6 +25,7 @@ export type AuthUser = {
   id: string;
   email: string;
   nickname: string | null;
+  briefingEmail: boolean;
 };
 
 type GoTrueSession = {
@@ -136,7 +137,7 @@ export async function fetchUser(accessToken: string): Promise<AuthUser | null> {
     const user = await requestJson<{
       id?: string;
       email?: string;
-      user_metadata?: { nickname?: unknown };
+      user_metadata?: { nickname?: unknown; briefing_email?: unknown };
     }>(
       "Supabase Auth",
       `${supabaseUrl()}/auth/v1/user`,
@@ -146,23 +147,31 @@ export async function fetchUser(accessToken: string): Promise<AuthUser | null> {
     if (!user.id || !user.email) return null;
     const nickname =
       typeof user.user_metadata?.nickname === "string" ? user.user_metadata.nickname : null;
-    return { id: user.id, email: user.email, nickname };
+    const briefingEmail = user.user_metadata?.briefing_email === true;
+    return { id: user.id, email: user.email, nickname, briefingEmail };
   } catch {
     return null;
   }
 }
 
-export async function updateNickname(accessToken: string, nickname: string): Promise<void> {
+export async function updateUserMetadata(
+  accessToken: string,
+  data: Record<string, unknown>,
+): Promise<void> {
   await requestJson(
     "Supabase Auth",
     `${supabaseUrl()}/auth/v1/user`,
     {
       method: "PUT",
       headers: userHeaders(accessToken),
-      body: JSON.stringify({ data: { nickname } }),
+      body: JSON.stringify({ data }),
     },
     { attempts: 1 },
   );
+}
+
+export async function updateNickname(accessToken: string, nickname: string): Promise<void> {
+  await updateUserMetadata(accessToken, { nickname });
 }
 
 export async function signOut(accessToken: string): Promise<void> {

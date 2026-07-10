@@ -1309,3 +1309,15 @@ a.source-item:focus-visible {
 }
 .stock-suggest li button:hover { background: var(--primary-soft); }
 .stock-suggest li button span { color: var(--text-muted); font-size: 0.78rem; flex: none; }
+
+/* 브리핑 메일 수신 토글 */
+.pf-mail-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-soft);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pf-mail-toggle input { accent-color: var(--primary); width: 15px; height: 15px; }

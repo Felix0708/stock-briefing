@@ -45,9 +45,17 @@ def build_html(sections: list[dict]) -> str:
     </body></html>"""
 
 
-def send(smtp_host: str, smtp_port: int, user: str, password: str, to: str, html: str) -> None:
+def send(
+    smtp_host: str,
+    smtp_port: int,
+    user: str,
+    password: str,
+    to: str,
+    html: str,
+    subject: str | None = None,
+) -> None:
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"📈 아침 공시 브리핑 {datetime.now():%m/%d}"
+    msg["Subject"] = subject or f"📈 아침 공시 브리핑 {datetime.now():%m/%d}"
     msg["From"] = user
     msg["To"] = to
     msg.attach(MIMEText(html, "html", "utf-8"))
