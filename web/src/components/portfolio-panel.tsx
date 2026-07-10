@@ -1,7 +1,9 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { searchStocks, type StockSuggestion } from "@/lib/client/stock-search";
 
 type Holding = {
   stock_code: string;
@@ -84,6 +86,23 @@ export function PortfolioPanel() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const isCustom = selectedPreset === "custom";
+
+  // 종목 자동완성
+  const [stockQuery, setStockQuery] = useState("");
+  const [stockSuggests, setStockSuggests] = useState<StockSuggestion[]>([]);
+  const suggestTimerRef = useRef<number | null>(null);
+
+  const handleStockQuery = (value: string) => {
+    setStockQuery(value);
+    if (suggestTimerRef.current) window.clearTimeout(suggestTimerRef.current);
+    if (!value.trim()) {
+      setStockSuggests([]);
+      return;
+    }
+    suggestTimerRef.current = window.setTimeout(() => {
+      void searchStocks(value).then(setStockSuggests);
+    }, 250);
+  };
 
   // 닉네임
   const [editingNick, setEditingNick] = useState(false);
@@ -228,6 +247,7 @@ export function PortfolioPanel() {
       setAvgPrice("");
       setCustomCode("");
       setCustomName("");
+      setStockQuery("");
       await loadHoldings();
 
       // 아직 공시가 수집 안 된 종목이면 백그라운드로 수집 요청
@@ -407,6 +427,41 @@ export function PortfolioPanel() {
           </div>
           {isCustom && (
             <>
+              <div className="pf-field pf-suggest-wrap">
+                <label htmlFor="pf-search">종목 검색</label>
+                <input
+                  id="pf-search"
+                  placeholder="예: skt, 삼전, 현대차"
+                  value={stockQuery}
+                  autoComplete="off"
+                  onChange={(event) => handleStockQuery(event.target.value)}
+                  onBlur={() => window.setTimeout(() => setStockSuggests([]), 150)}
+                />
+                {stockSuggests.length > 0 && (
+                  <ul className="stock-suggest" role="listbox" aria-label="종목 추천">
+                    {stockSuggests.map((item) => (
+                      <li key={item.code}>
+                        <button
+                          type="button"
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            setCustomCode(item.code);
+                            setCustomName(item.name);
+                            setStockQuery(`${item.name} (${item.code})`);
+                            setStockSuggests([]);
+                          }}
+                        >
+                          {item.name}
+                          <span>
+                            {item.code}
+                            {item.market ? ` · ${item.market}` : ""}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
               <div className="pf-field">
                 <label htmlFor="pf-code">종목코드 (6자리)</label>
                 <input

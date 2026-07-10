@@ -1261,3 +1261,51 @@ a.source-item:focus-visible {
   color: var(--text);
   font-size: 0.9rem;
 }
+
+/* 근거 없음 카드: 액션 버튼 세로 정렬 */
+.empty-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  flex: 0 0 auto;
+  max-width: 280px;
+}
+.empty-actions .empty-retry { width: 100%; text-align: center; white-space: normal; }
+
+/* 종목 자동완성 드롭다운 */
+.company-input-wrap { position: relative; }
+.pf-suggest-wrap { position: relative; }
+.stock-suggest {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  max-height: 260px;
+  overflow-y: auto;
+}
+.stock-suggest li button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.92rem;
+  cursor: pointer;
+  text-align: left;
+}
+.stock-suggest li button:hover { background: var(--primary-soft); }
+.stock-suggest li button span { color: var(--text-muted); font-size: 0.78rem; flex: none; }

@@ -4,6 +4,7 @@ import type { FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { AskSuccessResponse, FilingSource } from "@/lib/ask-types";
+import { searchStocks, type StockSuggestion } from "@/lib/client/stock-search";
 import {
   CLIENT_REQUEST_TIMEOUT_MS,
   UserVisibleRequestError,
@@ -105,6 +106,23 @@ export function AskPanel() {
       // 저장소 접근 실패는 무시
     }
   }, []);
+
+  const [companySuggests, setCompanySuggests] = useState<StockSuggestion[]>([]);
+  const suggestTimerRef = useRef<number | null>(null);
+
+  const handleCompanyChange = (value: string) => {
+    setCompany(value);
+    if (suggestTimerRef.current) window.clearTimeout(suggestTimerRef.current);
+    if (!value.trim()) {
+      setCompanySuggests([]);
+      return;
+    }
+    suggestTimerRef.current = window.setTimeout(() => {
+      void searchStocks(value).then((items) => {
+        if (isMountedRef.current) setCompanySuggests(items);
+      });
+    }, 250);
+  };
 
   const rememberCompany = (name: string) => {
     setRecentCompanies((current) => {
@@ -362,8 +380,9 @@ export function AskPanel() {
               type="text"
               ref={companyInputRef}
               value={company}
-              onChange={(event) => setCompany(event.target.value)}
-              placeholder="예: 삼성전자"
+              onChange={(event) => handleCompanyChange(event.target.value)}
+              onBlur={() => window.setTimeout(() => setCompanySuggests([]), 150)}
+              placeholder="예: 삼성전자, skt, 005930"
               maxLength={MAX_COMPANY_LENGTH}
               disabled={isLoading}
               aria-describedby="company-help"
@@ -378,6 +397,28 @@ export function AskPanel() {
               >
                 <span aria-hidden="true">×</span>
               </button>
+            )}
+            {companySuggests.length > 0 && (
+              <ul className="stock-suggest" role="listbox" aria-label="종목 추천">
+                {companySuggests.map((item) => (
+                  <li key={item.code}>
+                    <button
+                      type="button"
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        setCompany(item.name);
+                        setCompanySuggests([]);
+                      }}
+                    >
+                      {item.name}
+                      <span>
+                        {item.code}
+                        {item.market ? ` · ${item.market}` : ""}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
           <div
@@ -537,19 +578,17 @@ export function AskPanel() {
             )}
           </div>
           {submittedCompany && (
-            <button
-              type="button"
-              className="empty-retry"
-              aria-label="필터를 지우고 전체 공시에서 다시 검색"
-              onClick={() =>
-                void executeQuestion(submittedQuestion || question, "")
-              }
-            >
-              필터 지우고 다시 검색
-            </button>
-          )}
-          {submittedCompany && (
-            <div className="collect-box">
+            <div className="empty-actions">
+              <button
+                type="button"
+                className="empty-retry"
+                aria-label="필터를 지우고 전체 공시에서 다시 검색"
+                onClick={() =>
+                  void executeQuestion(submittedQuestion || question, "")
+                }
+              >
+                필터 지우고 다시 검색
+              </button>
               {collectState === "collecting" ? (
                 <p className="collect-status">
                   <span className="spinner" aria-hidden="true" /> {collectMessage} 완료되면
@@ -558,7 +597,7 @@ export function AskPanel() {
               ) : (
                 <button
                   type="button"
-                  className="empty-retry collect-btn"
+                  className="empty-retry"
                   disabled={collectState === "requesting"}
                   onClick={() => void requestCollect()}
                 >
