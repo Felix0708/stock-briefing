@@ -1229,3 +1229,15 @@ a.source-item:focus-visible {
   .pf-gain { color: #f87171; }
   .pf-loss { color: #7dabff; }
 }
+
+/* 온디맨드 수집 (Phase 3) */
+.collect-box { margin-top: 12px; width: 100%; }
+.collect-btn { white-space: normal; }
+.collect-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--text-soft);
+}
+.collect-error { margin-top: 8px; font-size: 0.85rem; color: var(--danger); }

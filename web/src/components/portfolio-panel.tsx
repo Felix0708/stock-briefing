@@ -213,6 +213,24 @@ export function PortfolioPanel() {
       setCustomCode("");
       setCustomName("");
       await loadHoldings();
+
+      // 아직 공시가 수집 안 된 종목이면 백그라운드로 수집 요청
+      // (내일부터 아침 브리핑에도 자동 포함되고, 몇 분 뒤엔 질문도 가능해진다)
+      void (async () => {
+        try {
+          const cov = await api<{ covered: boolean }>(
+            `/api/coverage?company=${encodeURIComponent(stockName)}`,
+          );
+          if (!cov.covered) {
+            await api("/api/collect", {
+              method: "POST",
+              body: JSON.stringify({ company: stockName }),
+            });
+          }
+        } catch {
+          // 수집 요청 실패는 치명적이지 않음
+        }
+      })();
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "등록에 실패했습니다.");
     } finally {

@@ -87,6 +87,9 @@ export function AskPanel() {
   const [isRateLimited, setIsRateLimited] = useState(false);
   const [retryAfterSeconds, setRetryAfterSeconds] = useState(0);
   const [retryDeadline, setRetryDeadline] = useState<number | null>(null);
+  const [collectState, setCollectState] = useState<"idle" | "requesting" | "collecting" | "failed">("idle");
+  const [collectMessage, setCollectMessage] = useState<string | null>(null);
+  const collectTimerRef = useRef<number | null>(null);
   const outcomeRef = useRef<HTMLDivElement>(null);
   const companyInputRef = useRef<HTMLInputElement>(null);
   const activeRequestRef = useRef<ActiveRequest | null>(null);
@@ -116,6 +119,7 @@ export function AskPanel() {
 
     return () => {
       isMountedRef.current = false;
+      if (collectTimerRef.current) window.clearInterval(collectTimerRef.current);
       const activeRequest = activeRequestRef.current;
       if (activeRequest) {
         activeRequest.reason = "unmount";
@@ -175,6 +179,12 @@ export function AskPanel() {
     setError(null);
     setAnswer(null);
     setSources([]);
+    setCollectState("idle");
+    setCollectMessage(null);
+    if (collectTimerRef.current) {
+      window.clearInterval(collectTimerRef.current);
+      collectTimerRef.current = null;
+    }
 
     const controller = new AbortController();
     const activeRequest: ActiveRequest = {
@@ -231,6 +241,65 @@ export function AskPanel() {
       window.clearTimeout(activeRequest.timeout);
       if (activeRequestRef.current === activeRequest) activeRequestRef.current = null;
       if (isMountedRef.current) setIsLoading(false);
+    }
+  };
+
+  // 온디맨드 수집: 미커버 종목의 공시를 그 자리에서 수집 요청하고,
+  // 인덱싱이 끝나면(폴링으로 감지) 같은 질문을 자동으로 다시 실행한다.
+  const requestCollect = async () => {
+    const target = submittedCompany;
+    if (!target || collectState === "requesting" || collectState === "collecting") return;
+    setCollectState("requesting");
+    setCollectMessage(null);
+    try {
+      const response = await fetch("/api/collect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ company: target }),
+      });
+      const data = (await response.json().catch(() => ({}))) as {
+        message?: string;
+        error?: string;
+      };
+      if (!response.ok) {
+        setCollectState("failed");
+        setCollectMessage(data.error ?? "수집 요청에 실패했습니다.");
+        return;
+      }
+      setCollectState("collecting");
+      setCollectMessage(data.message ?? "수집을 시작했습니다.");
+
+      let attempts = 0;
+      collectTimerRef.current = window.setInterval(() => {
+        void (async () => {
+          attempts += 1;
+          try {
+            const res = await fetch(`/api/coverage?company=${encodeURIComponent(target)}`);
+            const cov = (await res.json().catch(() => ({}))) as { covered?: boolean };
+            if (cov.covered) {
+              if (collectTimerRef.current) window.clearInterval(collectTimerRef.current);
+              collectTimerRef.current = null;
+              if (!isMountedRef.current) return;
+              setCollectState("idle");
+              setCollectMessage(null);
+              void executeQuestion(submittedQuestion || question, target);
+              return;
+            }
+          } catch {
+            // 일시 오류는 다음 폴링에서 재시도
+          }
+          if (attempts >= 18) {
+            if (collectTimerRef.current) window.clearInterval(collectTimerRef.current);
+            collectTimerRef.current = null;
+            if (!isMountedRef.current) return;
+            setCollectState("failed");
+            setCollectMessage("수집이 오래 걸리고 있습니다. 몇 분 뒤 같은 질문을 다시 시도해 보세요.");
+          }
+        })();
+      }, 20_000);
+    } catch {
+      setCollectState("failed");
+      setCollectMessage("수집 요청에 실패했습니다.");
     }
   };
 
@@ -442,6 +511,30 @@ export function AskPanel() {
             >
               필터 지우고 다시 검색
             </button>
+          )}
+          {submittedCompany && (
+            <div className="collect-box">
+              {collectState === "collecting" ? (
+                <p className="collect-status">
+                  <span className="spinner" aria-hidden="true" /> {collectMessage} 완료되면
+                  자동으로 다시 검색합니다.
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  className="empty-retry collect-btn"
+                  disabled={collectState === "requesting"}
+                  onClick={() => void requestCollect()}
+                >
+                  {collectState === "requesting"
+                    ? "요청 중..."
+                    : `'${submittedCompany}' 공시 지금 수집하기 (2~5분)`}
+                </button>
+              )}
+              {collectState === "failed" && collectMessage && (
+                <p className="collect-error">{collectMessage}</p>
+              )}
+            </div>
           )}
         </div>
       )}

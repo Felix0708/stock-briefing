@@ -57,3 +57,6 @@ create trigger holdings_updated_at
 -- 행 단위 접근 제어는 위의 RLS 정책이 담당하므로 로그인 사용자(authenticated)에게만 준다.
 grant select, insert, update, delete on table public.holdings to authenticated;
 grant usage, select on all sequences in schema public to authenticated;
+
+-- 파이프라인(secret key = service_role)이 보유 종목을 읽어 수집 대상에 합칠 수 있게 허용
+grant select on table public.holdings to service_role;

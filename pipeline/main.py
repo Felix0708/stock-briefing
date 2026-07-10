@@ -11,19 +11,46 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import dart, emailer, embed, publish, summarize
+from . import dart, emailer, embed, holdings, publish, summarize
 from .config import load_settings
 
+# 온디맨드(--index-only) 수집 시 종목당 인덱싱할 최대 공시 수 (임베딩 예산 보호)
+INDEX_ONLY_MAX_FILINGS = 15
 
-def run(dry_run: bool = False) -> None:
+
+def run(
+    dry_run: bool = False,
+    companies: list[str] | None = None,
+    index_only: bool = False,
+    lookback: int | None = None,
+) -> None:
     settings = load_settings()
+    if index_only:
+        settings.send_email = False  # 인덱싱 전용 모드는 메일·SMTP 설정 불필요
+    if lookback:
+        settings.lookback_days = lookback
     settings.validate()
 
-    print(f"[1/4] 기업 코드 로드 중... (watchlist: {settings.watchlist})")
+    # 수집 대상 결정:
+    # --companies 지정 시 그 목록만 (온디맨드 수집용)
+    # 아니면 watchlist + 사용자 보유 종목(Phase 3 개인화) 병합
+    if companies:
+        targets = companies
+    else:
+        targets = list(settings.watchlist)
+        try:
+            extras = [c for c in holdings.fetch_holding_companies(settings) if c not in targets]
+            if extras:
+                print(f"보유 종목 추가 수집 대상: {extras}")
+                targets += extras
+        except Exception as e:
+            print(f"⚠ 보유 종목 조회 실패 (watchlist만 사용): {e}")
+
+    print(f"[1/4] 기업 코드 로드 중... (대상: {targets})")
     corp_codes = dart.load_corp_codes(settings.dart_api_key)
 
     sections = []
-    for company in settings.watchlist:
+    for company in targets:
         corp_code = corp_codes.get(company)
         if not corp_code:
             print(f"  ⚠ '{company}' 를 DART 상장사 목록에서 찾지 못함 (정확한 법인명인지 확인)")
@@ -35,6 +62,9 @@ def run(dry_run: bool = False) -> None:
             print(f"  - 신규 공시 없음")
             continue
         print(f"  - {len(filings)}건 발견")
+        if index_only and len(filings) > INDEX_ONLY_MAX_FILINGS:
+            filings = filings[:INDEX_ONLY_MAX_FILINGS]
+            print(f"  - 인덱싱 전용 모드: 최근 {INDEX_ONLY_MAX_FILINGS}건으로 제한")
 
         doc_texts = {
             f["rcept_no"]: dart.fetch_document_text(
@@ -42,6 +72,17 @@ def run(dry_run: bool = False) -> None:
             )
             for f in filings
         }
+
+        if index_only:
+            # 온디맨드 수집: 요약·브리핑 없이 RAG 인덱싱만 수행
+            for f in filings:
+                try:
+                    n = embed.index_filing(settings, company, f, doc_texts.get(f["rcept_no"], ""))
+                    if n:
+                        print(f"  - RAG 인덱싱: {f['report_nm']} ({n} 청크)")
+                except Exception as e:
+                    print(f"  ⚠ RAG 인덱싱 실패 ({f['report_nm']}): {e}")
+            continue
 
         print(f"[3/4] {company}: Gemini 요약 생성...")
         # 종목 단위 격리: 한 종목의 요약 실패가 전체 브리핑을 죽이지 않게 한다.
@@ -69,6 +110,10 @@ def run(dry_run: bool = False) -> None:
                         print(f"  - RAG 인덱싱: {f['report_nm']} ({n} 청크)")
                 except Exception as e:
                     print(f"  ⚠ RAG 인덱싱 실패 ({f['report_nm']}): {e}")
+
+    if index_only:
+        print("인덱싱 전용 모드 완료 ✅ (브리핑·메일·대시보드 생략)")
+        return
 
     # 웹 대시보드용 JSON 저장 (공시 없는 날도 기록)
     # dry-run은 배포 대상(docs/data)을 건드리지 않고 .preview/에 저장
@@ -109,9 +154,18 @@ def run(dry_run: bool = False) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true", help="메일 대신 HTML 파일로 저장")
+    parser.add_argument("--companies", help="쉼표로 구분한 수집 대상 (watchlist 대신 사용)")
+    parser.add_argument("--index-only", action="store_true", help="요약·메일 없이 RAG 인덱싱만")
+    parser.add_argument("--lookback", type=int, help="조회 기간(일) 재정의")
     args = parser.parse_args()
+    company_list = [c.strip() for c in args.companies.split(",") if c.strip()] if args.companies else None
     try:
-        run(dry_run=args.dry_run)
+        run(
+            dry_run=args.dry_run,
+            companies=company_list,
+            index_only=args.index_only,
+            lookback=args.lookback,
+        )
     except Exception as e:
         print(f"실패: {e}", file=sys.stderr)
         sys.exit(1)
