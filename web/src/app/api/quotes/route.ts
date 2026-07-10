@@ -135,9 +135,9 @@ async function fetchFxRate(reutersCode: string, min: number, max: number, per = 
   const cached = fxCache.get(reutersCode);
   if (cached && Date.now() - cached.at < 10 * 60 * 1000) return cached.rate;
   for (const url of [
-    `https://m.stock.naver.com/front-api/marketIndex/prices?category=exchange&reutersCode=${reutersCode}&page=1&pageSize=1`,
-    `https://polling.finance.naver.com/api/realtime/marketindex/exchange/${reutersCode}`,
-    `https://m.stock.naver.com/front-api/marketIndex/exchange/${reutersCode}/basic`,
+    // 실측 확인된 엔드포인트 (closePrice: "1,503.00" 형식)
+    `https://m.stock.naver.com/front-api/marketIndex/productDetail?category=exchange&reutersCode=${reutersCode}`,
+    `https://m.stock.naver.com/front-api/marketIndex/prices?category=exchange&reutersCode=${reutersCode}&page=1&pageSize=10`,
   ]) {
     const fields = digQuoteFields(await fetchJson(url));
     // 범위 검증으로 엉뚱한 숫자 필드 오인 방지
