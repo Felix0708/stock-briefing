@@ -552,13 +552,29 @@ export function PortfolioPanel() {
               </div>
               <div className="pf-field">
                 <label htmlFor="pf-code">
-                  {customMarket === "US" ? "티커" : "종목코드 (6자리)"}
+                  {customMarket === "US"
+                    ? "티커"
+                    : customMarket === "JP"
+                      ? "종목코드 (4자리)"
+                      : "종목코드 (6자리)"}
                 </label>
                 <input
                   id="pf-code"
                   required
-                  pattern={customMarket === "US" ? "[A-Za-z][A-Za-z0-9.\-]{0,9}" : "[0-9]{6}"}
-                  placeholder={customMarket === "US" ? "예: AAPL" : "예: 005380"}
+                  pattern={
+                    customMarket === "US"
+                      ? "[A-Za-z][A-Za-z0-9.\-]{0,9}"
+                      : customMarket === "JP"
+                        ? "[0-9A-Za-z]{4,5}"
+                        : "[0-9]{6}"
+                  }
+                  placeholder={
+                    customMarket === "US"
+                      ? "예: AAPL"
+                      : customMarket === "JP"
+                        ? "예: 7203"
+                        : "예: 005380"
+                  }
                   value={customCode}
                   onChange={(event) => setCustomCode(event.target.value)}
                 />
