@@ -52,3 +52,8 @@ drop trigger if exists holdings_updated_at on holdings;
 create trigger holdings_updated_at
   before update on holdings
   for each row execute function set_holdings_updated_at();
+
+-- 테이블 권한: 이 프로젝트는 기본 권한이 차단돼 있어(보안 강화 조치) 명시적으로 부여한다.
+-- 행 단위 접근 제어는 위의 RLS 정책이 담당하므로 로그인 사용자(authenticated)에게만 준다.
+grant select, insert, update, delete on table public.holdings to authenticated;
+grant usage, select on all sequences in schema public to authenticated;
