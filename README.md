@@ -1,8 +1,12 @@
-# 📈 Stock Briefing — 아침 공시 AI 브리핑
+# 📈 Stock Briefing — 내 종목 공시 AI 브리핑
 
-관심 종목의 신규 공시(DART)를 매일 아침 AI가 요약해서 이메일로 보내주는 파이프라인.
-서버 없이 GitHub Actions로 동작하며 **월 유지비 0원**.
+보유 종목을 등록하면 **매일 아침 내 종목의 공시만 AI가 요약해 메일로** 보내주고,
+웹에서는 공시에 대해 **질문하면 근거와 함께 답변**(RAG)하며,
+🇰🇷🇺🇸🇯🇵 3개 시장 포트폴리오의 **실시간 수익률을 환율 자동 환산**으로 보여주는 서비스.
+서버 없이 GitHub Actions + Vercel 무료 티어로 동작하며 **월 유지비 0원**.
 
+> 🛠 **[개발 여정 보기 (DEVLOG.md)](DEVLOG.md)** — 7일간 무엇을 왜 그렇게 만들었는지의 기록
+>
 > 기획 배경과 로드맵은 [docs/PLAN.md](docs/PLAN.md), 설치는 [SETUP.md](SETUP.md),
 > Phase 2-2 최신 검증 상태는 [office-reports/PHASE2_2_FINAL_DEPLOYMENT_APPROVAL.md](office-reports/PHASE2_2_FINAL_DEPLOYMENT_APPROVAL.md),
 > CI/CD와 Vercel 설정은 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) 참고.
