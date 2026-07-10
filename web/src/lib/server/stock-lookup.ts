@@ -74,67 +74,36 @@ async function fetchJson(url: string): Promise<unknown> {
   }
 }
 
-// 해외 공통: 미국 티커(문자 시작) + 일본 종목코드(숫자 4~5자리) 모두 허용
-const WORLD_CODE_PATTERN = /^[0-9A-Z][0-9A-Z.\-]{0,9}$/;
-const KR_LIKE = /^[0-9]{6}$/; // 국내 코드가 해외 결과에 섞이는 것 방지
-const US_SUFFIXES = [".O", ".K", ".A", ".N", ".T"];
-
-function stripUsSuffix(code: string): string {
-  for (const suffix of US_SUFFIXES) {
-    if (code.endsWith(suffix)) return code.slice(0, -suffix.length);
-  }
-  return code;
-}
-
-// 미국 종목: reutersCode/symbolCode 형태의 티커를 찾아낸다
-function extractWorldMatches(data: unknown, list: StockMatch[]): void {
-  if (!data) return;
-  if (Array.isArray(data)) {
-    data.forEach((item) => extractWorldMatches(item, list));
-    return;
-  }
-  if (typeof data === "object") {
-    const row = data as Record<string, unknown>;
-    const rawCode = row.reutersCode ?? row.symbolCode ?? row.itemCode ?? row.code;
-    const name =
-      row.stockName ?? row.stockNameKor ?? row.name ?? row.stockNameEng ?? row.itemName;
-    if (typeof rawCode === "string" && typeof name === "string") {
-      const ticker = stripUsSuffix(rawCode.toUpperCase());
-      if (WORLD_CODE_PATTERN.test(ticker) && !KR_LIKE.test(ticker) && name.trim()) {
-        if (!list.some((item) => item.code === ticker)) {
-          const market = row.stockExchangeName ?? row.exchangeName ?? row.category;
-          list.push({
-            code: ticker,
-            name: name.trim(),
-            market: typeof market === "string" ? market : "US",
-          });
-        }
-      }
-    }
-    Object.values(row).forEach((value) => {
-      if (value && typeof value === "object") extractWorldMatches(value, list);
-    });
-  }
-}
-
-export async function lookupWorldStocks(query: string): Promise<StockMatch[]> {
+// 해외 종목 검색 (실측 확인: 국내용 자동완성 엔드포인트가 전 세계 종목을 함께 반환한다)
+// 응답 items: {code, name, typeCode(NASDAQ/NYSE/TOKYO), reutersCode, nationCode(KOR/USA/JPN), category}
+export async function lookupWorldStocks(
+  query: string,
+  nation: "USA" | "JPN",
+): Promise<StockMatch[]> {
   const trimmed = query.trim();
   if (!trimmed || trimmed.length > 30) return [];
 
-  const cacheKey = `US:${trimmed}`;
+  const cacheKey = `${nation}:${trimmed}`;
   const cached = cache.get(cacheKey);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.items;
 
-  const items: StockMatch[] = [];
-  const encoded = encodeURIComponent(trimmed);
+  const data = (await fetchJson(
+    `https://m.stock.naver.com/front-api/search/autoComplete?query=${encodeURIComponent(trimmed)}&target=stock`,
+  )) as { result?: { items?: Record<string, unknown>[] } } | null;
 
-  for (const url of [
-    `https://m.stock.naver.com/front-api/search/autoComplete?query=${encoded}&target=worldstock`,
-    `https://api.stock.naver.com/search/stock?query=${encoded}&target=worldstock`,
-    `https://m.stock.naver.com/front-api/search/autoComplete?query=${encoded}&target=stock%2Cworldstock`,
-  ]) {
-    extractWorldMatches(await fetchJson(url), items);
-    if (items.length > 0) break;
+  const items: StockMatch[] = [];
+  for (const row of data?.result?.items ?? []) {
+    if (!row || row.nationCode !== nation || row.category !== "stock") continue;
+    const code = typeof row.code === "string" ? row.code.toUpperCase() : "";
+    const name = typeof row.name === "string" ? row.name.trim() : "";
+    if (!code || !name) continue;
+    if (!items.some((item) => item.code === code)) {
+      items.push({
+        code,
+        name,
+        market: typeof row.typeCode === "string" ? row.typeCode : nation,
+      });
+    }
   }
 
   const limited = items.slice(0, 8);

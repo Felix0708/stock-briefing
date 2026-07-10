@@ -14,6 +14,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
   const market = req.nextUrl.searchParams.get("market");
   const items =
-    market === "US" || market === "JP" ? await lookupWorldStocks(query) : await lookupStocks(query);
+    market === "US"
+      ? await lookupWorldStocks(query, "USA")
+      : market === "JP"
+        ? await lookupWorldStocks(query, "JPN")
+        : await lookupStocks(query);
   return NextResponse.json({ items });
 }
