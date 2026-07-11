@@ -11,7 +11,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import dart, edgar, emailer, embed, holdings, notify, publish, summarize
+from . import dart, edgar, edinet, emailer, embed, holdings, notify, publish, summarize
 from .config import load_settings
 
 # 온디맨드(--index-only) 수집 시 종목당 인덱싱할 최대 공시 수 (임베딩 예산 보호)
@@ -43,8 +43,8 @@ def run(
             known = {t["name"] for t in targets}
             extras = []
             for row in holdings.fetch_market_targets(settings):
-                if row["market"] == "JP":
-                    continue  # 일본 공시(EDINET)는 아직 미지원 — 시세만 제공
+                if row["market"] == "JP" and not settings.edinet_api_key:
+                    continue  # EDINET 키 없으면 일본은 시세만 (공시 수집 생략)
                 if row["name"] not in known:
                     known.add(row["name"])
                     targets.append(row)
@@ -89,6 +89,16 @@ def run(
             except Exception as e:
                 print(f"  ⚠ {company} SEC 조회 실패 (건너뜀): {e}")
                 continue
+        elif market == "JP":
+            if not settings.edinet_api_key:
+                print(f"  ⚠ '{company}' EDINET 키 없음 — 일본 공시 수집 생략")
+                continue
+            print(f"[2/4] {company}: 최근 {settings.lookback_days}일 EDINET 공시 조회...")
+            try:
+                filings = edinet.fetch_filings(target["code"], settings.lookback_days, settings.edinet_api_key)
+            except Exception as e:
+                print(f"  ⚠ {company} EDINET 조회 실패 (건너뜀): {e}")
+                continue
         else:
             corp_code = corp_codes.get(company)
             if not corp_code:
@@ -116,6 +126,11 @@ def run(
             }
             for f in filings:
                 f.pop("_doc_url", None)  # 내부용 키는 저장 데이터에서 제외
+        elif market == "JP":
+            doc_texts = {
+                f["rcept_no"]: edinet.fetch_document_text(f, settings.doc_max_chars)
+                for f in filings
+            }
         else:
             doc_texts = {
                 f["rcept_no"]: dart.fetch_document_text(

@@ -49,6 +49,7 @@
 | `pipeline/main.py` | 오케스트레이터. `--dry-run`, `--index-only`, `--companies`, `--lookback` 지원 |
 | `pipeline/dart.py` | DART API 클라이언트 (기업코드 캐시, 공시 목록, 원문 추출) |
 | `pipeline/edgar.py` | SEC EDGAR 클라이언트 — 미국 공시. DART와 동일한 형식으로 반환해 하위 파이프라인 재사용 |
+| `pipeline/edinet.py` | EDINET 클라이언트 — 일본 공시 (날짜별 조회 → secCode 필터). API 키 필요 |
 | `pipeline/summarize.py` | Gemini 요약 (모델명 주입식, 재시도·종목별 실패 격리) |
 | `pipeline/embed.py` | 공시 청크 임베딩 → Supabase 저장 (중복 스킵) |
 | `pipeline/holdings.py` | 회원 보유 종목·구독자 조회 (수집 개인화의 데이터원) |
@@ -94,7 +95,7 @@ npm run typecheck && npm run lint && npm run test:api  # 검증
 - [x] Phase 3.5: 보유 종목 기반 수집 개인화 · 온디맨드 수집 · 종목 자동완성
 - [x] Phase 4: 미국·일본 주식 (해외 시세 + 환율 자동 환산)
 - [x] Phase 5-1: 미국 공시 (SEC EDGAR — 8-K/10-Q/10-K 등 수집·한국어 요약·RAG 합류)
-- [ ] Phase 5-2: 일본 공시 (EDINET)
+- [x] Phase 5-2: 일본 공시 (EDINET — 날짜별 조회 + secCode 필터, API 키 필요)
 - [ ] Phase 6: 구독 결제 실험 (시세의 공식 API 전환 검토)
 
 ---

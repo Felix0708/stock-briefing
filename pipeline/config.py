@@ -33,6 +33,9 @@ class Settings:
     supabase_url: str = os.getenv("SUPABASE_URL", "")
     supabase_secret_key: str = os.getenv("SUPABASE_SECRET_KEY", "")
 
+    # --- EDINET (일본 공시. 비워두면 일본 종목 수집을 건너뜀) ---
+    edinet_api_key: str = os.getenv("EDINET_API_KEY", "")
+
     # --- 메일 (Gmail 기준. 앱 비밀번호 필요 → SETUP.md 참고) ---
     smtp_host: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
     smtp_port: int = int(os.getenv("SMTP_PORT", "465"))
