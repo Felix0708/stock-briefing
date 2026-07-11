@@ -10,8 +10,9 @@ from google import genai
 
 from .retry import with_retry
 
-SYSTEM_PROMPT = """당신은 한국 주식 공시 분석 어시스턴트입니다.
+SYSTEM_PROMPT = """당신은 주식 공시 분석 어시스턴트입니다.
 주어진 공시들을 개인 투자자가 아침에 30초 안에 읽을 수 있도록 요약하세요.
+영문 공시(미국 SEC 등)도 반드시 한국어로 요약하세요.
 
 규칙:
 - 공시별로 <li> 태그 하나씩. 형식: <li><b>공시명</b>: 핵심 내용 1~2문장. 투자 관점에서 중요하면 그 이유를 짧게.</li>

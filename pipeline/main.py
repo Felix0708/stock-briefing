@@ -11,7 +11,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import dart, emailer, embed, holdings, notify, publish, summarize
+from . import dart, edgar, emailer, embed, holdings, notify, publish, summarize
 from .config import load_settings
 
 # 온디맨드(--index-only) 수집 시 종목당 인덱싱할 최대 공시 수 (임베딩 예산 보호)
@@ -34,15 +34,23 @@ def run(
     # 수집 대상 결정:
     # --companies 지정 시 그 목록만 (온디맨드 수집용)
     # 아니면 watchlist + 사용자 보유 종목(Phase 3 개인화) 병합
+    # 수집 대상: {"name", "market", "code"} — 시장별로 공시 소스가 다르다 (KR→DART, US→EDGAR)
     if companies:
-        targets = companies
+        targets = [{"name": c, "market": "KR", "code": ""} for c in companies]
     else:
-        targets = list(settings.watchlist)
+        targets = [{"name": c, "market": "KR", "code": ""} for c in settings.watchlist]
         try:
-            extras = [c for c in holdings.fetch_holding_companies(settings) if c not in targets]
+            known = {t["name"] for t in targets}
+            extras = []
+            for row in holdings.fetch_market_targets(settings):
+                if row["market"] == "JP":
+                    continue  # 일본 공시(EDINET)는 아직 미지원 — 시세만 제공
+                if row["name"] not in known:
+                    known.add(row["name"])
+                    targets.append(row)
+                    extras.append(f"{row['name']}({row['market']})")
             if extras:
                 print(f"보유 종목 추가 수집 대상: {extras}")
-                targets += extras
         except Exception as e:
             print(f"⚠ 보유 종목 조회 실패 (watchlist만 사용): {e}")
 
@@ -50,18 +58,37 @@ def run(
         print("수집 대상이 없습니다 (watchlist 비어 있음 + 등록된 보유 종목 없음). 정상 종료.")
         return
 
-    print(f"[1/4] 기업 코드 로드 중... (대상: {targets})")
-    corp_codes = dart.load_corp_codes(settings.dart_api_key)
+    print(f"[1/4] 기업 코드 로드 중... (대상: {[t['name'] for t in targets]})")
+    corp_codes = (
+        dart.load_corp_codes(settings.dart_api_key)
+        if any(t["market"] == "KR" for t in targets)
+        else {}
+    )
+    cik_map = (
+        edgar.load_ticker_ciks() if any(t["market"] == "US" for t in targets) else {}
+    )
 
     sections = []
-    for company in targets:
-        corp_code = corp_codes.get(company)
-        if not corp_code:
-            print(f"  ⚠ '{company}' 를 DART 상장사 목록에서 찾지 못함 (정확한 법인명인지 확인)")
-            continue
+    for target in targets:
+        company = target["name"]
+        market = target["market"]
 
-        print(f"[2/4] {company}: 최근 {settings.lookback_days}일 공시 조회...")
-        filings = dart.fetch_filings(settings.dart_api_key, corp_code, settings.lookback_days)
+        if market == "US":
+            ticker = target["code"].upper()
+            cik = cik_map.get(ticker)
+            if not cik:
+                print(f"  ⚠ '{company}'({ticker}) 를 SEC 티커 목록에서 찾지 못함")
+                continue
+            print(f"[2/4] {company}: 최근 {settings.lookback_days}일 SEC 공시 조회...")
+            filings = edgar.fetch_filings(ticker, cik, settings.lookback_days)
+        else:
+            corp_code = corp_codes.get(company)
+            if not corp_code:
+                print(f"  ⚠ '{company}' 를 DART 상장사 목록에서 찾지 못함 (정확한 법인명인지 확인)")
+                continue
+            print(f"[2/4] {company}: 최근 {settings.lookback_days}일 공시 조회...")
+            filings = dart.fetch_filings(settings.dart_api_key, corp_code, settings.lookback_days)
+
         if not filings:
             print(f"  - 신규 공시 없음")
             continue
@@ -70,12 +97,20 @@ def run(
             filings = filings[:INDEX_ONLY_MAX_FILINGS]
             print(f"  - 인덱싱 전용 모드: 최근 {INDEX_ONLY_MAX_FILINGS}건으로 제한")
 
-        doc_texts = {
-            f["rcept_no"]: dart.fetch_document_text(
-                settings.dart_api_key, f["rcept_no"], settings.doc_max_chars
-            )
-            for f in filings
-        }
+        if market == "US":
+            doc_texts = {
+                f["rcept_no"]: edgar.fetch_document_text(f, settings.doc_max_chars)
+                for f in filings
+            }
+            for f in filings:
+                f.pop("_doc_url", None)  # 내부용 키는 저장 데이터에서 제외
+        else:
+            doc_texts = {
+                f["rcept_no"]: dart.fetch_document_text(
+                    settings.dart_api_key, f["rcept_no"], settings.doc_max_chars
+                )
+                for f in filings
+            }
 
         if index_only:
             # 온디맨드 수집: 요약·브리핑 없이 RAG 인덱싱만 수행

@@ -89,3 +89,30 @@ def fetch_holding_companies(settings: Settings) -> list[str]:
             seen.add(name)
             companies.append(name)
     return companies
+
+def fetch_market_targets(settings: Settings) -> list[dict]:
+    """전 회원 보유 종목을 [{"name", "market", "code"}]로 반환 (중복 제거, 등록순).
+
+    시장별 공시 소스가 다르므로(KR→DART, US→EDGAR) 시장 정보가 필요하다.
+    """
+    if not settings.rag_enabled:
+        return []
+    response = requests.get(
+        f"{settings.supabase_url}/rest/v1/holdings",
+        params={"select": "stock_name,stock_code,market", "order": "created_at.asc"},
+        headers=_secret_headers(settings),
+        timeout=_TIMEOUT,
+    )
+    response.raise_for_status()
+
+    seen: set[tuple[str, str]] = set()
+    targets: list[dict] = []
+    for row in response.json():
+        name = str(row.get("stock_name", "")).strip()
+        market = str(row.get("market", "KR")).strip() or "KR"
+        code = str(row.get("stock_code", "")).strip()
+        key = (market, name)
+        if name and key not in seen:
+            seen.add(key)
+            targets.append({"name": name, "market": market, "code": code})
+    return targets
