@@ -48,6 +48,8 @@ jobs:
           # Phase 2 (RAG): 아래 두 secrets를 등록하면 임베딩 저장이 자동 활성화됨
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          # SEC EDGAR는 User-Agent에 연락처(이메일)가 없으면 403으로 차단한다
+          SEC_USER_AGENT: "stock-briefing personal project ${{ secrets.SMTP_USER }}"
         run: python -m pipeline.main
 
       # 생성된 브리핑 JSON을 저장소에 커밋 → GitHub Pages 대시보드에 반영됨

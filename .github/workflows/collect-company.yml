@@ -39,5 +39,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          # SEC EDGAR는 User-Agent에 연락처(이메일)가 없으면 403으로 차단한다
+          SEC_USER_AGENT: "stock-briefing personal project ${{ secrets.SMTP_USER }}"
         # 최근 90일 공시를 최대 15건까지 인덱싱 (임베딩 예산 보호)
         run: python -m pipeline.main --index-only --lookback 90 --companies "${{ inputs.company }}"

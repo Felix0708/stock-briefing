@@ -64,9 +64,13 @@ def run(
         if any(t["market"] == "KR" for t in targets)
         else {}
     )
-    cik_map = (
-        edgar.load_ticker_ciks() if any(t["market"] == "US" for t in targets) else {}
-    )
+    cik_map: dict[str, int] = {}
+    if any(t["market"] == "US" for t in targets):
+        try:
+            cik_map = edgar.load_ticker_ciks()
+        except Exception as e:
+            # EDGAR 실패가 국내 수집까지 죽이면 안 된다 — 미국 종목만 건너뛴다
+            print(f"⚠ SEC 티커 목록 로드 실패 (미국 종목 건너뜀): {e}")
 
     sections = []
     for target in targets:
@@ -80,14 +84,22 @@ def run(
                 print(f"  ⚠ '{company}'({ticker}) 를 SEC 티커 목록에서 찾지 못함")
                 continue
             print(f"[2/4] {company}: 최근 {settings.lookback_days}일 SEC 공시 조회...")
-            filings = edgar.fetch_filings(ticker, cik, settings.lookback_days)
+            try:
+                filings = edgar.fetch_filings(ticker, cik, settings.lookback_days)
+            except Exception as e:
+                print(f"  ⚠ {company} SEC 조회 실패 (건너뜀): {e}")
+                continue
         else:
             corp_code = corp_codes.get(company)
             if not corp_code:
                 print(f"  ⚠ '{company}' 를 DART 상장사 목록에서 찾지 못함 (정확한 법인명인지 확인)")
                 continue
             print(f"[2/4] {company}: 최근 {settings.lookback_days}일 공시 조회...")
-            filings = dart.fetch_filings(settings.dart_api_key, corp_code, settings.lookback_days)
+            try:
+                filings = dart.fetch_filings(settings.dart_api_key, corp_code, settings.lookback_days)
+            except Exception as e:
+                print(f"  ⚠ {company} DART 조회 실패 (건너뜀): {e}")
+                continue
 
         if not filings:
             print(f"  - 신규 공시 없음")
