@@ -47,17 +47,22 @@ def find_important(sections: list[dict]) -> list[str]:
     return found
 
 
-def send_personalized(settings: Settings, sections: list[dict]) -> None:
-    """회원별로 보유 종목 공시만 추려서 발송."""
+def send_personalized(settings: Settings, sections: list[dict]) -> set[str]:
+    """회원별로 보유 종목 공시만 추려서 발송. 발송된 이메일 집합을 반환.
+
+    반환값은 main.py가 관리자 전체 브리핑과의 중복 발송을 막는 데 쓴다
+    (맞춤 메일을 받은 주소에는 전체 브리핑을 다시 보내지 않음).
+    """
     subscribers = holdings.fetch_subscribers(settings)
     if not subscribers:
         print("알림: 수신 동의 회원 없음 → 개인 알림 생략")
-        return
+        return set()
 
     by_user = holdings.fetch_holdings_by_user(settings)
     section_by_company = {section["company"]: section for section in sections}
 
     sent = 0
+    sent_emails: set[str] = set()
     for subscriber in subscribers[:MAX_RECIPIENTS]:
         names = by_user.get(str(subscriber["id"]), [])
         my_sections = [section_by_company[n] for n in names if n in section_by_company]
@@ -88,9 +93,11 @@ def send_personalized(settings: Settings, sections: list[dict]) -> None:
                 subject=subject,
             )
             sent += 1
+            sent_emails.add(subscriber["email"].strip().lower())
             print(f"  - 알림 발송: {subscriber['email']} (종목 {len(my_sections)}개"
                   f"{', 중요 ' + str(len(important)) + '건' if important else ''})")
         except Exception as e:
             print(f"  ⚠ 알림 발송 실패 ({subscriber['email']}): {e}")
 
     print(f"알림: 총 {sent}명에게 발송 완료")
+    return sent_emails

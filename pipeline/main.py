@@ -192,9 +192,10 @@ def run(
 
     # Phase 3 알림: 수신 동의 회원에게 보유 종목 공시만 맞춤 발송
     # (관리자 메일과 독립적으로 동작. 실패해도 브리핑은 계속)
+    personalized_sent: set[str] = set()
     if not dry_run and sections and settings.rag_enabled and settings.smtp_user and settings.smtp_password:
         try:
-            notify.send_personalized(settings, sections)
+            personalized_sent = notify.send_personalized(settings, sections)
         except Exception as e:
             print(f"⚠ 회원 알림 발송 실패: {e}")
 
@@ -203,6 +204,10 @@ def run(
         return
     if not sections and not settings.send_empty_briefing:
         print("신규 공시 없음 → 메일 발송 생략 (SEND_EMPTY_BRIEFING=true로 바꾸면 발송)")
+        return
+    # 맞춤 브리핑을 이미 받은 주소에는 전체 브리핑을 중복 발송하지 않음
+    if settings.mail_to.strip().lower() in personalized_sent:
+        print(f"관리자 메일({settings.mail_to})은 맞춤 브리핑을 이미 수신 → 전체 브리핑 생략")
         return
 
     html = emailer.build_html(sections)
