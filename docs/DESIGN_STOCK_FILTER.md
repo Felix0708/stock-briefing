@@ -4,7 +4,7 @@
 > 대상: 프론트엔드(이대리) 구현 참조용
 > 범위: 공시 Q&A 화면의 "검색 종목" 필터 — 배치, 상호작용, 상태별 화면, 모바일·다크모드·접근성
 > 관련 파일: `web/src/components/ask-panel.tsx`, `web/src/app/globals.css`, `web/src/app/api/ask/route.ts`
-> 관련 문서: [PLAN.md](PLAN.md) · [office-reports/PHASE2_2_FRONTEND_QA.md](../office-reports/PHASE2_2_FRONTEND_QA.md)
+> 관련 문서: [PLAN.md](PLAN.md)
 
 ---
 

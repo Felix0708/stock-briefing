@@ -10,6 +10,24 @@ export async function resolve(specifier, context, nextResolve) {
     };
   }
 
+  if (specifier === "next/headers") {
+    return {
+      shortCircuit: true,
+      url: "data:text/javascript,export async function cookies(){return globalThis.__testCookieJar}",
+    };
+  }
+
+  if (specifier === "next/server") {
+    return nextResolve("next/server.js", context);
+  }
+
+  if (specifier.startsWith("@/")) {
+    return {
+      shortCircuit: true,
+      url: new URL(`../src/${specifier.slice(2)}.ts`, import.meta.url).href,
+    };
+  }
+
   try {
     return await nextResolve(specifier, context);
   } catch (error) {

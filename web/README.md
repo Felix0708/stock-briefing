@@ -4,7 +4,7 @@ Phase 2-2 질문·답변 웹앱용 Next.js 프로젝트입니다. Gemini와 Supa
 
 ## 요구 환경
 
-- Node.js 20.9 이상
+- Node.js 20.19 이상
 - npm 10 이상
 
 ## 로컬 실행
@@ -42,6 +42,7 @@ scripts/qa.sh --build
 | `EMBEDDING_DIM` | DB 벡터 차원. `db/schema.sql`의 `vector(768)`과 일치해야 함 | 일반 설정 |
 | `SUPABASE_URL` | Supabase 프로젝트 URL | 일반 설정 |
 | `SUPABASE_SECRET_KEY` | `match_filings` 서버 호출용 Secret key | Secret |
+| `SUPABASE_ANON_KEY` | 로그인용 publishable(anon) key. 서버에서만 사용 | 일반 설정 |
 | `UPSTASH_REDIS_REST_URL` | 공개 질문 API rate limit용 Redis REST URL | 일반 설정 |
 | `UPSTASH_REDIS_REST_TOKEN` | 공개 질문 API rate limit용 Redis REST token | Secret |
 | `RATE_LIMIT_IP_HASH_KEY` | 원본 IP를 Redis에 남기지 않기 위한 HMAC key | Secret |
@@ -52,6 +53,8 @@ scripts/qa.sh --build
 | `GEMINI_ANSWER_DAILY_BUDGET` | 답변 모델 24시간 호출 예산. 확정값 16 | 일반 설정 |
 | `RAG_MATCH_COUNT` | 검색할 공시 청크 개수 | 일반 설정 |
 | `RAG_MIN_SIMILARITY` | 답변 근거로 사용할 최소 코사인 유사도 | 일반 설정 |
+| `GITHUB_DISPATCH_TOKEN` | 온디맨드 수집 Actions 실행용 fine-grained PAT | Secret |
+| `GITHUB_REPO` | 온디맨드 수집 대상 `owner/repo` | 일반 설정 |
 
 `GEMINI_API_KEY`, `SUPABASE_SECRET_KEY`, `UPSTASH_REDIS_REST_TOKEN`,
 `RATE_LIMIT_IP_HASH_KEY`에는 `NEXT_PUBLIC_` 접두사를 절대 붙이지 않습니다. 실제 값은

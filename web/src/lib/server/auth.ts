@@ -149,8 +149,9 @@ export async function fetchUser(accessToken: string): Promise<AuthUser | null> {
       typeof user.user_metadata?.nickname === "string" ? user.user_metadata.nickname : null;
     const briefingEmail = user.user_metadata?.briefing_email === true;
     return { id: user.id, email: user.email, nickname, briefingEmail };
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof UpstreamError && error.status === 401) return null;
+    throw error;
   }
 }
 

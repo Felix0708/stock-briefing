@@ -7,7 +7,7 @@
 
 | 파일 | 역할 | 외부 변경 |
 |---|---|---|
-| `.github/workflows/quality.yml` | Python 구문, 웹 lint·typecheck·테스트·build, Secret 정적 검사 | 없음 |
+| `.github/workflows/quality.yml` | Python 구문, 웹 lint·typecheck·테스트·build, production 의존성 audit, Secret 정적 검사 | 없음 |
 | `.github/workflows/daily-briefing.yml` | 평일 공시 수집·요약·메일·인덱싱, `docs/data` 커밋 | Git push 및 Pages 워크플로 호출 |
 | `.github/workflows/deploy-pages.yml` | `docs/` 정적 대시보드 배포 | GitHub Pages 배포 |
 
@@ -34,13 +34,14 @@ main 브랜치 보호 규칙에는 `quality / qa`를 필수 상태 검사로 등
 
 1. 아래 배포 전 게이트를 통과한 뒤 이 Git 저장소를 Vercel에 Import한다.
 2. Project Settings → Build and Deployment → Root Directory를 `web`으로 지정한다.
-3. Framework Preset은 Next.js, Node.js는 20.x로 설정한다.
+3. Framework Preset은 Next.js, Node.js는 20.x(20.19 이상)로 설정한다.
 4. 아래 변수를 Preview와 Production에 각각 등록한다.
 
 | 변수 | 분류 | 필수 |
 |---|---|---|
 | `GEMINI_API_KEY` | Sensitive | 예 |
 | `SUPABASE_SECRET_KEY` | Sensitive | 예 |
+| `SUPABASE_ANON_KEY` | 일반 설정 | 예 |
 | `SUPABASE_URL` | 일반 설정 | 예 |
 | `UPSTASH_REDIS_REST_TOKEN` | Sensitive | 예 |
 | `UPSTASH_REDIS_REST_URL` | 일반 설정 | 예 |
@@ -56,6 +57,8 @@ main 브랜치 보호 규칙에는 `quality / qa`를 필수 상태 검사로 등
 | `EMBEDDING_DIM` | 일반 설정 | 아니오 |
 | `RAG_MATCH_COUNT` | 일반 설정 | 아니오 |
 | `RAG_MIN_SIMILARITY` | 일반 설정 | 아니오 |
+| `GITHUB_DISPATCH_TOKEN` | Sensitive | 온디맨드 수집 시 예 |
+| `GITHUB_REPO` | 일반 설정 | 온디맨드 수집 시 예 |
 
 `GEMINI_API_KEY`, `SUPABASE_SECRET_KEY`, `UPSTASH_REDIS_REST_TOKEN`,
 `RATE_LIMIT_IP_HASH_KEY`에 `NEXT_PUBLIC_` 접두사를 붙이지 않는다.
@@ -68,7 +71,7 @@ Vercel CLI의 `.vercel/`과 로컬 `.env*`는 Git ignore 대상이다.
 네트워크 가능한 환경에서 다음 순서로 실행한다.
 
 ```bash
-npm --prefix web install
+npm --prefix web ci
 scripts/qa.sh --build
 ```
 
@@ -81,6 +84,7 @@ scripts/qa.sh --base-url http://localhost:3000
 다음 조건을 모두 충족한 뒤에만 Vercel 배포를 허용한다.
 
 - `package-lock.json`이 생성되어 Git에 포함됨
+- production 의존성 audit 고위험 취약점 0건
 - lint, typecheck, API 테스트, production build 실패 0건
 - production 브라우저 번들에서 실제 키 형태 문자열 미검출
 - 실제 질문 응답에 DART 출처가 포함됨

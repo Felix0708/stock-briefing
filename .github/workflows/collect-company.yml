@@ -35,6 +35,7 @@ jobs:
 
       - name: Collect and index company filings
         env:
+          TARGET_COMPANY: ${{ inputs.company }}
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -44,4 +45,4 @@ jobs:
           # EDINET(일본 공시) API 키. 없으면 일본 종목은 시세만 제공
           EDINET_API_KEY: ${{ secrets.EDINET_API_KEY }}
         # 최근 90일 공시를 최대 15건까지 인덱싱 (임베딩 예산 보호)
-        run: python -m pipeline.main --index-only --lookback 90 --companies "${{ inputs.company }}"
+        run: python -m pipeline.main --index-only --lookback 90 --companies "$TARGET_COMPANY"
