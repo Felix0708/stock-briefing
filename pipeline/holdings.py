@@ -63,56 +63,53 @@ def fetch_holdings_by_user(settings: Settings) -> dict[str, list[str]]:
     return result
 
 
-def fetch_holding_companies(settings: Settings) -> list[str]:
-    """holdings 테이블의 종목명 목록(중복 제거, 등록순)을 반환.
-
-    secret key는 RLS를 우회하므로 모든 사용자의 종목이 조회된다.
-    (개인 식별 정보 없이 종목명만 가져온다)
-    """
-    if not settings.rag_enabled:
-        return []
-
-    # 미국 종목은 DART에 없으므로 국내(KR)만 수집 대상에 합친다
-    response = requests.get(
-        f"{settings.supabase_url}/rest/v1/holdings",
-        params={"select": "stock_name", "market": "eq.KR", "order": "created_at.asc"},
-        headers=_secret_headers(settings),
-        timeout=_TIMEOUT,
-    )
-    response.raise_for_status()
-
-    seen: set[str] = set()
-    companies: list[str] = []
-    for row in response.json():
-        name = str(row.get("stock_name", "")).strip()
-        if name and name not in seen:
-            seen.add(name)
-            companies.append(name)
-    return companies
-
-def fetch_market_targets(settings: Settings) -> list[dict]:
-    """전 회원 보유 종목을 [{"name", "market", "code"}]로 반환 (중복 제거, 등록순).
-
-    시장별 공시 소스가 다르므로(KR→DART, US→EDGAR) 시장 정보가 필요하다.
-    """
+def _fetch_market_rows(settings: Settings) -> list[dict]:
     if not settings.rag_enabled:
         return []
     response = requests.get(
         f"{settings.supabase_url}/rest/v1/holdings",
-        params={"select": "stock_name,stock_code,market", "order": "created_at.asc"},
+        params={"select": "user_id,stock_name,stock_code,market", "order": "created_at.asc"},
         headers=_secret_headers(settings),
         timeout=_TIMEOUT,
     )
     response.raise_for_status()
+    return response.json()
+
+
+def dedupe_market_targets(rows: list[dict], allowed_user_ids: set[str] | None = None) -> list[dict]:
+    """회원·계좌 정보 없이 시장/코드 기준으로 브리핑 대상을 중복 제거한다."""
 
     seen: set[tuple[str, str]] = set()
     targets: list[dict] = []
-    for row in response.json():
+    for row in rows:
+        user_id = str(row.get("user_id", ""))
+        if allowed_user_ids is not None and user_id not in allowed_user_ids:
+            continue
         name = str(row.get("stock_name", "")).strip()
         market = str(row.get("market", "KR")).strip() or "KR"
         code = str(row.get("stock_code", "")).strip()
-        key = (market, name)
-        if name and key not in seen:
+        key = (market, code)
+        if name and code and key not in seen:
             seen.add(key)
             targets.append({"name": name, "market": market, "code": code})
     return targets
+
+
+def fetch_market_targets(settings: Settings) -> list[dict]:
+    """전 회원 보유 종목을 내부 수집·개인 알림 대상으로 반환."""
+    return dedupe_market_targets(_fetch_market_rows(settings))
+
+
+def fetch_public_market_targets(settings: Settings) -> list[dict]:
+    """명시적으로 동의한 회원의 종목만 익명·중복 제거해 공개 대상으로 반환."""
+    if not settings.rag_enabled:
+        return []
+    response = requests.get(
+        f"{settings.supabase_url}/rest/v1/member_settings",
+        params={"select": "user_id", "public_briefing_opt_in": "eq.true"},
+        headers=_secret_headers(settings),
+        timeout=_TIMEOUT,
+    )
+    response.raise_for_status()
+    opted_in = {str(row.get("user_id", "")) for row in response.json() if row.get("user_id")}
+    return dedupe_market_targets(_fetch_market_rows(settings), opted_in)

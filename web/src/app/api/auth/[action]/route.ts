@@ -3,12 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   applySessionCookies,
   clearSessionCookies,
+  fetchPublicBriefingOptIn,
   fetchUser,
   getSession,
   signIn,
   signOut,
   signUp,
   updateNickname,
+  updatePublicBriefingOptIn,
   updateUserMetadata,
 } from "@/lib/server/auth";
 import { ConfigurationError } from "@/lib/server/config";
@@ -32,11 +34,14 @@ function handleKnownError(error: unknown): NextResponse {
   }
   if (error instanceof UpstreamError) {
     const status = error.status ?? 502;
+    const authRejected =
+      error.service === "Supabase Auth" &&
+      (status === 400 || status === 401 || status === 422);
     const message =
-      status === 400 || status === 401 || status === 422
+      authRejected
         ? "이메일 또는 비밀번호를 확인해 주세요."
         : "인증 서버 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.";
-    return NextResponse.json({ error: message }, { status: status >= 500 ? 502 : 401 });
+    return NextResponse.json({ error: message }, { status: authRejected ? 401 : 502 });
   }
   return NextResponse.json({ error: "요청 처리에 실패했습니다." }, { status: 500 });
 }
@@ -126,9 +131,28 @@ export async function POST(req: NextRequest, { params }: Params): Promise<NextRe
       } catch {
         return badRequest("요청 본문이 올바르지 않습니다.");
       }
-      const briefingEmail = (body as { briefing_email?: unknown })?.briefing_email === true;
-      await updateUserMetadata(session.accessToken, { briefing_email: briefingEmail });
-      const res = NextResponse.json({ ok: true, briefingEmail });
+      const prefs = body as {
+        briefing_email?: unknown;
+        public_briefing_opt_in?: unknown;
+      };
+      const hasEmail = typeof prefs.briefing_email === "boolean";
+      const hasPublicOptIn = typeof prefs.public_briefing_opt_in === "boolean";
+      if (!hasEmail && !hasPublicOptIn) return badRequest("변경할 설정이 없습니다.");
+
+      const result: Record<string, boolean> = { ok: true };
+      if (hasEmail) {
+        const briefingEmail = prefs.briefing_email as boolean;
+        await updateUserMetadata(session.accessToken, { briefing_email: briefingEmail });
+        result.briefingEmail = briefingEmail;
+      }
+      if (hasPublicOptIn) {
+        const user = await fetchUser(session.accessToken);
+        if (!user) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
+        const publicBriefingOptIn = prefs.public_briefing_opt_in as boolean;
+        await updatePublicBriefingOptIn(session.accessToken, user.id, publicBriefingOptIn);
+        result.publicBriefingOptIn = publicBriefingOptIn;
+      }
+      const res = NextResponse.json(result);
       if (session.renewedTokens) applySessionCookies(res, session.renewedTokens);
       return res;
     }
@@ -156,9 +180,17 @@ export async function GET(_req: NextRequest, { params }: Params): Promise<NextRe
     if (!session) return NextResponse.json({ user: null });
 
     const user = await fetchUser(session.accessToken);
+    const publicBriefingOptIn = user
+      ? await fetchPublicBriefingOptIn(session.accessToken)
+      : false;
     const res = NextResponse.json({
       user: user
-        ? { email: user.email, nickname: user.nickname, briefingEmail: user.briefingEmail }
+        ? {
+            email: user.email,
+            nickname: user.nickname,
+            briefingEmail: user.briefingEmail,
+            publicBriefingOptIn,
+          }
         : null,
     });
     if (session.renewedTokens) applySessionCookies(res, session.renewedTokens);

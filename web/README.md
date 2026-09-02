@@ -41,7 +41,7 @@ scripts/qa.sh --build
 | `EMBEDDING_MODEL` | 질문 임베딩 모델 | 일반 설정 |
 | `EMBEDDING_DIM` | DB 벡터 차원. `db/schema.sql`의 `vector(768)`과 일치해야 함 | 일반 설정 |
 | `SUPABASE_URL` | Supabase 프로젝트 URL | 일반 설정 |
-| `SUPABASE_SECRET_KEY` | `match_filings` 서버 호출용 Secret key | Secret |
+| `SUPABASE_SECRET_KEY` | `match_filings`, 연동 토큰 해시 저장, 스냅샷 RPC용 서버 Secret key | Secret |
 | `SUPABASE_ANON_KEY` | 로그인용 publishable(anon) key. 서버에서만 사용 | 일반 설정 |
 | `UPSTASH_REDIS_REST_URL` | 공개 질문 API rate limit용 Redis REST URL | 일반 설정 |
 | `UPSTASH_REDIS_REST_TOKEN` | 공개 질문 API rate limit용 Redis REST token | Secret |
@@ -73,4 +73,5 @@ Vercel 설정과 배포 전 점검은 [`docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.
 - API Route: `src/app/api/ask/route.ts`
 - 외부 API 호출: 서버 전용 모듈의 `fetch` 사용
 - 검색 RPC: `match_filings`
+- 연동 API: 로그인 회원용 `/api/integration-token`, 로컬 러너용 `PUT /api/sync/holdings`
 - 브라우저에는 질문과 최종 응답·출처만 전달하고 Secret key는 전달하지 않음

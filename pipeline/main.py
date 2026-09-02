@@ -37,8 +37,10 @@ def run(
     # 수집 대상: {"name", "market", "code"} — 시장별로 공시 소스가 다르다 (KR→DART, US→EDGAR)
     if companies:
         targets = [{"name": c, "market": "KR", "code": ""} for c in companies]
+        public_target_keys = {("KR", c) for c in companies}
     else:
         targets = [{"name": c, "market": "KR", "code": ""} for c in settings.watchlist]
+        public_target_keys = {("KR", c) for c in settings.watchlist}
         try:
             known = {t["name"] for t in targets}
             extras = []
@@ -53,6 +55,14 @@ def run(
                 print(f"보유 종목 추가 수집 대상: {extras}")
         except Exception as e:
             print(f"⚠ 보유 종목 조회 실패 (watchlist만 사용): {e}")
+        try:
+            public_target_keys.update(
+                (row["market"], row["name"])
+                for row in holdings.fetch_public_market_targets(settings)
+            )
+        except Exception as e:
+            # 동의 조회 실패 시 공개 범위를 넓히지 않고 watchlist만 공개한다.
+            print(f"⚠ 공개 동의 종목 조회 실패 (watchlist만 공개): {e}")
 
     if not targets:
         print("수집 대상이 없습니다 (watchlist 비어 있음 + 등록된 보유 종목 없음). 정상 종료.")
@@ -164,7 +174,9 @@ def run(
                 + "".join(f"<li>{f['report_nm']} ({f['rcept_dt']})</li>" for f in filings)
                 + "</ul><p><i>AI 요약 생성에 실패해 목록만 표시합니다.</i></p>"
             )
-        sections.append({"company": company, "summary_html": summary_html, "filings": filings})
+        sections.append(
+            {"company": company, "market": market, "summary_html": summary_html, "filings": filings}
+        )
 
         # Phase 2: RAG용 임베딩 저장 (Supabase 설정이 있을 때만, dry-run 제외)
         # 실패해도 브리핑 자체는 계속되도록 개별 공시 단위로 예외 처리
@@ -185,9 +197,14 @@ def run(
     # dry-run은 배포 대상(docs/data)을 건드리지 않고 .preview/에 저장
     # → 로컬 테스트가 git 충돌을 만들지 않도록 분리
     if dry_run:
-        out_json = publish.publish(sections, base_dir=Path(".preview"), watchlist=settings.watchlist)
+        out_json = publish.publish(
+            sections,
+            public_target_keys,
+            base_dir=Path(".preview"),
+            watchlist=settings.watchlist,
+        )
     else:
-        out_json = publish.publish(sections, watchlist=settings.watchlist)
+        out_json = publish.publish(sections, public_target_keys, watchlist=settings.watchlist)
     print(f"[4/4] 웹 대시보드 데이터 저장: {out_json}")
 
     # Phase 3 알림: 수신 동의 회원에게 보유 종목 공시만 맞춤 발송

@@ -73,8 +73,13 @@ python -m http.server 8000 --directory docs
 
 ## 7. Phase 2 — RAG 인덱싱 켜기 (Supabase)
 
-1. Supabase 대시보드 → **SQL Editor** → `db/schema.sql` 내용 전체 붙여넣기 → **Run**
-   (테이블 + 검색 함수가 생성됨. "Success"만 나오면 성공)
+1. Supabase 대시보드 → **SQL Editor**에서 아래 순서로 각 파일 전체를 실행합니다.
+   - `db/schema.sql`
+   - `db/schema_phase3.sql`
+   - `db/schema_phase4.sql`
+   - `db/schema_phase5.sql`
+   - 마지막 확인: `db/verify_schema.sql`
+   기존 Phase 4 운영 DB라면 `schema_phase5.sql`과 `verify_schema.sql`만 실행하면 됩니다.
 2. `.env`에 추가:
    ```
    SUPABASE_URL=https://<프로젝트ID>.supabase.co
@@ -83,6 +88,17 @@ python -m http.server 8000 --directory docs
 3. GitHub 저장소 secrets에도 같은 이름으로 2개 등록
 4. 이후 파이프라인이 돌 때마다 공시 원문이 자동으로 벡터 DB에 쌓임
    (설정이 없으면 이 단계는 조용히 건너뛰므로 Phase 1 동작에는 영향 없음)
+
+### Stock-Trading 연동 배포 순서
+
+1. 먼저 운영 Supabase에 `db/schema_phase5.sql`을 적용하고 `db/verify_schema.sql`이 `PASS`인지 확인합니다.
+2. GitHub Actions와 Vercel 양쪽에 같은 `SUPABASE_URL`, `SUPABASE_SECRET_KEY`가 등록되어 있는지 확인합니다.
+   Secret key는 서버 전용이며 `NEXT_PUBLIC_` 접두사를 붙이지 않습니다.
+3. 웹을 배포한 뒤 회원으로 로그인해 포트폴리오의 **Stock-Trading 자동 연동**에서 토큰을 발급합니다.
+4. 토큰 원문은 그 응답에서만 복사할 수 있습니다. 재발급하면 이전 토큰은 즉시 무효, 폐기하면 동기화가
+   즉시 401로 거부됩니다. 기존 자동 보유종목 행은 토큰 폐기만으로 삭제되지 않으므로 필요하면 빈 스냅샷을
+   먼저 전송합니다.
+5. 공개 브리핑 포함 설정은 기본 `false`입니다. 동의하지 않아도 본인 화면·개인 메일·RAG 수집은 유지됩니다.
 
 ## 8. Phase 2-2 — 질문 웹앱과 Vercel
 

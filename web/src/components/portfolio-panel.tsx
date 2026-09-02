@@ -11,6 +11,8 @@ type Holding = {
   quantity: number;
   avg_price: number;
   market: "KR" | "US" | "JP";
+  source: "manual" | "stock_trading";
+  account_type: "manual" | "paper" | "live";
 };
 
 type Quote = {
@@ -23,6 +25,10 @@ type Quote = {
 
 function quoteKey(holding: Holding): string {
   return holding.market === "KR" ? holding.stock_code : `${holding.market}:${holding.stock_code}`;
+}
+
+function holdingKey(holding: Holding): string {
+  return `${holding.source}:${holding.market}:${holding.stock_code}:${holding.account_type}`;
 }
 
 function currencyOf(market: "KR" | "US" | "JP"): "KRW" | "USD" | "JPY" {
@@ -39,7 +45,12 @@ function formatMoney(value: number, currency: "KRW" | "USD" | "JPY"): string {
   return `${Math.round(value).toLocaleString("ko-KR")}`;
 }
 
-type SessionUser = { email: string; nickname?: string | null; briefingEmail?: boolean } | null;
+type SessionUser = {
+  email: string;
+  nickname?: string | null;
+  briefingEmail?: boolean;
+  publicBriefingOptIn?: boolean;
+} | null;
 
 const PIE_COLORS = [
   "#2563eb", "#f59e0b", "#10b981", "#ef4444",
@@ -97,6 +108,16 @@ export function PortfolioPanel() {
   const [jpyKrw, setJpyKrw] = useState<number | null>(null);
   const [listBusy, setListBusy] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
+
+  // Stock-Trading 자동 연동 토큰. 원문은 발급 직후 메모리에만 둔다.
+  const [tokenStatus, setTokenStatus] = useState<{
+    active: boolean;
+    tokenHint?: string;
+    issuedAt?: string;
+  }>({ active: false });
+  const [plainToken, setPlainToken] = useState<string | null>(null);
+  const [tokenBusy, setTokenBusy] = useState(false);
+  const [tokenMessage, setTokenMessage] = useState<string | null>(null);
 
   // 등록 폼 ("직접 입력" 또는 내가 이미 등록한 종목의 수량·단가 갱신)
   const [selectedPreset, setSelectedPreset] = useState<string>("custom");
@@ -169,6 +190,14 @@ export function PortfolioPanel() {
     }
   }, [loadQuotes]);
 
+  const loadTokenStatus = useCallback(async () => {
+    try {
+      setTokenStatus(await api("/api/integration-token"));
+    } catch (error) {
+      setListError(error instanceof Error ? error.message : "연동 상태를 불러오지 못했습니다.");
+    }
+  }, []);
+
   // 세션 확인
   useEffect(() => {
     let cancelled = false;
@@ -188,11 +217,17 @@ export function PortfolioPanel() {
   }, []);
 
   useEffect(() => {
-    if (user) void loadHoldings();
-  }, [user, loadHoldings]);
+    if (user) {
+      void loadHoldings();
+      void loadTokenStatus();
+    }
+  }, [user, loadHoldings, loadTokenStatus]);
 
   useEffect(() => {
-    if (selectedPreset !== "custom" && !holdings.some((h) => h.stock_code === selectedPreset)) {
+    if (
+      selectedPreset !== "custom" &&
+      !holdings.some((holding) => holding.source === "manual" && holdingKey(holding) === selectedPreset)
+    ) {
       setSelectedPreset("custom");
     }
   }, [holdings, selectedPreset]);
@@ -258,11 +293,57 @@ export function PortfolioPanel() {
     }
   }
 
+  async function handlePublicToggle(next: boolean) {
+    setUser((current) => (current ? { ...current, publicBriefingOptIn: next } : current));
+    try {
+      await api("/api/auth/prefs", {
+        method: "POST",
+        body: JSON.stringify({ public_briefing_opt_in: next }),
+      });
+    } catch (error) {
+      setUser((current) => (current ? { ...current, publicBriefingOptIn: !next } : current));
+      setListError(error instanceof Error ? error.message : "공개 설정 저장에 실패했습니다.");
+    }
+  }
+
+  async function handleIssueToken() {
+    setTokenBusy(true);
+    setTokenMessage(null);
+    try {
+      const result = await api<{ token: string; tokenHint: string }>("/api/integration-token", {
+        method: "POST",
+      });
+      setPlainToken(result.token);
+      setTokenMessage("지금 복사해 안전하게 보관하세요. 화면을 벗어나면 다시 볼 수 없습니다.");
+      await loadTokenStatus();
+    } catch (error) {
+      setListError(error instanceof Error ? error.message : "토큰 발급에 실패했습니다.");
+    } finally {
+      setTokenBusy(false);
+    }
+  }
+
+  async function handleRevokeToken() {
+    setTokenBusy(true);
+    try {
+      await api("/api/integration-token", { method: "DELETE" });
+      setPlainToken(null);
+      setTokenStatus({ active: false });
+      setTokenMessage("연동 토큰을 폐기했습니다.");
+    } catch (error) {
+      setListError(error instanceof Error ? error.message : "토큰 폐기에 실패했습니다.");
+    } finally {
+      setTokenBusy(false);
+    }
+  }
+
   async function handleLogout() {
     await api("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     setUser(null);
     setHoldings([]);
     setQuotes({});
+    setPlainToken(null);
+    setTokenStatus({ active: false });
   }
 
   async function handleAdd(event: FormEvent) {
@@ -270,7 +351,9 @@ export function PortfolioPanel() {
     setFormBusy(true);
     setFormError(null);
 
-    const owned = holdings.find((row) => row.stock_code === selectedPreset);
+    const owned = holdings.find(
+      (row) => row.source === "manual" && holdingKey(row) === selectedPreset,
+    );
     const stockCode = isCustom ? customCode.trim() : owned?.stock_code ?? "";
     const stockName = isCustom ? customName.trim() : owned?.stock_name ?? "";
     const market = isCustom ? customMarket : owned?.market ?? "KR";
@@ -316,9 +399,13 @@ export function PortfolioPanel() {
     }
   }
 
-  async function handleDelete(code: string) {
+  async function handleDelete(holding: Holding) {
+    if (holding.source !== "manual") return;
     try {
-      await api(`/api/holdings?code=${code}`, { method: "DELETE" });
+      await api(
+        `/api/holdings?code=${encodeURIComponent(holding.stock_code)}&market=${holding.market}`,
+        { method: "DELETE" },
+      );
       await loadHoldings();
     } catch (error) {
       setListError(error instanceof Error ? error.message : "삭제에 실패했습니다.");
@@ -438,6 +525,17 @@ export function PortfolioPanel() {
             />
             아침 브리핑 메일
           </label>
+          <label
+            className="pf-mail-toggle"
+            title="동의한 회원의 종목명만 중복 제거해 익명 공용 브리핑 수집 대상에 포함합니다"
+          >
+            <input
+              type="checkbox"
+              checked={!!user.publicBriefingOptIn}
+              onChange={(event) => void handlePublicToggle(event.target.checked)}
+            />
+            내 보유종목 익명 공용 브리핑 포함
+          </label>
           {editingNick ? (
             <form className="pf-nick-form" onSubmit={handleNickname}>
               <input
@@ -471,6 +569,46 @@ export function PortfolioPanel() {
         </div>
       </section>
 
+      <section className="pf-card" aria-labelledby="pf-integration-title">
+        <h2 id="pf-integration-title">Stock-Trading 자동 연동</h2>
+        <p className="pf-muted">
+          로컬 Stock-Trading이 이 계정의 보유종목 전체 스냅샷만 동기화합니다.
+          증권사 API 키·비밀번호는 보내지 마세요.
+        </p>
+        <div className="pf-token-actions">
+          <button type="button" className="pf-primary" disabled={tokenBusy} onClick={() => void handleIssueToken()}>
+            {tokenBusy ? "처리 중..." : tokenStatus.active ? "토큰 재발급" : "토큰 발급"}
+          </button>
+          {tokenStatus.active && (
+            <button type="button" className="pf-ghost" disabled={tokenBusy} onClick={() => void handleRevokeToken()}>
+              토큰 폐기
+            </button>
+          )}
+          {tokenStatus.active && (
+            <span className="pf-muted">
+              활성 토큰 · 끝 6자리 {tokenStatus.tokenHint}
+              {tokenStatus.issuedAt ? ` · ${new Date(tokenStatus.issuedAt).toLocaleString("ko-KR")}` : ""}
+            </span>
+          )}
+        </div>
+        {plainToken && (
+          <div className="pf-token-once" role="status">
+            <code>{plainToken}</code>
+            <button
+              type="button"
+              className="pf-ghost"
+              onClick={() => {
+                void navigator.clipboard.writeText(plainToken);
+                setTokenMessage("토큰을 클립보드에 복사했습니다.");
+              }}
+            >
+              복사
+            </button>
+          </div>
+        )}
+        {tokenMessage && <p className="pf-notice">{tokenMessage}</p>}
+      </section>
+
       <section className="pf-card" aria-labelledby="pf-add-title">
         <h2 id="pf-add-title">종목 등록</h2>
         <form className="pf-add-form" onSubmit={handleAdd}>
@@ -482,8 +620,8 @@ export function PortfolioPanel() {
               onChange={(event) => setSelectedPreset(event.target.value)}
             >
               <option value="custom">직접 입력 (새 종목)</option>
-              {holdings.map((row) => (
-                <option key={row.stock_code} value={row.stock_code}>
+              {holdings.filter((row) => row.source === "manual").map((row) => (
+                <option key={holdingKey(row)} value={holdingKey(row)}>
                   {row.stock_name} ({row.stock_code}) — 수량·단가 갱신
                 </option>
               ))}
@@ -706,7 +844,7 @@ export function PortfolioPanel() {
                 </thead>
                 <tbody>
                   {computed.rows.map((row, index) => (
-                    <tr key={row.holding.stock_code}>
+                    <tr key={holdingKey(row.holding)}>
                       <td>
                         <span
                           className="pf-dot"
@@ -714,6 +852,11 @@ export function PortfolioPanel() {
                           aria-hidden="true"
                         />
                         {row.holding.stock_name}
+                        {row.holding.source === "stock_trading" && (
+                          <span className="pf-source-badge">
+                            자동 · {row.holding.account_type === "paper" ? "모의" : "실계좌"}
+                          </span>
+                        )}
                       </td>
                       <td>{row.holding.quantity.toLocaleString("ko-KR")}</td>
                       <td>{formatMoney(row.holding.avg_price, row.currency)}</td>
@@ -738,14 +881,16 @@ export function PortfolioPanel() {
                       </td>
                       <td>{computed.weights[index].toFixed(1)}%</td>
                       <td>
-                        <button
-                          type="button"
-                          className="pf-delete"
-                          aria-label={`${row.holding.stock_name} 삭제`}
-                          onClick={() => void handleDelete(row.holding.stock_code)}
-                        >
-                          ✕
-                        </button>
+                        {row.holding.source === "manual" && (
+                          <button
+                            type="button"
+                            className="pf-delete"
+                            aria-label={`${row.holding.stock_name} 삭제`}
+                            onClick={() => void handleDelete(row.holding)}
+                          >
+                            ✕
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}

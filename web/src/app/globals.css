@@ -1321,3 +1321,23 @@ a.source-item:focus-visible {
   white-space: nowrap;
 }
 .pf-mail-toggle input { accent-color: var(--primary); width: 15px; height: 15px; }
+
+.pf-token-actions,
+.pf-token-once { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.pf-token-once code {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+}
+.pf-source-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  font-size: 0.7rem;
+}

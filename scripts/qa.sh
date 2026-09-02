@@ -89,6 +89,12 @@ else
   fail "Python 모듈 구문 검사 실패"
 fi
 
+if PYTHONPYCACHEPREFIX="$PYTHON_CACHE_DIR" "$PYTHON_BIN" -m unittest discover -s tests -p 'test_*.py'; then
+  pass "Python 공개/개인 데이터 경계 테스트 성공"
+else
+  fail "Python 공개/개인 데이터 경계 테스트 실패"
+fi
+
 section "저장소 구조·문서 점검"
 if git diff --check && git show --check --format= HEAD; then
   pass "Git 공백 오류 없음"

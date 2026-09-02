@@ -20,26 +20,28 @@
 | 💼 **3개 시장 포트폴리오** | 한국·미국·일본 종목 등록(수량·평단가) → 실시간 시세 + USD/JPY 환율 자동 환산 → 원화 기준 수익률·비중 도넛차트 |
 | 🔍 **종목 자동완성** | "skt", "삼전", "apple" 같은 입력도 정식 종목명·코드로 해석 |
 | 👤 **회원 시스템** | 이메일 로그인(httpOnly 쿠키 세션), 닉네임, 알림 수신 토글. 보유 종목은 RLS로 본인만 접근 |
+| 🔗 **Stock-Trading 연동** | 회원별 1회 표시 토큰으로 로컬 러너의 전체 잔고 스냅샷 동기화. 서버에는 SHA-256 해시만 저장 |
+| 🕶️ **공개 범위 동의** | 기본 비동의. watchlist와 동의 회원의 종목명만 익명·중복 제거해 공개 브리핑에 포함 |
 
 ## 아키텍처
 
 ```
 [배치 축 — GitHub Actions, 평일 07:30 KST]
-  watchlist.yaml + 회원 보유 종목(Supabase)
+  내부 수집: watchlist.yaml + 전 회원 보유 종목(Supabase)
       → dart.py (DART OpenAPI: 공시 목록·원문)
       → summarize.py (Gemini flash-lite 요약)
       → embed.py (Gemini 임베딩 → Supabase pgvector, RAG 인덱싱)
-      → publish.py (GitHub Pages 대시보드 JSON)
+      → publish.py (공개 JSON은 watchlist + 공개 동의 종목만)
       → emailer.py + notify.py (회원별 맞춤 메일, 중요 공시 ⚠️)
 
 [웹 축 — Next.js on Vercel]
   /            공시 Q&A: 질문 → 임베딩 → match_filings 벡터검색 → Gemini 답변+출처
-  /portfolio   로그인 · 종목 등록 · 실시간 시세/환율 · 수익률/비중 차트
-  /api/*       ask · auth · holdings · quotes · stocks · coverage · collect
+  /portfolio   로그인 · 종목 등록 · 연동 토큰 · 공개 동의 · 수익률/비중 차트
+  /api/*       ask · auth · holdings · integration-token · sync/holdings · quotes 등
                 └ collect는 workflow_dispatch로 배치 축의 수집을 원격 실행
 
 [데이터 축 — Supabase]
-  filings(공시 청크 + pgvector) · holdings(보유 종목, RLS) · Auth(회원)
+  filings · holdings(RLS) · member_settings(RLS) · integration_tokens(서버 전용 해시) · Auth
 ```
 
 ## 모듈 구조
@@ -58,10 +60,41 @@
 | `web/src/app/api/ask` | RAG 질문 답변 (rate limit, 일일 예산 관리) |
 | `web/src/app/api/auth` | 회원 가입·로그인·닉네임·설정 (GoTrue REST + httpOnly 쿠키) |
 | `web/src/app/api/holdings` | 보유 종목 CRUD (사용자 토큰 → PostgREST, RLS 강제) |
+| `web/src/app/api/integration-token` | 로그인 회원의 개인 연동 토큰 발급·재발급·폐기. 원문은 발급 응답에서 한 번만 표시 |
+| `web/src/app/api/sync/holdings` | 연동 토큰 인증 전체 스냅샷 API. 회원 ID는 토큰 해시 조회 결과에서만 결정 |
 | `web/src/app/api/quotes` | 한·미·일 시세 + 환율 프록시 (교체 가능하게 격리) |
 | `web/src/app/api/stocks` | 종목 자동완성 (국가별 필터) |
 | `web/src/app/api/collect` | 온디맨드 수집 트리거 (종목명 자동 해석 → Actions 원격 실행) |
 | `db/schema*.sql` | pgvector · holdings · RLS · 권한 (단계별 마이그레이션) |
+
+## Stock-Trading 스냅샷 API
+
+포트폴리오에서 발급한 토큰을 로컬 Stock-Trading 러너에만 저장하고 다음 계약으로 호출합니다.
+같은 시장·종목·계정유형을 여러 증권사에서 보유하면 호출 전에 수량과 가중평균 단가를 합산해야 합니다.
+
+```http
+PUT /api/sync/holdings
+Authorization: Bearer sb_sync_...
+Content-Type: application/json
+
+{
+  "holdings": [
+    {
+      "market": "KR",
+      "stock_code": "005930",
+      "stock_name": "삼성전자",
+      "quantity": 10,
+      "avg_price": 71200,
+      "account_type": "live"
+    }
+  ]
+}
+```
+
+`account_type`은 `paper` 또는 `live`입니다. 빈 `holdings` 배열은 자동 동기화 행 전체 삭제를
+뜻하며, 수동 등록 행과 다른 회원 행은 건드리지 않습니다. `user_id`, 증권사 API 키·비밀번호·계좌번호는
+요청 필드가 아니며 보내면 거부됩니다. 이 데이터와 `important_sections` 공개 JSON은 참고용이고 자동 주문
+조건이 아닙니다.
 
 ## 설계 결정 기록 (요약)
 
@@ -70,6 +103,7 @@
 - **GitHub Actions를 서버로**: public 저장소 무료 무제한 → 유지비 0원 배치.
 - **실패 격리 원칙**: 종목·회원·API 하나의 실패가 전체를 멈추지 않는다.
 - **비밀은 서버에만**: `NEXT_PUBLIC_` 금지, httpOnly 쿠키 세션, RLS로 행 단위 접근 제어.
+- **공개 최소화**: 비동의 보유종목도 개인 메일·RAG 수집에는 사용하지만 `docs/data`에는 포함하지 않음.
 - **교체 가능성 격리**: 비공식 시세 API는 `/api/quotes` 한 파일에 가둠 — 공식 API 전환 시 이 파일만 교체.
 - **수익률은 현지 통화, 평가액은 원화**: 주가 변동과 환율 변동을 한 숫자에 뭉개지 않는다.
 

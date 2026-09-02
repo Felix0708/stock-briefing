@@ -28,6 +28,36 @@ export type AuthUser = {
   briefingEmail: boolean;
 };
 
+export async function fetchPublicBriefingOptIn(accessToken: string): Promise<boolean> {
+  const rows = await requestJson<{ public_briefing_opt_in?: unknown }[]>(
+    "Supabase",
+    `${supabaseUrl()}/rest/v1/member_settings?select=public_briefing_opt_in&limit=1`,
+    { method: "GET", headers: userHeaders(accessToken) },
+    { attempts: 1 },
+  );
+  return rows[0]?.public_briefing_opt_in === true;
+}
+
+export async function updatePublicBriefingOptIn(
+  accessToken: string,
+  userId: string,
+  enabled: boolean,
+): Promise<void> {
+  await requestJson(
+    "Supabase",
+    `${supabaseUrl()}/rest/v1/member_settings?on_conflict=user_id`,
+    {
+      method: "POST",
+      headers: {
+        ...userHeaders(accessToken),
+        Prefer: "resolution=merge-duplicates,return=representation",
+      },
+      body: JSON.stringify({ user_id: userId, public_briefing_opt_in: enabled }),
+    },
+    { attempts: 1 },
+  );
+}
+
 type GoTrueSession = {
   access_token?: string;
   refresh_token?: string;

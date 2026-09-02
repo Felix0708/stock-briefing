@@ -89,6 +89,7 @@ scripts/qa.sh --base-url http://localhost:3000
 - production 브라우저 번들에서 실제 키 형태 문자열 미검출
 - 실제 질문 응답에 DART 출처가 포함됨
 - 운영 Supabase에 최신 `db/schema.sql`이 적용됨
+- 운영 Supabase에 `db/schema_phase5.sql` 적용 후 `db/verify_schema.sql` PASS
 - Upstash Redis가 연결되고 정상·초과·장애 시나리오가 각각 검증됨
 - 확정값 `RATE_LIMIT_GLOBAL_RPM=8`, 답변 `8/16`, 임베딩 `80/800`을 Vercel에 등록함
 - Vercel WAF가 `POST /api/ask`에 정책 문서의 보조 제한으로 설정됨

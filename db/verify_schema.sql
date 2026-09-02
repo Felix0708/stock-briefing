@@ -6,6 +6,9 @@ declare
   rpc regprocedure := to_regprocedure(
     'public.match_filings(vector,integer,text,double precision)'
   );
+  sync_rpc regprocedure := to_regprocedure(
+    'public.replace_synced_holdings(uuid,jsonb)'
+  );
 begin
   if not exists (
     select 1
@@ -79,9 +82,63 @@ begin
   ) then
     raise exception '검증 실패: match_filings는 SECURITY INVOKER와 빈 search_path여야 합니다.';
   end if;
+
+  if to_regclass('public.integration_tokens') is null
+     or to_regclass('public.member_settings') is null
+     or sync_rpc is null then
+    raise exception '검증 실패: Phase 5 연동 테이블/RPC가 없습니다.';
+  end if;
+
+  if has_table_privilege('anon', 'public.integration_tokens', 'SELECT,INSERT,UPDATE,DELETE')
+     or has_table_privilege('authenticated', 'public.integration_tokens', 'SELECT,INSERT,UPDATE,DELETE') then
+    raise exception '검증 실패: 브라우저 역할이 integration_tokens에 접근할 수 있습니다.';
+  end if;
+
+  if not has_table_privilege('service_role', 'public.integration_tokens', 'SELECT')
+     or not has_table_privilege('service_role', 'public.integration_tokens', 'INSERT')
+     or not has_table_privilege('service_role', 'public.integration_tokens', 'UPDATE')
+     or not has_table_privilege('service_role', 'public.integration_tokens', 'DELETE') then
+    raise exception '검증 실패: service_role의 integration_tokens 권한이 부족합니다.';
+  end if;
+
+  if has_table_privilege('anon', 'public.member_settings', 'SELECT,INSERT,UPDATE,DELETE')
+     or not has_table_privilege('authenticated', 'public.member_settings', 'SELECT')
+     or not has_table_privilege('authenticated', 'public.member_settings', 'INSERT')
+     or not has_table_privilege('authenticated', 'public.member_settings', 'UPDATE')
+     or has_table_privilege('authenticated', 'public.member_settings', 'DELETE,TRUNCATE,REFERENCES,TRIGGER') then
+    raise exception '검증 실패: member_settings 역할별 권한이 안전하지 않습니다.';
+  end if;
+
+  if has_function_privilege('anon', sync_rpc, 'EXECUTE')
+     or has_function_privilege('authenticated', sync_rpc, 'EXECUTE')
+     or not has_function_privilege('service_role', sync_rpc, 'EXECUTE') then
+    raise exception '검증 실패: replace_synced_holdings 실행 권한이 안전하지 않습니다.';
+  end if;
+
+  if exists (
+    select 1
+    from pg_proc
+    where oid = sync_rpc
+      and (prosecdef or not ('search_path=""' = any(coalesce(proconfig, '{}'))))
+  ) then
+    raise exception '검증 실패: replace_synced_holdings는 SECURITY INVOKER와 빈 search_path여야 합니다.';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relname in ('holdings', 'member_settings', 'integration_tokens')
+      and c.relrowsecurity
+    group by n.nspname
+    having count(*) = 3
+  ) then
+    raise exception '검증 실패: 회원 데이터 테이블 3개의 RLS가 모두 활성화되지 않았습니다.';
+  end if;
 end
 $$;
 
 select
   'PASS' as result,
-  'filings RLS, match_filings 권한, service_role 접근 검증 완료' as detail;
+  'filings/회원 데이터 RLS, RPC, 역할별 최소 권한 검증 완료' as detail;

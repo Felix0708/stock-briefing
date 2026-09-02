@@ -12,11 +12,50 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+from .notify import IMPORTANT_KEYWORDS
+
 DATA_DIR = Path(__file__).resolve().parent.parent / "docs" / "data"
+
+
+def _public_sections(sections: list[dict]) -> list[dict]:
+    """공개 JSON 필드를 allowlist로 재구성해 회원·계좌 데이터 혼입을 막는다."""
+    result = []
+    for section in sections:
+        filings = [
+            {
+                key: filing[key]
+                for key in ("report_nm", "rcept_no", "rcept_dt", "flr_nm", "url")
+                if key in filing
+            }
+            for filing in section.get("filings", [])
+        ]
+        result.append(
+            {
+                "company": section.get("company", ""),
+                "market": section.get("market", "KR"),
+                "summary_html": section.get("summary_html", ""),
+                "filings": filings,
+            }
+        )
+    return result
+
+
+def _important_sections(sections: list[dict]) -> list[dict]:
+    result = []
+    for section in sections:
+        filings = [
+            filing
+            for filing in section["filings"]
+            if any(keyword in str(filing.get("report_nm", "")) for keyword in IMPORTANT_KEYWORDS)
+        ]
+        if filings:
+            result.append({**section, "filings": filings})
+    return result
 
 
 def publish(
     sections: list[dict],
+    public_target_keys: set[tuple[str, str]],
     base_dir: Path | None = None,
     watchlist: list[str] | None = None,
 ) -> Path:
@@ -30,10 +69,21 @@ def publish(
     briefings_dir.mkdir(parents=True, exist_ok=True)
 
     today = datetime.now().strftime("%Y-%m-%d")
+    safe_sections = _public_sections(
+        [
+            section
+            for section in sections
+            if (section.get("market", "KR"), section.get("company", ""))
+            in public_target_keys
+        ]
+    )
     payload = {
         "date": today,
         "generated_at": datetime.now().isoformat(timespec="seconds"),
-        "sections": sections,
+        "sections": safe_sections,
+        # Stock-Trading 08:30 브리핑이 참고용으로 읽는 안정적인 중요 공시 목록.
+        # 자동 주문 조건으로 사용하지 않으며 원문 링크와 회사 단위 요약을 함께 제공한다.
+        "important_sections": _important_sections(safe_sections),
     }
     out_file = briefings_dir / f"{today}.json"
     out_file.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
