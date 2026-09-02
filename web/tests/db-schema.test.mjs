@@ -9,6 +9,10 @@ const verification = await readFile(
 );
 const phase5 = await readFile(new URL("../../db/schema_phase5.sql", import.meta.url), "utf8");
 const phase6 = await readFile(new URL("../../db/schema_phase6.sql", import.meta.url), "utf8");
+const advisorHardening = await readFile(
+  new URL("../../db/schema_advisor_hardening.sql", import.meta.url),
+  "utf8",
+);
 const holdingsRoute = await readFile(
   new URL("../src/app/api/holdings/route.ts", import.meta.url),
   "utf8",
@@ -80,21 +84,34 @@ test("보유종목 API와 화면이 증권사별 행을 구분한다", () => {
 });
 
 test("DB 스키마가 RLS와 서버 전용 권한을 적용한다", () => {
+  assert.match(schema, /create extension if not exists vector with schema extensions/);
+  assert.match(schema, /embedding\s+extensions\.vector\(768\)/);
+  assert.match(schema, /operator\(extensions\.<=>\)/);
   assert.match(schema, /alter table filings enable row level security/);
+  assert.match(schema, /create policy "filings_deny_browser"/);
   assert.match(schema, /security invoker/);
   assert.match(schema, /set search_path = ''/);
   assert.match(
     schema,
-    /revoke execute on function public\.match_filings\(vector, integer, text, float\) from anon, authenticated/,
+    /revoke execute on function public\.match_filings\(extensions\.vector, integer, text, float\) from anon, authenticated/,
   );
   assert.match(
     schema,
-    /grant execute on function public\.match_filings\(vector, integer, text, float\) to service_role/,
+    /grant execute on function public\.match_filings\(extensions\.vector, integer, text, float\) to service_role/,
   );
   assert.match(
     schema,
     /revoke all on table public\.filings from public, anon, authenticated/,
   );
+  assert.match(phase5, /create policy "integration_tokens_deny_browser"/);
+});
+
+test("Advisor 보안 마이그레이션이 vector와 서버 전용 정책을 함께 정리한다", () => {
+  assert.match(advisorHardening, /alter extension vector set schema extensions/);
+  assert.match(advisorHardening, /query_embedding extensions\.vector\(768\)/);
+  assert.match(advisorHardening, /operator\(extensions\.<=>\)/);
+  assert.match(advisorHardening, /create policy "filings_deny_browser"/);
+  assert.match(advisorHardening, /create policy "integration_tokens_deny_browser"/);
 });
 
 test("배포 후 검증 SQL이 RLS와 역할별 권한을 검사한다", () => {
@@ -119,4 +136,7 @@ test("배포 후 검증 SQL이 RLS와 역할별 권한을 검사한다", () => {
   assert.match(verification, /replace_synced_holdings\(uuid,jsonb,jsonb\)/);
   assert.match(verification, /replace_synced_holdings\(uuid,jsonb\)/);
   assert.match(verification, /호환 replace_synced_holdings 실행 권한/);
+  assert.match(verification, /vector 확장이 extensions 스키마/);
+  assert.match(verification, /filings 브라우저 차단 정책/);
+  assert.match(verification, /integration_tokens 브라우저 차단 정책/);
 });

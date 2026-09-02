@@ -4,7 +4,7 @@
 do $$
 declare
   rpc regprocedure := to_regprocedure(
-    'public.match_filings(vector,integer,text,double precision)'
+    'public.match_filings(extensions.vector,integer,text,double precision)'
   );
   sync_rpc regprocedure := to_regprocedure(
     'public.replace_synced_holdings(uuid,jsonb,jsonb)'
@@ -29,7 +29,7 @@ begin
     raise exception '검증 실패: 4인자 public.match_filings RPC가 없습니다.';
   end if;
 
-  if to_regprocedure('public.match_filings(vector,integer,text)') is not null then
+  if to_regprocedure('public.match_filings(extensions.vector,integer,text)') is not null then
     raise exception '검증 실패: 이전 3인자 public.match_filings RPC가 남아 있습니다.';
   end if;
 
@@ -86,6 +86,29 @@ begin
     raise exception '검증 실패: match_filings는 SECURITY INVOKER와 빈 search_path여야 합니다.';
   end if;
 
+  if not exists (
+    select 1
+    from pg_extension e
+    join pg_namespace n on n.oid = e.extnamespace
+    where e.extname = 'vector'
+      and n.nspname = 'extensions'
+  ) then
+    raise exception '검증 실패: vector 확장이 extensions 스키마에 없습니다.';
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'filings'
+      and policyname = 'filings_deny_browser'
+      and cmd = 'ALL'
+      and roles @> array['anon', 'authenticated']::name[]
+      and qual = 'false'
+      and with_check = 'false'
+  ) then
+    raise exception '검증 실패: filings 브라우저 차단 정책이 없습니다.';
+  end if;
+
   if to_regclass('public.integration_tokens') is null
      or to_regclass('public.member_settings') is null
      or to_regclass('public.trading_performance') is null
@@ -126,6 +149,19 @@ begin
      or not has_table_privilege('service_role', 'public.integration_tokens', 'UPDATE')
      or not has_table_privilege('service_role', 'public.integration_tokens', 'DELETE') then
     raise exception '검증 실패: service_role의 integration_tokens 권한이 부족합니다.';
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'integration_tokens'
+      and policyname = 'integration_tokens_deny_browser'
+      and cmd = 'ALL'
+      and roles @> array['anon', 'authenticated']::name[]
+      and qual = 'false'
+      and with_check = 'false'
+  ) then
+    raise exception '검증 실패: integration_tokens 브라우저 차단 정책이 없습니다.';
   end if;
 
   if has_table_privilege('anon', 'public.member_settings', 'SELECT,INSERT,UPDATE,DELETE')

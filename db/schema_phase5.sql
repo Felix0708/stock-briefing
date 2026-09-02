@@ -99,6 +99,12 @@ create table if not exists public.integration_tokens (
 
 alter table public.integration_tokens enable row level security;
 
+drop policy if exists "integration_tokens_deny_browser" on public.integration_tokens;
+create policy "integration_tokens_deny_browser" on public.integration_tokens
+  as restrictive for all to anon, authenticated
+  using (false)
+  with check (false);
+
 -- 전체 스냅샷 교체는 한 트랜잭션에서 해당 회원의 자동 동기화 행만 교체한다.
 -- 호출권은 service_role에만 있어 target_user_id를 외부 사용자가 선택할 수 없다.
 create or replace function public.replace_synced_holdings(
