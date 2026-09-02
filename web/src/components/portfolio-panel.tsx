@@ -13,6 +13,7 @@ type Holding = {
   market: "KR" | "US" | "JP";
   source: "manual" | "stock_trading";
   account_type: "manual" | "paper" | "live";
+  broker: "MANUAL" | "KIWOOM" | "KIS" | "LEGACY";
 };
 
 type Quote = {
@@ -28,7 +29,20 @@ function quoteKey(holding: Holding): string {
 }
 
 function holdingKey(holding: Holding): string {
-  return `${holding.source}:${holding.market}:${holding.stock_code}:${holding.account_type}`;
+  return `${holding.source}:${holding.market}:${holding.stock_code}:${holding.account_type}:${holding.broker}`;
+}
+
+function brokerLabel(broker: Holding["broker"]): string {
+  if (broker === "KIWOOM") return "키움";
+  if (broker === "KIS") return "한투";
+  if (broker === "LEGACY") return "이전 연동";
+  return "직접";
+}
+
+function holdingLabel(holding: Holding): string {
+  if (holding.source === "manual") return `${holding.stock_name} · 직접`;
+  const account = holding.account_type === "paper" ? "모의" : "실계좌";
+  return `${holding.stock_name} · ${brokerLabel(holding.broker)} · ${account}`;
 }
 
 function currencyOf(market: "KR" | "US" | "JP"): "KRW" | "USD" | "JPY" {
@@ -854,7 +868,7 @@ export function PortfolioPanel() {
                         {row.holding.stock_name}
                         {row.holding.source === "stock_trading" && (
                           <span className="pf-source-badge">
-                            자동 · {row.holding.account_type === "paper" ? "모의" : "실계좌"}
+                            자동 · {brokerLabel(row.holding.broker)} · {row.holding.account_type === "paper" ? "모의" : "실계좌"}
                           </span>
                         )}
                       </td>
@@ -900,7 +914,8 @@ export function PortfolioPanel() {
 
             <PieChart
               slices={computed.rows.map((row, index) => ({
-                label: row.holding.stock_name,
+                key: holdingKey(row.holding),
+                label: holdingLabel(row.holding),
                 percent: computed.weights[index],
                 color: PIE_COLORS[index % PIE_COLORS.length],
               }))}
@@ -912,7 +927,7 @@ export function PortfolioPanel() {
   );
 }
 
-type PieSlice = { label: string; percent: number; color: string };
+type PieSlice = { key: string; label: string; percent: number; color: string };
 
 function PieChart({ slices }: { slices: PieSlice[] }) {
   const radius = 42;
@@ -927,7 +942,7 @@ function PieChart({ slices }: { slices: PieSlice[] }) {
           const length = (slice.percent / 100) * circumference;
           const element = (
             <circle
-              key={slice.label}
+              key={slice.key}
               cx="60"
               cy="60"
               r={radius}
@@ -945,7 +960,7 @@ function PieChart({ slices }: { slices: PieSlice[] }) {
       </svg>
       <ul className="pf-legend">
         {slices.map((slice) => (
-          <li key={slice.label}>
+          <li key={slice.key}>
             <span className="pf-dot" style={{ background: slice.color }} aria-hidden="true" />
             {slice.label}
             <strong>{slice.percent.toFixed(1)}%</strong>

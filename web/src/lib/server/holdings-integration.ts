@@ -12,6 +12,7 @@ export type SyncedHolding = {
   quantity: number;
   avg_price: number;
   account_type: "paper" | "live";
+  broker: "KIWOOM" | "KIS";
 };
 
 const TOKEN_PREFIX = "sb_sync_";
@@ -23,7 +24,7 @@ const CODE_PATTERNS = {
 } as const;
 const MAX_HOLDINGS = 50;
 const ALLOWED_ROW_KEYS = new Set([
-  "market", "stock_code", "stock_name", "quantity", "avg_price", "account_type",
+  "market", "stock_code", "stock_name", "quantity", "avg_price", "account_type", "broker",
 ]);
 
 function serviceEnv(): { url: string; key: string } {
@@ -95,7 +96,7 @@ export function parseSnapshot(body: unknown): SyncedHolding[] | string {
     if (!value || typeof value !== "object" || Array.isArray(value)) return "보유종목 형식이 올바르지 않습니다.";
     const row = value as Record<string, unknown>;
     if (Object.keys(row).some((key) => !ALLOWED_ROW_KEYS.has(key))) {
-      return "보유종목에는 시장·코드·이름·수량·평단가·계정유형만 보낼 수 있습니다.";
+      return "보유종목에는 시장·코드·이름·수량·평단가·계정유형·증권사만 보낼 수 있습니다.";
     }
 
     const market = row.market;
@@ -105,6 +106,7 @@ export function parseSnapshot(body: unknown): SyncedHolding[] | string {
     const quantity = Number(row.quantity);
     const avgPrice = Number(row.avg_price);
     const accountType = row.account_type;
+    const broker = row.broker;
 
     if (market !== "KR" && market !== "US" && market !== "JP") return "market은 KR, US, JP 중 하나여야 합니다.";
     if (!CODE_PATTERNS[market].test(stockCode)) return `${market} 종목코드 형식이 올바르지 않습니다.`;
@@ -112,9 +114,10 @@ export function parseSnapshot(body: unknown): SyncedHolding[] | string {
     if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 99_999_999_999_999) return "보유 수량이 올바르지 않습니다.";
     if (!Number.isFinite(avgPrice) || avgPrice <= 0 || avgPrice > 9_999_999_999_999_999) return "평균 단가가 올바르지 않습니다.";
     if (accountType !== "paper" && accountType !== "live") return "account_type은 paper 또는 live여야 합니다.";
+    if (broker !== "KIWOOM" && broker !== "KIS") return "broker는 KIWOOM 또는 KIS여야 합니다.";
 
-    const key = `${market}:${stockCode}:${accountType}`;
-    if (seen.has(key)) return "같은 시장·종목·계정유형이 중복되었습니다. 증권사별 잔고를 먼저 합산해 주세요.";
+    const key = `${market}:${stockCode}:${accountType}:${broker}`;
+    if (seen.has(key)) return "같은 증권사·시장·종목·계정유형이 중복되었습니다.";
     seen.add(key);
     result.push({
       market,
@@ -123,6 +126,7 @@ export function parseSnapshot(body: unknown): SyncedHolding[] | string {
       quantity,
       avg_price: avgPrice,
       account_type: accountType,
+      broker,
     });
   }
   return result;

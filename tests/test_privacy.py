@@ -11,7 +11,8 @@ class PublicBriefingPrivacyTest(unittest.TestCase):
     def test_opt_in_filter_is_anonymous_and_private_targets_remain_available(self):
         rows = [
             {"user_id": "opted", "stock_name": "삼성전자", "stock_code": "005930", "market": "KR"},
-            {"user_id": "opted", "stock_name": "삼성전자", "stock_code": "005930", "market": "KR"},
+            {"user_id": "opted", "stock_name": "삼성전자", "stock_code": "005930", "market": "KR", "broker": "KIWOOM"},
+            {"user_id": "opted", "stock_name": "삼성전자", "stock_code": "005930", "market": "KR", "broker": "KIS"},
             {"user_id": "private", "stock_name": "현대차", "stock_code": "005380", "market": "KR"},
         ]
 
@@ -30,6 +31,7 @@ class PublicBriefingPrivacyTest(unittest.TestCase):
             "quantity": 10,
             "avg_price": 50000,
             "account_type": "live",
+            "broker": "KIWOOM",
             "filings": [{
                 "report_nm": "유상증자결정",
                 "rcept_no": "1",
@@ -44,7 +46,7 @@ class PublicBriefingPrivacyTest(unittest.TestCase):
             payload = json.loads(path.read_text(encoding="utf-8"))
 
         serialized = json.dumps(payload, ensure_ascii=False)
-        for forbidden in ("user_id", "user_name", "quantity", "avg_price", "account_type", "must-not-leak"):
+        for forbidden in ("user_id", "user_name", "quantity", "avg_price", "account_type", "broker", "KIWOOM", "must-not-leak"):
             self.assertNotIn(forbidden, serialized)
         self.assertEqual(payload["important_sections"][0]["filings"][0]["url"], "https://dart.fss.or.kr/example")
         self.assertEqual(payload["important_sections"][0]["summary_html"], "<p>중요 요약</p>")

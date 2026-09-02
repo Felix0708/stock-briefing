@@ -25,6 +25,7 @@ export type Holding = {
   market: "KR" | "US" | "JP";
   source: "manual" | "stock_trading";
   account_type: "manual" | "paper" | "live";
+  broker: "MANUAL" | "KIWOOM" | "KIS" | "LEGACY";
 };
 
 const CODE_PATTERN = /^[0-9]{6}$/;
@@ -112,6 +113,7 @@ function parseHolding(body: unknown): Holding | string {
     market,
     source: "manual",
     account_type: "manual",
+    broker: "MANUAL",
   };
 }
 
@@ -122,7 +124,7 @@ export async function GET(): Promise<NextResponse> {
 
     const rows = await restFetch<Holding[]>(
       session,
-      "holdings?select=stock_code,stock_name,quantity,avg_price,market,source,account_type&order=created_at.asc",
+      "holdings?select=stock_code,stock_name,quantity,avg_price,market,source,account_type,broker&order=created_at.asc",
       { method: "GET" },
     );
     return withSession(NextResponse.json({ holdings: rows }), session);
@@ -166,7 +168,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // 같은 종목 재등록은 수량·단가 갱신으로 처리 (upsert)
     const rows = await restFetch<Holding[]>(
       session,
-      "holdings?on_conflict=user_id,source,market,stock_code,account_type&select=stock_code,stock_name,quantity,avg_price,market,source,account_type",
+      "holdings?on_conflict=user_id,source,market,stock_code,account_type,broker&select=stock_code,stock_name,quantity,avg_price,market,source,account_type,broker",
       {
         method: "POST",
         headers: { Prefer: "resolution=merge-duplicates,return=representation" },

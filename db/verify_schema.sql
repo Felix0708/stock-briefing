@@ -89,6 +89,28 @@ begin
     raise exception '검증 실패: Phase 5 연동 테이블/RPC가 없습니다.';
   end if;
 
+  if not exists (
+    select 1
+    from pg_attribute
+    where attrelid = 'public.holdings'::regclass
+      and attname = 'broker'
+      and not attisdropped
+      and attnotnull
+  ) then
+    raise exception '검증 실패: holdings.broker 필수 열이 없습니다.';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.holdings'::regclass
+      and conname = 'holdings_user_source_market_code_account_broker_key'
+      and contype = 'u'
+      and convalidated
+  ) then
+    raise exception '검증 실패: holdings 증권사별 유니크 제약이 없습니다.';
+  end if;
+
   if has_table_privilege('anon', 'public.integration_tokens', 'SELECT,INSERT,UPDATE,DELETE')
      or has_table_privilege('authenticated', 'public.integration_tokens', 'SELECT,INSERT,UPDATE,DELETE') then
     raise exception '검증 실패: 브라우저 역할이 integration_tokens에 접근할 수 있습니다.';

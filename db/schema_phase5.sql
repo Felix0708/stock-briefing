@@ -6,26 +6,43 @@ begin;
 
 alter table public.holdings
   add column if not exists source text not null default 'manual',
-  add column if not exists account_type text not null default 'manual';
+  add column if not exists account_type text not null default 'manual',
+  add column if not exists broker text not null default 'MANUAL';
+
+-- 기존 수동 행은 그대로 유지하고, 증권사 구분 없이 합쳐졌던 자동 행은
+-- 다음 새 스냅샷이 원자 교체할 때까지 출처를 임의 추정하지 않는다.
+update public.holdings
+set broker = 'MANUAL'
+where source = 'manual' and broker <> 'MANUAL';
+
+update public.holdings
+set broker = 'LEGACY'
+where source = 'stock_trading' and broker = 'MANUAL';
 
 alter table public.holdings
   drop constraint if exists holdings_user_id_stock_code_key,
   drop constraint if exists holdings_source_check,
   drop constraint if exists holdings_account_type_check,
   drop constraint if exists holdings_source_account_type_check,
-  drop constraint if exists holdings_user_source_market_code_account_key;
+  drop constraint if exists holdings_broker_check,
+  drop constraint if exists holdings_source_account_broker_check,
+  drop constraint if exists holdings_user_source_market_code_account_key,
+  drop constraint if exists holdings_user_source_market_code_account_broker_key;
 
 alter table public.holdings
   add constraint holdings_source_check
     check (source in ('manual', 'stock_trading')),
   add constraint holdings_account_type_check
     check (account_type in ('manual', 'paper', 'live')),
-  add constraint holdings_source_account_type_check check (
-    (source = 'manual' and account_type = 'manual') or
-    (source = 'stock_trading' and account_type in ('paper', 'live'))
+  add constraint holdings_broker_check
+    check (broker in ('MANUAL', 'KIWOOM', 'KIS', 'LEGACY')),
+  add constraint holdings_source_account_broker_check check (
+    (source = 'manual' and account_type = 'manual' and broker = 'MANUAL') or
+    (source = 'stock_trading' and account_type in ('paper', 'live')
+      and broker in ('KIWOOM', 'KIS', 'LEGACY'))
   ),
-  add constraint holdings_user_source_market_code_account_key
-    unique (user_id, source, market, stock_code, account_type);
+  add constraint holdings_user_source_market_code_account_broker_key
+    unique (user_id, source, market, stock_code, account_type, broker);
 
 -- 기존 정책을 명시적 authenticated 역할과 캐시 가능한 auth.uid() 형태로 강화한다.
 drop policy if exists "holdings_select_own" on public.holdings;
@@ -103,14 +120,14 @@ begin
     raise exception 'holdings snapshot exceeds 50 rows';
   end if;
 
-  -- 같은 계정 유형의 같은 종목은 호출 측에서 증권사별 수량·평단을 합산해야 한다.
+  -- 같은 증권사·계정 유형의 같은 종목은 스냅샷에 한 번만 올 수 있다.
   if exists (
     select 1
     from jsonb_to_recordset(snapshot) as x(
       market text, stock_code text, stock_name text,
-      quantity numeric, avg_price numeric, account_type text
+      quantity numeric, avg_price numeric, account_type text, broker text
     )
-    group by x.market, x.stock_code, x.account_type
+    group by x.market, x.stock_code, x.account_type, x.broker
     having count(*) > 1
   ) then
     raise exception 'duplicate holding in snapshot';
@@ -124,14 +141,14 @@ begin
 
   insert into public.holdings (
     user_id, stock_code, stock_name, quantity, avg_price,
-    market, source, account_type
+    market, source, account_type, broker
   )
   select
     target_user_id, x.stock_code, x.stock_name, x.quantity, x.avg_price,
-    x.market, 'stock_trading', x.account_type
+    x.market, 'stock_trading', x.account_type, x.broker
   from jsonb_to_recordset(snapshot) as x(
     market text, stock_code text, stock_name text,
-    quantity numeric, avg_price numeric, account_type text
+    quantity numeric, avg_price numeric, account_type text, broker text
   );
 
   get diagnostics inserted_count = row_count;

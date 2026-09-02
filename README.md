@@ -70,7 +70,7 @@
 ## Stock-Trading 스냅샷 API
 
 포트폴리오에서 발급한 토큰을 로컬 Stock-Trading 러너에만 저장하고 다음 계약으로 호출합니다.
-같은 시장·종목·계정유형을 여러 증권사에서 보유하면 호출 전에 수량과 가중평균 단가를 합산해야 합니다.
+같은 종목도 증권사별 행으로 보내며, 같은 증권사·시장·종목·계정유형 안에서만 수량과 가중평균 단가를 합산합니다.
 
 ```http
 PUT /api/sync/holdings
@@ -85,13 +85,15 @@ Content-Type: application/json
       "stock_name": "삼성전자",
       "quantity": 10,
       "avg_price": 71200,
-      "account_type": "live"
+      "account_type": "live",
+      "broker": "KIWOOM"
     }
   ]
 }
 ```
 
-`account_type`은 `paper` 또는 `live`입니다. 빈 `holdings` 배열은 자동 동기화 행 전체 삭제를
+`account_type`은 `paper` 또는 `live`, `broker`는 `KIWOOM` 또는 `KIS`입니다.
+빈 `holdings` 배열은 자동 동기화 행 전체 삭제를
 뜻하며, 수동 등록 행과 다른 회원 행은 건드리지 않습니다. `user_id`, 증권사 API 키·비밀번호·계좌번호는
 요청 필드가 아니며 보내면 거부됩니다. 이 데이터와 `important_sections` 공개 JSON은 참고용이고 자동 주문
 조건이 아닙니다.

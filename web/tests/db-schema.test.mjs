@@ -8,6 +8,14 @@ const verification = await readFile(
   "utf8",
 );
 const phase5 = await readFile(new URL("../../db/schema_phase5.sql", import.meta.url), "utf8");
+const holdingsRoute = await readFile(
+  new URL("../src/app/api/holdings/route.ts", import.meta.url),
+  "utf8",
+);
+const portfolioPanel = await readFile(
+  new URL("../src/components/portfolio-panel.tsx", import.meta.url),
+  "utf8",
+);
 
 test("DB 스키마가 company 필터와 4인자 RPC 계약을 유지한다", () => {
   assert.match(
@@ -28,14 +36,25 @@ test("Phase 5가 토큰 해시·기본 비동의·수동/자동 행을 최소 �
   assert.match(phase5, /grant select, insert, update, delete on table public\.integration_tokens to service_role/);
   assert.match(phase5, /revoke all on table public\.member_settings from public, anon, authenticated/);
   assert.match(phase5, /grant select, insert, update on table public\.member_settings to authenticated/);
+  assert.match(phase5, /broker in \('MANUAL', 'KIWOOM', 'KIS', 'LEGACY'\)/);
+  assert.match(phase5, /unique \(user_id, source, market, stock_code, account_type, broker\)/);
 });
 
 test("전체 스냅샷 RPC가 중복을 먼저 거부하고 해당 회원의 자동 행만 원자 교체한다", () => {
   assert.match(phase5, /security invoker[\s\S]*?set search_path = ''/);
-  assert.match(phase5, /having count\(\*\) > 1[\s\S]*?duplicate holding in snapshot/);
+  assert.match(phase5, /group by x\.market, x\.stock_code, x\.account_type, x\.broker[\s\S]*?duplicate holding in snapshot/);
   assert.match(phase5, /where user_id = target_user_id\s+and source = 'stock_trading'/);
   assert.match(phase5, /revoke all on function public\.replace_synced_holdings\(uuid, jsonb\) from public, anon, authenticated/);
   assert.match(phase5, /grant execute on function public\.replace_synced_holdings\(uuid, jsonb\) to service_role/);
+});
+
+test("보유종목 API와 화면이 증권사별 행을 구분한다", () => {
+  assert.match(holdingsRoute, /source,account_type,broker/);
+  assert.match(holdingsRoute, /account_type,broker&select=/);
+  assert.match(portfolioPanel, /holding\.account_type}:\$\{holding\.broker}/);
+  assert.match(portfolioPanel, /자동 · \{brokerLabel\(row\.holding\.broker\)} ·/);
+  assert.match(portfolioPanel, /key: holdingKey\(row\.holding\)/);
+  assert.match(portfolioPanel, /label: holdingLabel\(row\.holding\)/);
 });
 
 test("DB 스키마가 RLS와 서버 전용 권한을 적용한다", () => {

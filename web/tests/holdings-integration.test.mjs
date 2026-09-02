@@ -11,6 +11,7 @@ import {
   GET as authGet,
   POST as authPost,
 } from "../src/app/api/auth/[action]/route.ts";
+import { GET as getHoldingsRoute } from "../src/app/api/holdings/route.ts";
 import { PUT as syncHoldingsRoute } from "../src/app/api/sync/holdings/route.ts";
 import {
   createIntegrationToken,
@@ -90,7 +91,7 @@ test("발급·재발급은 원문이 아닌 새 해시로 교체하고 폐기는
 test("잘못된 필드·중복·비정상 값은 DB 호출 전에 거부한다", async () => {
   const valid = {
     market: "KR", stock_code: "005930", stock_name: "삼성전자",
-    quantity: 1, avg_price: 70000, account_type: "live",
+    quantity: 1, avg_price: 70000, account_type: "live", broker: "KIWOOM",
   };
   for (const body of [
     { user_id: "victim", holdings: [] },
@@ -98,6 +99,8 @@ test("잘못된 필드·중복·비정상 값은 DB 호출 전에 거부한다",
     { holdings: [valid, { ...valid, quantity: 2 }] },
     { holdings: [{ ...valid, quantity: 0 }] },
     { holdings: [{ ...valid, account_type: "real" }] },
+    { holdings: [{ ...valid, broker: "kiwoom" }] },
+    { holdings: [{ ...valid, broker: "OTHER" }] },
   ]) {
     assert.equal(typeof parseSnapshot(body), "string");
   }
@@ -107,6 +110,32 @@ test("잘못된 필드·중복·비정상 값은 DB 호출 전에 거부한다",
     holdings: [{ ...valid, broker_password: "secret" }],
   }));
   assert.equal(response.status, 400);
+});
+
+test("같은 종목도 증권사별 행은 허용하고 같은 증권사 행만 중복 거부한다", () => {
+  const kiwoom = {
+    market: "KR", stock_code: "005930", stock_name: "삼성전자",
+    quantity: 1, avg_price: 70000, account_type: "live", broker: "KIWOOM",
+  };
+  const parsed = parseSnapshot({ holdings: [kiwoom, { ...kiwoom, broker: "KIS" }] });
+  assert.ok(Array.isArray(parsed));
+  assert.deepEqual(parsed.map((row) => row.broker), ["KIWOOM", "KIS"]);
+  assert.equal(typeof parseSnapshot({ holdings: [kiwoom, { ...kiwoom, quantity: 2 }] }), "string");
+});
+
+test("보유종목 조회가 broker를 요청하고 응답에 유지한다", async () => {
+  globalThis.fetch = async (url) => {
+    assert.match(String(url), /select=stock_code,stock_name,quantity,avg_price,market,source,account_type,broker/);
+    return Response.json([{
+      market: "KR", stock_code: "005930", stock_name: "삼성전자",
+      quantity: 1, avg_price: 70000, source: "stock_trading",
+      account_type: "paper", broker: "KIS",
+    }]);
+  };
+
+  const response = await getHoldingsRoute();
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).holdings[0].broker, "KIS");
 });
 
 test("사용자 ID는 토큰 해시 조회 결과에서만 파생하고 빈 전체 스냅샷도 원자 RPC로 전달한다", async () => {
