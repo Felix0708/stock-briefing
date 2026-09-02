@@ -1192,12 +1192,29 @@ a.source-item:focus-visible {
 }
 .pf-delete:hover { color: var(--danger); background: var(--danger-soft); }
 
+.pf-pie-grid,
+.pf-performance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+.pf-pie-card,
+.pf-performance-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  padding: 16px;
+}
+.pf-pie-card h3,
+.pf-performance h3,
+.pf-performance-card h4 { margin: 0; }
 .pf-pie {
   display: flex;
   align-items: center;
   gap: 28px;
   flex-wrap: wrap;
-  margin-top: 20px;
+  margin-top: 14px;
 }
 .pf-pie svg { width: 180px; height: 180px; flex: none; }
 .pf-pie-track { fill: none; stroke: var(--surface-soft); stroke-width: 22; }
@@ -1220,6 +1237,24 @@ a.source-item:focus-visible {
   margin-right: 6px;
   flex: none;
 }
+
+.pf-performance {
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding-top: 24px;
+}
+.pf-performance-card dl { margin: 14px 0 0; }
+.pf-performance-card dl > div {
+  display: grid;
+  grid-template-columns: 105px 1fr;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+.pf-performance-card dt { color: var(--text-muted); font-size: 0.82rem; }
+.pf-performance-card dd { margin: 0; font-size: 0.9rem; }
+.pf-performance-card dd strong { display: block; margin-top: 3px; font-size: 0.82rem; }
+.pf-performance-time { margin: 10px 0 0; font-size: 0.78rem; }
 
 .pf-nav { display: flex; align-items: center; gap: 14px; }
 .pf-nav a { color: var(--text-soft); font-size: 0.9rem; text-decoration: none; }

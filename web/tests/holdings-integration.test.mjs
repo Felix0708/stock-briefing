@@ -32,6 +32,19 @@ function syncRequest(token, body) {
   });
 }
 
+const VALID_PERFORMANCE = {
+  broker: "KIWOOM",
+  account_type: "live",
+  all: { count: 3, wins: 2, losses: 1, draws: 0, win_rate: 66.67 },
+  month: { count: 1, wins: 1, losses: 0, draws: 0, win_rate: 100 },
+  realized: {
+    KRW: { count: 3, profit_loss: 125000, return_rate: 4.21 },
+    USD: { count: 0, profit_loss: 0, return_rate: null },
+  },
+  excluded_full_exits: 1,
+  updated_at: "2026-09-03T00:00:00Z",
+};
+
 test.beforeEach(() => {
   process.env.SUPABASE_URL = "https://example.supabase.co";
   process.env.SUPABASE_ANON_KEY = "test-anon-key";
@@ -94,20 +107,24 @@ test("잘못된 필드·중복·비정상 값은 DB 호출 전에 거부한다",
     quantity: 1, avg_price: 70000, account_type: "live", broker: "KIWOOM",
   };
   for (const body of [
-    { user_id: "victim", holdings: [] },
-    { holdings: [{ ...valid, broker_api_key: "secret" }] },
-    { holdings: [valid, { ...valid, quantity: 2 }] },
-    { holdings: [{ ...valid, quantity: 0 }] },
-    { holdings: [{ ...valid, account_type: "real" }] },
-    { holdings: [{ ...valid, broker: "kiwoom" }] },
-    { holdings: [{ ...valid, broker: "OTHER" }] },
+    { user_id: "victim", holdings: [], performance: [] },
+    { holdings: [{ ...valid, broker_api_key: "secret" }], performance: [] },
+    { holdings: [valid, { ...valid, quantity: 2 }], performance: [] },
+    { holdings: [{ ...valid, quantity: 0 }], performance: [] },
+    { holdings: [{ ...valid, account_type: "real" }], performance: [] },
+    { holdings: [{ ...valid, broker: "kiwoom" }], performance: [] },
+    { holdings: [{ ...valid, broker: "OTHER" }], performance: [] },
+    { holdings: [], performance: [{ ...VALID_PERFORMANCE, raw_orders: [] }] },
+    { holdings: [], performance: [VALID_PERFORMANCE, VALID_PERFORMANCE] },
+    { holdings: [], performance: [{ ...VALID_PERFORMANCE, all: { ...VALID_PERFORMANCE.all, count: 4 } }] },
+    { holdings: [], performance: [{ ...VALID_PERFORMANCE, updated_at: "today" }] },
   ]) {
     assert.equal(typeof parseSnapshot(body), "string");
   }
 
   globalThis.fetch = async () => assert.fail("잘못된 입력은 Supabase를 호출하면 안 됩니다.");
   const response = await syncHoldingsRoute(syncRequest(createIntegrationToken(), {
-    holdings: [{ ...valid, broker_password: "secret" }],
+    holdings: [{ ...valid, broker_password: "secret" }], performance: [],
   }));
   assert.equal(response.status, 400);
 });
@@ -117,14 +134,29 @@ test("같은 종목도 증권사별 행은 허용하고 같은 증권사 행만 
     market: "KR", stock_code: "005930", stock_name: "삼성전자",
     quantity: 1, avg_price: 70000, account_type: "live", broker: "KIWOOM",
   };
-  const parsed = parseSnapshot({ holdings: [kiwoom, { ...kiwoom, broker: "KIS" }] });
-  assert.ok(Array.isArray(parsed));
-  assert.deepEqual(parsed.map((row) => row.broker), ["KIWOOM", "KIS"]);
-  assert.equal(typeof parseSnapshot({ holdings: [kiwoom, { ...kiwoom, quantity: 2 }] }), "string");
+  const parsed = parseSnapshot({ holdings: [kiwoom, { ...kiwoom, broker: "KIS" }], performance: [] });
+  assert.notEqual(typeof parsed, "string");
+  assert.deepEqual(parsed.holdings.map((row) => row.broker), ["KIWOOM", "KIS"]);
+  assert.equal(typeof parseSnapshot({ holdings: [kiwoom, { ...kiwoom, quantity: 2 }], performance: [] }), "string");
+});
+
+test("성과 집계만 허용하고 승패 없는 무승부 성과의 null 승률을 유지한다", () => {
+  const drawOnly = {
+    ...VALID_PERFORMANCE,
+    all: { count: 1, wins: 0, losses: 0, draws: 1, win_rate: null },
+  };
+  const parsed = parseSnapshot({ holdings: [], performance: [drawOnly] });
+  assert.notEqual(typeof parsed, "string");
+  assert.equal(parsed.performance[0].all.win_rate, null);
+  assert.equal(typeof parseSnapshot({ holdings: [], performance: [{ ...drawOnly, all: { ...drawOnly.all, win_rate: 0 } }] }), "string");
+  assert.equal(typeof parseSnapshot({ holdings: [], performance: [{ ...VALID_PERFORMANCE, executions: [] }] }), "string");
 });
 
 test("보유종목 조회가 broker를 요청하고 응답에 유지한다", async () => {
   globalThis.fetch = async (url) => {
+    if (String(url).includes("trading_performance?")) {
+      return Response.json([{ ...VALID_PERFORMANCE, all_count: 3 }]);
+    }
     assert.match(String(url), /select=stock_code,stock_name,quantity,avg_price,market,source,account_type,broker/);
     return Response.json([{
       market: "KR", stock_code: "005930", stock_name: "삼성전자",
@@ -135,7 +167,9 @@ test("보유종목 조회가 broker를 요청하고 응답에 유지한다", asy
 
   const response = await getHoldingsRoute();
   assert.equal(response.status, 200);
-  assert.equal((await response.json()).holdings[0].broker, "KIS");
+  const payload = await response.json();
+  assert.equal(payload.holdings[0].broker, "KIS");
+  assert.equal(payload.performance[0].all_count, 3);
 });
 
 test("사용자 ID는 토큰 해시 조회 결과에서만 파생하고 빈 전체 스냅샷도 원자 RPC로 전달한다", async () => {
@@ -151,10 +185,36 @@ test("사용자 ID는 토큰 해시 조회 결과에서만 파생하고 빈 전�
     return Response.json(0);
   };
 
-  const response = await syncHoldingsRoute(syncRequest(token, { holdings: [] }));
+  const response = await syncHoldingsRoute(syncRequest(token, { holdings: [], performance: [] }));
   assert.equal(response.status, 200);
-  assert.deepEqual(rpcBody, { target_user_id: "owner-from-token", snapshot: [] });
+  assert.deepEqual(rpcBody, {
+    target_user_id: "owner-from-token",
+    snapshot: [],
+    performance_snapshot: [],
+  });
   assert.deepEqual(await response.json(), { ok: true, synced: 0 });
+});
+
+test("유효한 성과 스냅샷을 보유종목과 같은 RPC 호출에 전달한다", async () => {
+  const token = createIntegrationToken();
+  let rpcBody;
+  globalThis.fetch = async (url, init) => {
+    if (String(url).includes("integration_tokens?token_hash=eq.")) {
+      return Response.json([{ user_id: "owner-from-token" }]);
+    }
+    rpcBody = JSON.parse(init.body);
+    return Response.json(0);
+  };
+
+  const response = await syncHoldingsRoute(syncRequest(token, {
+    holdings: [],
+    performance: [VALID_PERFORMANCE],
+  }));
+  assert.equal(response.status, 200);
+  assert.deepEqual(rpcBody.performance_snapshot, [{
+    ...VALID_PERFORMANCE,
+    updated_at: "2026-09-03T00:00:00.000Z",
+  }]);
 });
 
 test("폐기되었거나 모르는 토큰은 스냅샷 RPC 전에 401로 거부한다", async () => {
@@ -163,7 +223,7 @@ test("폐기되었거나 모르는 토큰은 스냅샷 RPC 전에 401로 거부�
     calls += 1;
     return Response.json([]);
   };
-  const response = await syncHoldingsRoute(syncRequest(createIntegrationToken(), { holdings: [] }));
+  const response = await syncHoldingsRoute(syncRequest(createIntegrationToken(), { holdings: [], performance: [] }));
   assert.equal(response.status, 401);
   assert.equal(calls, 1);
 });

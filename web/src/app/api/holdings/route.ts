@@ -28,6 +28,29 @@ export type Holding = {
   broker: "MANUAL" | "KIWOOM" | "KIS" | "LEGACY";
 };
 
+export type TradingPerformance = {
+  broker: "KIWOOM" | "KIS";
+  account_type: "paper" | "live";
+  all_count: number;
+  all_wins: number;
+  all_losses: number;
+  all_draws: number;
+  all_win_rate: number | null;
+  month_count: number;
+  month_wins: number;
+  month_losses: number;
+  month_draws: number;
+  month_win_rate: number | null;
+  realized_krw_count: number;
+  realized_krw_profit_loss: number;
+  realized_krw_return_rate: number | null;
+  realized_usd_count: number;
+  realized_usd_profit_loss: number;
+  realized_usd_return_rate: number | null;
+  excluded_full_exits: number;
+  updated_at: string;
+};
+
 const CODE_PATTERN = /^[0-9]{6}$/;
 const US_CODE_PATTERN = /^[A-Z][A-Z0-9.\-]{0,9}$/;
 const JP_CODE_PATTERN = /^[0-9A-Z]{4,5}$/;
@@ -122,12 +145,19 @@ export async function GET(): Promise<NextResponse> {
     const session = await getSession();
     if (!session) return unauthorized();
 
-    const rows = await restFetch<Holding[]>(
-      session,
-      "holdings?select=stock_code,stock_name,quantity,avg_price,market,source,account_type,broker&order=created_at.asc",
-      { method: "GET" },
-    );
-    return withSession(NextResponse.json({ holdings: rows }), session);
+    const [holdings, performance] = await Promise.all([
+      restFetch<Holding[]>(
+        session,
+        "holdings?select=stock_code,stock_name,quantity,avg_price,market,source,account_type,broker&order=created_at.asc",
+        { method: "GET" },
+      ),
+      restFetch<TradingPerformance[]>(
+        session,
+        "trading_performance?select=broker,account_type,all_count,all_wins,all_losses,all_draws,all_win_rate,month_count,month_wins,month_losses,month_draws,month_win_rate,realized_krw_count,realized_krw_profit_loss,realized_krw_return_rate,realized_usd_count,realized_usd_profit_loss,realized_usd_return_rate,excluded_full_exits,updated_at&order=broker.asc,account_type.asc",
+        { method: "GET" },
+      ),
+    ]);
+    return withSession(NextResponse.json({ holdings, performance }), session);
   } catch (error) {
     return handleKnownError(error);
   }

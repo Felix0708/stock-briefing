@@ -15,6 +15,35 @@ export type SyncedHolding = {
   broker: "KIWOOM" | "KIS";
 };
 
+export type PerformanceStats = {
+  count: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  win_rate: number | null;
+};
+
+export type RealizedPerformance = {
+  count: number;
+  profit_loss: number;
+  return_rate: number | null;
+};
+
+export type SyncedPerformance = {
+  broker: "KIWOOM" | "KIS";
+  account_type: "paper" | "live";
+  all: PerformanceStats;
+  month: PerformanceStats;
+  realized: { KRW: RealizedPerformance; USD: RealizedPerformance };
+  excluded_full_exits: number;
+  updated_at: string;
+};
+
+export type SyncPayload = {
+  holdings: SyncedHolding[];
+  performance: SyncedPerformance[];
+};
+
 const TOKEN_PREFIX = "sb_sync_";
 const TOKEN_PATTERN = /^sb_sync_[A-Za-z0-9_-]{43}$/;
 const CODE_PATTERNS = {
@@ -23,9 +52,16 @@ const CODE_PATTERNS = {
   JP: /^[0-9A-Z]{4,5}$/,
 } as const;
 const MAX_HOLDINGS = 50;
+const MAX_PERFORMANCE = 4;
 const ALLOWED_ROW_KEYS = new Set([
   "market", "stock_code", "stock_name", "quantity", "avg_price", "account_type", "broker",
 ]);
+const ROOT_KEYS = new Set(["holdings", "performance"]);
+const PERFORMANCE_KEYS = new Set([
+  "broker", "account_type", "all", "month", "realized", "excluded_full_exits", "updated_at",
+]);
+const STATS_KEYS = new Set(["count", "wins", "losses", "draws", "win_rate"]);
+const REALIZED_KEYS = new Set(["count", "profit_loss", "return_rate"]);
 
 function serviceEnv(): { url: string; key: string } {
   const url = process.env.SUPABASE_URL?.trim().replace(/\/+$/, "");
@@ -80,22 +116,60 @@ export function isIntegrationToken(token: string): boolean {
   return TOKEN_PATTERN.test(token);
 }
 
-export function parseSnapshot(body: unknown): SyncedHolding[] | string {
-  if (!body || typeof body !== "object" || Array.isArray(body)) {
-    return "요청 본문은 holdings 배열을 포함한 객체여야 합니다.";
-  }
-  const root = body as Record<string, unknown>;
-  if (Object.keys(root).some((key) => key !== "holdings") || !Array.isArray(root.holdings)) {
-    return "요청 본문에는 holdings 배열만 사용할 수 있습니다.";
-  }
-  if (root.holdings.length > MAX_HOLDINGS) return `종목은 최대 ${MAX_HOLDINGS}개까지 동기화할 수 있습니다.`;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
 
+function hasExactKeys(row: Record<string, unknown>, keys: Set<string>): boolean {
+  const actual = Object.keys(row);
+  return actual.length === keys.size && actual.every((key) => keys.has(key));
+}
+
+function parseStats(value: unknown): PerformanceStats | string {
+  if (!isRecord(value) || !hasExactKeys(value, STATS_KEYS)) return "성과 승패 집계 형식이 올바르지 않습니다.";
+  const { count, wins, losses, draws, win_rate: winRate } = value;
+  if (![count, wins, losses, draws].every((item) => Number.isInteger(item) && Number(item) >= 0)) {
+    return "성과 건수는 0 이상의 정수여야 합니다.";
+  }
+  if (Number(count) !== Number(wins) + Number(losses) + Number(draws)) {
+    return "성과 건수는 승·패·무 합계와 같아야 합니다.";
+  }
+  const decided = Number(wins) + Number(losses);
+  if (decided === 0 ? winRate !== null : typeof winRate !== "number" || !Number.isFinite(winRate) || winRate < 0 || winRate > 100) {
+    return "승률은 승패 거래가 없으면 null, 있으면 0~100 숫자여야 합니다.";
+  }
+  return {
+    count: Number(count),
+    wins: Number(wins),
+    losses: Number(losses),
+    draws: Number(draws),
+    win_rate: winRate as number | null,
+  };
+}
+
+function parseRealized(value: unknown): RealizedPerformance | string {
+  if (!isRecord(value) || !hasExactKeys(value, REALIZED_KEYS)) return "실현손익 형식이 올바르지 않습니다.";
+  const { count, profit_loss: profitLoss, return_rate: returnRate } = value;
+  if (!Number.isInteger(count) || Number(count) < 0) return "실현손익 건수는 0 이상의 정수여야 합니다.";
+  if (typeof profitLoss !== "number" || !Number.isFinite(profitLoss) || Math.abs(profitLoss) > 9_999_999_999_999_999) {
+    return "실현손익 금액이 올바르지 않습니다.";
+  }
+  if (count === 0) {
+    if (profitLoss !== 0 || returnRate !== null) return "완료 거래가 없으면 실현손익은 0, 수익률은 null이어야 합니다.";
+  } else if (typeof returnRate !== "number" || !Number.isFinite(returnRate)) {
+    return "완료 거래가 있으면 실현 수익률이 필요합니다.";
+  }
+  return { count: Number(count), profit_loss: profitLoss, return_rate: returnRate as number | null };
+}
+
+function parseHoldings(values: unknown[]): SyncedHolding[] | string {
+  if (values.length > MAX_HOLDINGS) return `종목은 최대 ${MAX_HOLDINGS}개까지 동기화할 수 있습니다.`;
   const result: SyncedHolding[] = [];
   const seen = new Set<string>();
-  for (const value of root.holdings) {
-    if (!value || typeof value !== "object" || Array.isArray(value)) return "보유종목 형식이 올바르지 않습니다.";
-    const row = value as Record<string, unknown>;
-    if (Object.keys(row).some((key) => !ALLOWED_ROW_KEYS.has(key))) {
+  for (const value of values) {
+    if (!isRecord(value)) return "보유종목 형식이 올바르지 않습니다.";
+    const row = value;
+    if (!hasExactKeys(row, ALLOWED_ROW_KEYS)) {
       return "보유종목에는 시장·코드·이름·수량·평단가·계정유형·증권사만 보낼 수 있습니다.";
     }
 
@@ -103,16 +177,16 @@ export function parseSnapshot(body: unknown): SyncedHolding[] | string {
     const rawCode = typeof row.stock_code === "string" ? row.stock_code.trim() : "";
     const stockCode = market === "KR" ? rawCode : rawCode.toUpperCase();
     const stockName = typeof row.stock_name === "string" ? row.stock_name.trim() : "";
-    const quantity = Number(row.quantity);
-    const avgPrice = Number(row.avg_price);
+    const quantity = row.quantity;
+    const avgPrice = row.avg_price;
     const accountType = row.account_type;
     const broker = row.broker;
 
     if (market !== "KR" && market !== "US" && market !== "JP") return "market은 KR, US, JP 중 하나여야 합니다.";
     if (!CODE_PATTERNS[market].test(stockCode)) return `${market} 종목코드 형식이 올바르지 않습니다.`;
     if (!stockName || stockName.length > 50) return "종목명은 1~50자여야 합니다.";
-    if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 99_999_999_999_999) return "보유 수량이 올바르지 않습니다.";
-    if (!Number.isFinite(avgPrice) || avgPrice <= 0 || avgPrice > 9_999_999_999_999_999) return "평균 단가가 올바르지 않습니다.";
+    if (typeof quantity !== "number" || !Number.isFinite(quantity) || quantity <= 0 || quantity > 99_999_999_999_999) return "보유 수량이 올바르지 않습니다.";
+    if (typeof avgPrice !== "number" || !Number.isFinite(avgPrice) || avgPrice <= 0 || avgPrice > 9_999_999_999_999_999) return "평균 단가가 올바르지 않습니다.";
     if (accountType !== "paper" && accountType !== "live") return "account_type은 paper 또는 live여야 합니다.";
     if (broker !== "KIWOOM" && broker !== "KIS") return "broker는 KIWOOM 또는 KIS여야 합니다.";
 
@@ -130,6 +204,66 @@ export function parseSnapshot(body: unknown): SyncedHolding[] | string {
     });
   }
   return result;
+}
+
+function parsePerformance(values: unknown[]): SyncedPerformance[] | string {
+  if (values.length > MAX_PERFORMANCE) return `성과는 최대 ${MAX_PERFORMANCE}개 계좌까지 동기화할 수 있습니다.`;
+  const result: SyncedPerformance[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    if (!isRecord(value) || !hasExactKeys(value, PERFORMANCE_KEYS)) return "자동매매 성과 형식이 올바르지 않습니다.";
+    const broker = value.broker;
+    const accountType = value.account_type;
+    if (broker !== "KIWOOM" && broker !== "KIS") return "성과 broker는 KIWOOM 또는 KIS여야 합니다.";
+    if (accountType !== "paper" && accountType !== "live") return "성과 account_type은 paper 또는 live여야 합니다.";
+    const key = `${broker}:${accountType}`;
+    if (seen.has(key)) return "같은 증권사·계정유형의 성과가 중복되었습니다.";
+    seen.add(key);
+
+    const all = parseStats(value.all);
+    const month = parseStats(value.month);
+    const realized = value.realized;
+    if (typeof all === "string") return all;
+    if (typeof month === "string") return month;
+    if (!isRecord(realized) || !hasExactKeys(realized, new Set(["KRW", "USD"]))) {
+      return "실현손익에는 KRW와 USD 집계가 모두 필요합니다.";
+    }
+    const krw = parseRealized(realized.KRW);
+    const usd = parseRealized(realized.USD);
+    if (typeof krw === "string") return krw;
+    if (typeof usd === "string") return usd;
+    if (!Number.isInteger(value.excluded_full_exits) || Number(value.excluded_full_exits) < 0) {
+      return "제외된 최종청산 수는 0 이상의 정수여야 합니다.";
+    }
+    if (typeof value.updated_at !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value.updated_at) || !Number.isFinite(Date.parse(value.updated_at))) {
+      return "updated_at은 시간대가 포함된 ISO 시각이어야 합니다.";
+    }
+    result.push({
+      broker,
+      account_type: accountType,
+      all,
+      month,
+      realized: { KRW: krw, USD: usd },
+      excluded_full_exits: Number(value.excluded_full_exits),
+      updated_at: new Date(value.updated_at).toISOString(),
+    });
+  }
+  return result;
+}
+
+export function parseSnapshot(body: unknown): SyncPayload | string {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return "요청 본문은 holdings와 performance 배열을 포함한 객체여야 합니다.";
+  }
+  const root = body as Record<string, unknown>;
+  if (!hasExactKeys(root, ROOT_KEYS) || !Array.isArray(root.holdings) || !Array.isArray(root.performance)) {
+    return "요청 본문에는 holdings와 performance 배열만 사용할 수 있습니다.";
+  }
+  const holdings = parseHoldings(root.holdings);
+  if (typeof holdings === "string") return holdings;
+  const performance = parsePerformance(root.performance);
+  if (typeof performance === "string") return performance;
+  return { holdings, performance };
 }
 
 export async function getTokenStatus(userId: string): Promise<{ tokenHint: string; issuedAt: string } | null> {
@@ -162,7 +296,7 @@ export async function revokeToken(userId: string): Promise<void> {
   await serviceRest(`integration_tokens?user_id=eq.${encodeURIComponent(userId)}`, { method: "DELETE" });
 }
 
-export async function syncSnapshot(token: string, snapshot: SyncedHolding[]): Promise<number> {
+export async function syncSnapshot(token: string, snapshot: SyncPayload): Promise<number> {
   const rows = await serviceRest<{ user_id: string }[]>(
     `integration_tokens?token_hash=eq.${hashIntegrationToken(token)}&select=user_id&limit=1`,
     { method: "GET" },
@@ -172,6 +306,10 @@ export async function syncSnapshot(token: string, snapshot: SyncedHolding[]): Pr
 
   return serviceRest<number>("rpc/replace_synced_holdings", {
     method: "POST",
-    body: JSON.stringify({ target_user_id: userId, snapshot }),
+    body: JSON.stringify({
+      target_user_id: userId,
+      snapshot: snapshot.holdings,
+      performance_snapshot: snapshot.performance,
+    }),
   });
 }

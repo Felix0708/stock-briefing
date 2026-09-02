@@ -65,7 +65,7 @@
 | `web/src/app/api/quotes` | 한·미·일 시세 + 환율 프록시 (교체 가능하게 격리) |
 | `web/src/app/api/stocks` | 종목 자동완성 (국가별 필터) |
 | `web/src/app/api/collect` | 온디맨드 수집 트리거 (종목명 자동 해석 → Actions 원격 실행) |
-| `db/schema*.sql` | pgvector · holdings · RLS · 권한 (단계별 마이그레이션) |
+| `db/schema*.sql` | pgvector · holdings · 자동매매 성과 · RLS · 권한 (단계별 마이그레이션) |
 
 ## Stock-Trading 스냅샷 API
 
@@ -88,15 +88,30 @@ Content-Type: application/json
       "account_type": "live",
       "broker": "KIWOOM"
     }
+  ],
+  "performance": [
+    {
+      "broker": "KIWOOM",
+      "account_type": "live",
+      "all": { "count": 12, "wins": 7, "losses": 4, "draws": 1, "win_rate": 63.64 },
+      "month": { "count": 3, "wins": 2, "losses": 1, "draws": 0, "win_rate": 66.67 },
+      "realized": {
+        "KRW": { "count": 8, "profit_loss": 125000, "return_rate": 4.21 },
+        "USD": { "count": 4, "profit_loss": -32.5, "return_rate": -1.84 }
+      },
+      "excluded_full_exits": 2,
+      "updated_at": "2026-09-03T00:00:00Z"
+    }
   ]
 }
 ```
 
 `account_type`은 `paper` 또는 `live`, `broker`는 `KIWOOM` 또는 `KIS`입니다.
-빈 `holdings` 배열은 자동 동기화 행 전체 삭제를
-뜻하며, 수동 등록 행과 다른 회원 행은 건드리지 않습니다. `user_id`, 증권사 API 키·비밀번호·계좌번호는
-요청 필드가 아니며 보내면 거부됩니다. 이 데이터와 `important_sections` 공개 JSON은 참고용이고 자동 주문
-조건이 아닙니다.
+`holdings`와 `performance`는 모두 필수 배열이며, 빈 배열은 해당 자동 동기화 스냅샷 전체 삭제를 뜻합니다.
+보유종목과 성과는 한 트랜잭션에서 함께 교체되고 수동 등록 행과 다른 회원 행은 건드리지 않습니다.
+성과는 계좌별 집계값만 받으며 원시 주문·체결내역, `user_id`, 증권사 API 키·비밀번호·계좌번호는 요청
+필드가 아니므로 보내면 거부됩니다. 완료 거래가 없거나 승·패 없이 무승부만 있으면 `win_rate`는
+`null`입니다. 이 데이터와 `important_sections` 공개 JSON은 참고용이고 자동 주문 조건이 아닙니다.
 
 ## 설계 결정 기록 (요약)
 

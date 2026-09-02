@@ -7,6 +7,9 @@ declare
     'public.match_filings(vector,integer,text,double precision)'
   );
   sync_rpc regprocedure := to_regprocedure(
+    'public.replace_synced_holdings(uuid,jsonb,jsonb)'
+  );
+  legacy_sync_rpc regprocedure := to_regprocedure(
     'public.replace_synced_holdings(uuid,jsonb)'
   );
 begin
@@ -85,8 +88,10 @@ begin
 
   if to_regclass('public.integration_tokens') is null
      or to_regclass('public.member_settings') is null
-     or sync_rpc is null then
-    raise exception '검증 실패: Phase 5 연동 테이블/RPC가 없습니다.';
+     or to_regclass('public.trading_performance') is null
+     or sync_rpc is null
+     or legacy_sync_rpc is null then
+    raise exception '검증 실패: Phase 5~6 연동 테이블/RPC가 없습니다.';
   end if;
 
   if not exists (
@@ -137,6 +142,38 @@ begin
     raise exception '검증 실패: replace_synced_holdings 실행 권한이 안전하지 않습니다.';
   end if;
 
+  if has_function_privilege('anon', legacy_sync_rpc, 'EXECUTE')
+     or has_function_privilege('authenticated', legacy_sync_rpc, 'EXECUTE')
+     or not has_function_privilege('service_role', legacy_sync_rpc, 'EXECUTE') then
+    raise exception '검증 실패: 호환 replace_synced_holdings 실행 권한이 안전하지 않습니다.';
+  end if;
+
+  if has_table_privilege('anon', 'public.trading_performance', 'SELECT,INSERT,UPDATE,DELETE')
+     or not has_table_privilege('authenticated', 'public.trading_performance', 'SELECT')
+     or has_table_privilege('authenticated', 'public.trading_performance', 'INSERT')
+     or has_table_privilege('authenticated', 'public.trading_performance', 'UPDATE')
+     or has_table_privilege('authenticated', 'public.trading_performance', 'DELETE')
+     or not has_table_privilege('service_role', 'public.trading_performance', 'SELECT')
+     or not has_table_privilege('service_role', 'public.trading_performance', 'INSERT')
+     or not has_table_privilege('service_role', 'public.trading_performance', 'UPDATE')
+     or not has_table_privilege('service_role', 'public.trading_performance', 'DELETE') then
+    raise exception '검증 실패: trading_performance 역할별 권한이 안전하지 않습니다.';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'trading_performance'
+      and policyname = 'trading_performance_select_own'
+      and cmd = 'SELECT'
+      and 'authenticated' = any(roles)
+      and qual like '%auth.uid()%'
+      and qual like '%user_id%'
+  ) then
+    raise exception '검증 실패: trading_performance 본인 읽기 정책이 없습니다.';
+  end if;
+
   if exists (
     select 1
     from pg_proc
@@ -146,21 +183,30 @@ begin
     raise exception '검증 실패: replace_synced_holdings는 SECURITY INVOKER와 빈 search_path여야 합니다.';
   end if;
 
+  if exists (
+    select 1
+    from pg_proc
+    where oid = legacy_sync_rpc
+      and (prosecdef or not ('search_path=""' = any(coalesce(proconfig, '{}'))))
+  ) then
+    raise exception '검증 실패: 호환 replace_synced_holdings는 SECURITY INVOKER와 빈 search_path여야 합니다.';
+  end if;
+
   if not exists (
     select 1
     from pg_class c
     join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'public'
-      and c.relname in ('holdings', 'member_settings', 'integration_tokens')
+      and c.relname in ('holdings', 'member_settings', 'integration_tokens', 'trading_performance')
       and c.relrowsecurity
     group by n.nspname
-    having count(*) = 3
+    having count(*) = 4
   ) then
-    raise exception '검증 실패: 회원 데이터 테이블 3개의 RLS가 모두 활성화되지 않았습니다.';
+    raise exception '검증 실패: 회원 데이터 테이블 4개의 RLS가 모두 활성화되지 않았습니다.';
   end if;
 end
 $$;
 
 select
   'PASS' as result,
-  'filings/회원 데이터 RLS, RPC, 역할별 최소 권한 검증 완료' as detail;
+  'filings/회원 데이터/자동매매 성과 RLS, RPC, 역할별 최소 권한 검증 완료' as detail;

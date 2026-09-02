@@ -24,6 +24,29 @@ type Quote = {
   currency: "KRW" | "USD" | "JPY";
 };
 
+type TradingPerformance = {
+  broker: "KIWOOM" | "KIS";
+  account_type: "paper" | "live";
+  all_count: number;
+  all_wins: number;
+  all_losses: number;
+  all_draws: number;
+  all_win_rate: number | null;
+  month_count: number;
+  month_wins: number;
+  month_losses: number;
+  month_draws: number;
+  month_win_rate: number | null;
+  realized_krw_count: number;
+  realized_krw_profit_loss: number;
+  realized_krw_return_rate: number | null;
+  realized_usd_count: number;
+  realized_usd_profit_loss: number;
+  realized_usd_return_rate: number | null;
+  excluded_full_exits: number;
+  updated_at: string;
+};
+
 function quoteKey(holding: Holding): string {
   return holding.market === "KR" ? holding.stock_code : `${holding.market}:${holding.stock_code}`;
 }
@@ -39,10 +62,20 @@ function brokerLabel(broker: Holding["broker"]): string {
   return "직접";
 }
 
-function holdingLabel(holding: Holding): string {
-  if (holding.source === "manual") return `${holding.stock_name} · 직접`;
-  const account = holding.account_type === "paper" ? "모의" : "실계좌";
-  return `${holding.stock_name} · ${brokerLabel(holding.broker)} · ${account}`;
+function stockLabel(holding: Holding, quote: Quote | null): string {
+  const name = quote?.name?.trim() || holding.stock_name.trim();
+  const suffix = ` (${holding.stock_code})`;
+  return name.endsWith(suffix) ? name : `${name}${suffix}`;
+}
+
+function accountKey(holding: Holding): string {
+  return `${holding.broker}:${holding.account_type}`;
+}
+
+function accountLabel(broker: Holding["broker"], accountType: Holding["account_type"]): string {
+  if (broker === "MANUAL") return "직접 등록";
+  const account = accountType === "paper" ? "모의계좌" : "실계좌";
+  return `${brokerLabel(broker)} ${account}`;
 }
 
 function currencyOf(market: "KR" | "US" | "JP"): "KRW" | "USD" | "JPY" {
@@ -71,6 +104,12 @@ const PIE_COLORS = [
   "#8b5cf6", "#06b6d4", "#f97316", "#84cc16",
   "#ec4899", "#64748b",
 ];
+const ACCOUNT_ORDER = ["KIWOOM:paper", "KIS:paper", "KIWOOM:live", "KIS:live", "MANUAL:manual"];
+
+function accountRank(key: string): number {
+  const index = ACCOUNT_ORDER.indexOf(key);
+  return index < 0 ? ACCOUNT_ORDER.length : index;
+}
 
 function formatKrw(value: number): string {
   return Math.round(value).toLocaleString("ko-KR");
@@ -83,6 +122,17 @@ function formatSigned(value: number): string {
 
 function formatPercent(value: number): string {
   return `${value > 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function formatRate(value: number | null): string {
+  return value === null ? "—" : `${value.toFixed(2)}%`;
+}
+
+function formatPerformanceMoney(value: number, currency: "KRW" | "USD"): string {
+  const sign = value > 0 ? "+" : value < 0 ? "-" : "";
+  const amount = Math.abs(value);
+  if (currency === "USD") return `${sign}$${amount.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+  return `${sign}${Math.round(amount).toLocaleString("ko-KR")}원`;
 }
 
 function plClass(value: number): string {
@@ -116,6 +166,7 @@ export function PortfolioPanel() {
 
   // 보유 종목
   const [holdings, setHoldings] = useState<Holding[]>([]);
+  const [performance, setPerformance] = useState<TradingPerformance[]>([]);
   const [quotes, setQuotes] = useState<Record<string, Quote>>({});
   const [quotesAsOf, setQuotesAsOf] = useState<string | null>(null);
   const [usdKrw, setUsdKrw] = useState<number | null>(null);
@@ -194,8 +245,9 @@ export function PortfolioPanel() {
     setListBusy(true);
     setListError(null);
     try {
-      const data = await api<{ holdings: Holding[] }>("/api/holdings");
+      const data = await api<{ holdings: Holding[]; performance: TradingPerformance[] }>("/api/holdings");
       setHoldings(data.holdings);
+      setPerformance(data.performance);
       await loadQuotes(data.holdings);
     } catch (error) {
       setListError(error instanceof Error ? error.message : "목록을 불러오지 못했습니다.");
@@ -355,6 +407,7 @@ export function PortfolioPanel() {
     await api("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     setUser(null);
     setHoldings([]);
+    setPerformance([]);
     setQuotes({});
     setPlainToken(null);
     setTokenStatus({ active: false });
@@ -466,7 +519,32 @@ export function PortfolioPanel() {
       weightTotal > 0 ? (weightBase[index] / weightTotal) * 100 : 0,
     );
 
-    return { rows, totalCost, totalValue, totalPl, totalPlRatio, weights, hasQuotes: priced.length > 0 };
+    const accountRows = new Map<string, typeof rows>();
+    for (const row of rows) {
+      const key = accountKey(row.holding);
+      const group = accountRows.get(key) ?? [];
+      group.push(row);
+      accountRows.set(key, group);
+    }
+    const charts = [...accountRows.entries()]
+      .sort(([left], [right]) => accountRank(left) - accountRank(right))
+      .map(([key, group]) => {
+        const bases = group.map((row) => row.valueKrw ?? row.costKrw ?? 0);
+        const total = bases.reduce((sum, value) => sum + value, 0);
+        const equalWeight = group.length > 0 ? 100 / group.length : 0;
+        return {
+          key,
+          title: accountLabel(group[0].holding.broker, group[0].holding.account_type),
+          slices: group.map((row, index) => ({
+            key: holdingKey(row.holding),
+            label: stockLabel(row.holding, row.quote),
+            percent: total > 0 ? (bases[index] / total) * 100 : equalWeight,
+            color: PIE_COLORS[index % PIE_COLORS.length],
+          })),
+        };
+      });
+
+    return { rows, totalCost, totalValue, totalPl, totalPlRatio, weights, charts, hasQuotes: priced.length > 0 };
   }, [holdings, quotes, usdKrw, jpyKrw]);
 
   // ---------- 렌더 ----------
@@ -636,7 +714,7 @@ export function PortfolioPanel() {
               <option value="custom">직접 입력 (새 종목)</option>
               {holdings.filter((row) => row.source === "manual").map((row) => (
                 <option key={holdingKey(row)} value={holdingKey(row)}>
-                  {row.stock_name} ({row.stock_code}) — 수량·단가 갱신
+                  {stockLabel(row, quotes[quoteKey(row)] ?? null)} — 수량·단가 갱신
                 </option>
               ))}
             </select>
@@ -865,7 +943,7 @@ export function PortfolioPanel() {
                           style={{ background: PIE_COLORS[index % PIE_COLORS.length] }}
                           aria-hidden="true"
                         />
-                        {row.holding.stock_name}
+                        {stockLabel(row.holding, row.quote)}
                         {row.holding.source === "stock_trading" && (
                           <span className="pf-source-badge">
                             자동 · {brokerLabel(row.holding.broker)} · {row.holding.account_type === "paper" ? "모의" : "실계좌"}
@@ -899,7 +977,7 @@ export function PortfolioPanel() {
                           <button
                             type="button"
                             className="pf-delete"
-                            aria-label={`${row.holding.stock_name} 삭제`}
+                            aria-label={`${stockLabel(row.holding, row.quote)} 삭제`}
                             onClick={() => void handleDelete(row.holding)}
                           >
                             ✕
@@ -912,16 +990,70 @@ export function PortfolioPanel() {
               </table>
             </div>
 
-            <PieChart
-              slices={computed.rows.map((row, index) => ({
-                key: holdingKey(row.holding),
-                label: holdingLabel(row.holding),
-                percent: computed.weights[index],
-                color: PIE_COLORS[index % PIE_COLORS.length],
-              }))}
-            />
+            <div className="pf-pie-grid">
+              {computed.charts.map((chart) => (
+                <PieChart key={chart.key} title={chart.title} slices={chart.slices} />
+              ))}
+            </div>
           </>
         )}
+
+        <div className="pf-performance" aria-labelledby="pf-performance-title">
+          <h3 id="pf-performance-title">자동매매 누적 성과</h3>
+          <p className="pf-muted pf-hint">최종청산 완료 기준 · 수수료·세금 제외</p>
+          {performance.length === 0 ? (
+            <p className="pf-muted">아직 동기화된 자동매매 성과가 없습니다.</p>
+          ) : (
+            <div className="pf-performance-grid">
+              {[...performance]
+                .sort((left, right) =>
+                  accountRank(`${left.broker}:${left.account_type}`)
+                  - accountRank(`${right.broker}:${right.account_type}`))
+                .map((item) => (
+                <article className="pf-performance-card" key={`${item.broker}:${item.account_type}`}>
+                  <h4>{accountLabel(item.broker, item.account_type)}</h4>
+                  <dl>
+                    <div>
+                      <dt>역대</dt>
+                      <dd>
+                        {item.all_count.toLocaleString("ko-KR")}건 · {item.all_wins}승 {item.all_losses}패 {item.all_draws}무
+                        <strong>승률 {formatRate(item.all_win_rate)}</strong>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>이번 달</dt>
+                      <dd>
+                        {item.month_count.toLocaleString("ko-KR")}건 · {item.month_wins}승 {item.month_losses}패 {item.month_draws}무
+                        <strong>승률 {formatRate(item.month_win_rate)}</strong>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>KRW 실현손익</dt>
+                      <dd>
+                        {item.realized_krw_count.toLocaleString("ko-KR")}건 · <span className={plClass(item.realized_krw_profit_loss)}>{formatPerformanceMoney(item.realized_krw_profit_loss, "KRW")}</span>
+                        <strong>수익률 {formatRate(item.realized_krw_return_rate)}</strong>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>USD 실현손익</dt>
+                      <dd>
+                        {item.realized_usd_count.toLocaleString("ko-KR")}건 · <span className={plClass(item.realized_usd_profit_loss)}>{formatPerformanceMoney(item.realized_usd_profit_loss, "USD")}</span>
+                        <strong>수익률 {formatRate(item.realized_usd_return_rate)}</strong>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>제외된 최종청산</dt>
+                      <dd>{item.excluded_full_exits.toLocaleString("ko-KR")}건</dd>
+                    </div>
+                  </dl>
+                  <p className="pf-muted pf-performance-time">
+                    {new Date(item.updated_at).toLocaleString("ko-KR")} 기준
+                  </p>
+                </article>
+                ))}
+            </div>
+          )}
+        </div>
       </section>
     </div>
   );
@@ -929,44 +1061,47 @@ export function PortfolioPanel() {
 
 type PieSlice = { key: string; label: string; percent: number; color: string };
 
-function PieChart({ slices }: { slices: PieSlice[] }) {
+function PieChart({ title, slices }: { title: string; slices: PieSlice[] }) {
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
   let offset = 0;
 
   return (
-    <div className="pf-pie" role="img" aria-label="종목별 비중 원 그래프">
-      <svg viewBox="0 0 120 120">
-        <circle cx="60" cy="60" r={radius} className="pf-pie-track" />
-        {slices.map((slice) => {
-          const length = (slice.percent / 100) * circumference;
-          const element = (
-            <circle
-              key={slice.key}
-              cx="60"
-              cy="60"
-              r={radius}
-              fill="none"
-              stroke={slice.color}
-              strokeWidth="22"
-              strokeDasharray={`${length} ${circumference - length}`}
-              strokeDashoffset={-offset}
-              transform="rotate(-90 60 60)"
-            />
-          );
-          offset += length;
-          return element;
-        })}
-      </svg>
-      <ul className="pf-legend">
-        {slices.map((slice) => (
-          <li key={slice.key}>
-            <span className="pf-dot" style={{ background: slice.color }} aria-hidden="true" />
-            {slice.label}
-            <strong>{slice.percent.toFixed(1)}%</strong>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <article className="pf-pie-card">
+      <h3>{title}</h3>
+      <div className="pf-pie" role="img" aria-label={`${title} 종목별 비중 원 그래프`}>
+        <svg viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r={radius} className="pf-pie-track" />
+          {slices.map((slice) => {
+            const length = (slice.percent / 100) * circumference;
+            const element = (
+              <circle
+                key={slice.key}
+                cx="60"
+                cy="60"
+                r={radius}
+                fill="none"
+                stroke={slice.color}
+                strokeWidth="22"
+                strokeDasharray={`${length} ${circumference - length}`}
+                strokeDashoffset={-offset}
+                transform="rotate(-90 60 60)"
+              />
+            );
+            offset += length;
+            return element;
+          })}
+        </svg>
+        <ul className="pf-legend">
+          {slices.map((slice) => (
+            <li key={slice.key}>
+              <span className="pf-dot" style={{ background: slice.color }} aria-hidden="true" />
+              {slice.label}
+              <strong>{slice.percent.toFixed(1)}%</strong>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </article>
   );
 }

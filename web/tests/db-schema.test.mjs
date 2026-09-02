@@ -8,6 +8,7 @@ const verification = await readFile(
   "utf8",
 );
 const phase5 = await readFile(new URL("../../db/schema_phase5.sql", import.meta.url), "utf8");
+const phase6 = await readFile(new URL("../../db/schema_phase6.sql", import.meta.url), "utf8");
 const holdingsRoute = await readFile(
   new URL("../src/app/api/holdings/route.ts", import.meta.url),
   "utf8",
@@ -48,13 +49,34 @@ test("전체 스냅샷 RPC가 중복을 먼저 거부하고 해당 회원의 자
   assert.match(phase5, /grant execute on function public\.replace_synced_holdings\(uuid, jsonb\) to service_role/);
 });
 
+test("Phase 6가 보유종목과 계좌별 집계 성과를 최소 권한으로 원자 교체한다", () => {
+  assert.match(phase6, /create table if not exists public\.trading_performance/);
+  assert.match(phase6, /primary key \(user_id, broker, account_type\)/);
+  assert.match(phase6, /alter table public\.trading_performance enable row level security/);
+  assert.match(phase6, /for select to authenticated[\s\S]*?auth\.uid\(\)[\s\S]*?user_id/);
+  assert.match(phase6, /revoke all on table public\.trading_performance from public, anon, authenticated/);
+  assert.match(phase6, /grant select on table public\.trading_performance to authenticated/);
+  assert.match(phase6, /grant select, insert, update, delete on table public\.trading_performance to service_role/);
+  assert.match(phase6, /replace_synced_holdings\([\s\S]*?performance_snapshot jsonb[\s\S]*?security invoker[\s\S]*?set search_path = ''/);
+  assert.match(phase6, /delete from public\.holdings[\s\S]*?delete from public\.trading_performance/);
+  assert.match(phase6, /revoke all on function public\.replace_synced_holdings\(uuid, jsonb, jsonb\)/);
+  assert.match(phase6, /replace_synced_holdings\([\s\S]*?snapshot jsonb[\s\S]*?security invoker[\s\S]*?set search_path = ''/);
+  assert.match(phase6, /revoke all on function public\.replace_synced_holdings\(uuid, jsonb\)/);
+  assert.match(phase6, /grant execute on function public\.replace_synced_holdings\(uuid, jsonb\)[\s\S]*?to service_role/);
+});
+
 test("보유종목 API와 화면이 증권사별 행을 구분한다", () => {
   assert.match(holdingsRoute, /source,account_type,broker/);
   assert.match(holdingsRoute, /account_type,broker&select=/);
   assert.match(portfolioPanel, /holding\.account_type}:\$\{holding\.broker}/);
   assert.match(portfolioPanel, /자동 · \{brokerLabel\(row\.holding\.broker\)} ·/);
   assert.match(portfolioPanel, /key: holdingKey\(row\.holding\)/);
-  assert.match(portfolioPanel, /label: holdingLabel\(row\.holding\)/);
+  assert.match(portfolioPanel, /quote\?\.name\?\.trim\(\) \|\| holding\.stock_name\.trim\(\)/);
+  assert.match(portfolioPanel, /label: stockLabel\(row\.holding, row\.quote\)/);
+  assert.match(portfolioPanel, /title: accountLabel\(group\[0\]\.holding\.broker, group\[0\]\.holding\.account_type\)/);
+  assert.match(portfolioPanel, /total > 0 \? \(bases\[index\] \/ total\) \* 100 : equalWeight/);
+  assert.match(portfolioPanel, /자동매매 누적 성과/);
+  assert.match(portfolioPanel, /최종청산 완료 기준 · 수수료·세금 제외/);
 });
 
 test("DB 스키마가 RLS와 서버 전용 권한을 적용한다", () => {
@@ -92,4 +114,9 @@ test("배포 후 검증 SQL이 RLS와 역할별 권한을 검사한다", () => {
   assert.match(verification, /has_sequence_privilege\([\s\S]*?'authenticated'/);
   assert.match(verification, /has_sequence_privilege\('service_role'/);
   assert.match(verification, /SECURITY INVOKER와 빈 search_path/);
+  assert.match(verification, /public\.trading_performance/);
+  assert.match(verification, /trading_performance_select_own/);
+  assert.match(verification, /replace_synced_holdings\(uuid,jsonb,jsonb\)/);
+  assert.match(verification, /replace_synced_holdings\(uuid,jsonb\)/);
+  assert.match(verification, /호환 replace_synced_holdings 실행 권한/);
 });
