@@ -1611,8 +1611,12 @@ a.source-item:focus-visible {
   }
 
   .pf-source-badge {
-    display: table;
+    display: flex;
+    width: fit-content;
+    max-width: calc(100% - 16px);
     margin: 5px 0 0 16px;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .pf-pie-grid,
@@ -1643,8 +1647,10 @@ a.source-item:focus-visible {
   }
 
   .pf-legend li {
-    align-items: flex-start;
+    align-items: center;
   }
+
+  .pf-legend .pf-dot { margin-right: 0; }
 
   .pf-legend strong {
     margin-left: auto;

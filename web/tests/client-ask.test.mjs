@@ -103,6 +103,7 @@ test("모바일 포트폴리오는 표를 카드로 바꾸고 터치 영역을 �
   assert.match(css, /@media \(max-width: 640px\)[\s\S]*?\.pf-table tbody[\s\S]*?display: grid/);
   assert.match(css, /\.pf-table td::before[\s\S]*?content: attr\(data-label\)/);
   assert.match(css, /\.pf-primary,[\s\S]*?min-height: 44px/);
+  assert.match(css, /\.pf-source-badge\s*\{[^}]*max-width: calc\(100% - 16px\)[^}]*overflow-wrap: anywhere[^}]*\}[\s\S]*?\.pf-legend li\s*\{\s*align-items: center;\s*\}[\s\S]*?\.pf-legend \.pf-dot \{ margin-right: 0; \}/);
   for (const label of ["종목", "수량", "평단가", "현재가", "평가금액", "손익", "수익률", "계좌 내 비중"]) {
     assert.match(panel, new RegExp(`data-label="${label}"`));
   }
