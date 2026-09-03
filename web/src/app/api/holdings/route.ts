@@ -9,6 +9,10 @@ import {
 } from "@/lib/server/auth";
 import { ConfigurationError } from "@/lib/server/config";
 import { UpstreamError } from "@/lib/server/http";
+import {
+  isManualBroker,
+  type HoldingBroker,
+} from "@/lib/holding-brokers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +29,7 @@ export type Holding = {
   market: "KR" | "US" | "JP";
   source: "manual" | "stock_trading";
   account_type: "manual" | "paper" | "live";
-  broker: "MANUAL" | "KIWOOM" | "KIS" | "LEGACY";
+  broker: HoldingBroker;
 };
 
 export type TradingPerformance = {
@@ -72,7 +76,7 @@ function handleKnownError(error: unknown): NextResponse {
   if (error instanceof UpstreamError) {
     if (error.status === 401) return unauthorized();
     if (error.status === 409) {
-      return NextResponse.json({ error: "이미 등록된 종목입니다." }, { status: 409 });
+      return NextResponse.json({ error: "같은 증권사에 이미 등록된 종목입니다." }, { status: 409 });
     }
     if (error.status === 404) {
       return NextResponse.json(
@@ -114,6 +118,7 @@ function parseHolding(body: unknown): Holding | string {
   const stockName = typeof row.stock_name === "string" ? row.stock_name.trim() : "";
   const quantity = Number(row.quantity);
   const avgPrice = Number(row.avg_price);
+  const broker = row.broker;
 
   if (market === "KR" && !CODE_PATTERN.test(stockCode)) {
     return "국내 종목코드는 숫자 6자리여야 합니다.";
@@ -127,6 +132,7 @@ function parseHolding(body: unknown): Holding | string {
   if (!stockName || stockName.length > 50) return "종목명을 확인해 주세요.";
   if (!Number.isFinite(quantity) || quantity <= 0) return "보유 수량을 확인해 주세요.";
   if (!Number.isFinite(avgPrice) || avgPrice <= 0) return "평균 단가를 확인해 주세요.";
+  if (!isManualBroker(broker)) return "증권사를 선택해 주세요.";
 
   return {
     stock_code: stockCode,
@@ -136,7 +142,7 @@ function parseHolding(body: unknown): Holding | string {
     market,
     source: "manual",
     account_type: "manual",
-    broker: "MANUAL",
+    broker,
   };
 }
 
@@ -178,15 +184,30 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (typeof holding === "string") {
       return NextResponse.json({ error: holding }, { status: 400 });
     }
+    const row = body as Record<string, unknown>;
+    const previousBroker = row.previous_broker;
+    if (
+      previousBroker !== undefined
+      && previousBroker !== "MANUAL"
+      && !isManualBroker(previousBroker)
+    ) {
+      return NextResponse.json({ error: "기존 증권사 정보가 올바르지 않습니다." }, { status: 400 });
+    }
 
     // 보유 종목 수 상한 (남용 방지)
-    const existing = await restFetch<{ stock_code: string; market: Holding["market"] }[]>(
+    const existing = await restFetch<{
+      stock_code: string;
+      market: Holding["market"];
+      broker: HoldingBroker;
+    }[]>(
       session,
-      "holdings?select=stock_code,market&source=eq.manual",
+      "holdings?select=stock_code,market,broker&source=eq.manual",
       { method: "GET" },
     );
     const isUpdate = existing.some(
-      (row) => row.stock_code === holding.stock_code && row.market === holding.market,
+      (existingRow) => existingRow.stock_code === holding.stock_code
+        && existingRow.market === holding.market
+        && (existingRow.broker === holding.broker || existingRow.broker === previousBroker),
     );
     if (!isUpdate && existing.length >= MAX_HOLDINGS) {
       return NextResponse.json(
@@ -195,16 +216,29 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // 같은 종목 재등록은 수량·단가 갱신으로 처리 (upsert)
-    const rows = await restFetch<Holding[]>(
-      session,
-      "holdings?on_conflict=user_id,source,market,stock_code,account_type,broker&select=stock_code,stock_name,quantity,avg_price,market,source,account_type,broker",
-      {
-        method: "POST",
-        headers: { Prefer: "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify(holding),
-      },
-    );
+    const movingBroker = typeof previousBroker === "string" && previousBroker !== holding.broker;
+    const rows = movingBroker
+      ? await restFetch<Holding[]>(
+        session,
+        `holdings?stock_code=eq.${encodeURIComponent(holding.stock_code)}&market=eq.${holding.market}&source=eq.manual&account_type=eq.manual&broker=eq.${encodeURIComponent(previousBroker)}&select=stock_code,stock_name,quantity,avg_price,market,source,account_type,broker`,
+        {
+          method: "PATCH",
+          headers: { Prefer: "return=representation" },
+          body: JSON.stringify(holding),
+        },
+      )
+      : await restFetch<Holding[]>(
+        session,
+        "holdings?on_conflict=user_id,source,market,stock_code,account_type,broker&select=stock_code,stock_name,quantity,avg_price,market,source,account_type,broker",
+        {
+          method: "POST",
+          headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+          body: JSON.stringify(holding),
+        },
+      );
+    if (movingBroker && rows.length === 0) {
+      return NextResponse.json({ error: "수정할 직접 등록 종목을 찾지 못했습니다." }, { status: 404 });
+    }
     return withSession(NextResponse.json({ ok: true, holding: rows[0] ?? holding }), session);
   } catch (error) {
     return handleKnownError(error);
@@ -218,6 +252,7 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
 
     const code = req.nextUrl.searchParams.get("code")?.trim().toUpperCase() ?? "";
     const market = req.nextUrl.searchParams.get("market")?.trim().toUpperCase() ?? "";
+    const broker = req.nextUrl.searchParams.get("broker")?.trim().toUpperCase() ?? "";
     if (!CODE_PATTERN.test(code) && !US_CODE_PATTERN.test(code) && !JP_CODE_PATTERN.test(code)) {
       return NextResponse.json({ error: "종목코드를 확인해 주세요." }, { status: 400 });
     }
@@ -225,10 +260,13 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
     if (market !== "KR" && market !== "US" && market !== "JP") {
       return NextResponse.json({ error: "시장을 확인해 주세요." }, { status: 400 });
     }
+    if (broker !== "MANUAL" && !isManualBroker(broker)) {
+      return NextResponse.json({ error: "증권사를 확인해 주세요." }, { status: 400 });
+    }
 
     await restFetch<undefined>(
       session,
-      `holdings?stock_code=eq.${encodeURIComponent(code)}&market=eq.${market}&source=eq.manual`,
+      `holdings?stock_code=eq.${encodeURIComponent(code)}&market=eq.${market}&source=eq.manual&account_type=eq.manual&broker=eq.${encodeURIComponent(broker)}`,
       {
       method: "DELETE",
       },

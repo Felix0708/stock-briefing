@@ -139,6 +139,20 @@ begin
     raise exception '검증 실패: holdings 증권사별 유니크 제약이 없습니다.';
   end if;
 
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.holdings'::regclass
+      and conname = 'holdings_source_account_broker_check'
+      and contype = 'c'
+      and convalidated
+      and position('MIRAE' in pg_get_constraintdef(oid)) > 0
+      and position('OTHER' in pg_get_constraintdef(oid)) > 0
+      and position('stock_trading' in pg_get_constraintdef(oid)) > 0
+  ) then
+    raise exception '검증 실패: 직접 등록 증권사와 자동매매 출처가 분리되지 않았습니다.';
+  end if;
+
   if has_table_privilege('anon', 'public.integration_tokens', 'SELECT,INSERT,UPDATE,DELETE')
      or has_table_privilege('authenticated', 'public.integration_tokens', 'SELECT,INSERT,UPDATE,DELETE') then
     raise exception '검증 실패: 브라우저 역할이 integration_tokens에 접근할 수 있습니다.';

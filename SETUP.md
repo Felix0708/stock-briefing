@@ -78,8 +78,10 @@ python -m http.server 8000 --directory docs
    - `db/schema_phase3.sql`
    - `db/schema_phase4.sql`
    - `db/schema_phase5.sql`
+   - `db/schema_phase6.sql`
+   - `supabase/migrations/20260903032539_manual_broker_accounts.sql`
    - 마지막 확인: `db/verify_schema.sql`
-   기존 Phase 4 운영 DB라면 `schema_phase5.sql`과 `verify_schema.sql`만 실행하면 됩니다.
+   기존 운영 DB라면 아직 적용하지 않은 파일부터 순서대로 실행합니다.
 2. `.env`에 추가:
    ```
    SUPABASE_URL=https://<프로젝트ID>.supabase.co

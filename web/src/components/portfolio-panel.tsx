@@ -4,6 +4,13 @@ import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { searchStocks, type StockSuggestion } from "@/lib/client/stock-search";
+import {
+  brokerLabel,
+  isManualBroker,
+  MANUAL_BROKER_OPTIONS,
+  type HoldingBroker,
+  type ManualBroker,
+} from "@/lib/holding-brokers";
 
 type Holding = {
   stock_code: string;
@@ -13,7 +20,7 @@ type Holding = {
   market: "KR" | "US" | "JP";
   source: "manual" | "stock_trading";
   account_type: "manual" | "paper" | "live";
-  broker: "MANUAL" | "KIWOOM" | "KIS" | "LEGACY";
+  broker: HoldingBroker;
 };
 
 type Quote = {
@@ -55,13 +62,6 @@ function holdingKey(holding: Holding): string {
   return `${holding.source}:${holding.market}:${holding.stock_code}:${holding.account_type}:${holding.broker}`;
 }
 
-function brokerLabel(broker: Holding["broker"]): string {
-  if (broker === "KIWOOM") return "키움";
-  if (broker === "KIS") return "한투";
-  if (broker === "LEGACY") return "이전 연동";
-  return "직접";
-}
-
 function stockLabel(holding: Holding, quote: Quote | null): string {
   const name = quote?.name?.trim() || holding.stock_name.trim();
   const suffix = ` (${holding.stock_code})`;
@@ -69,11 +69,15 @@ function stockLabel(holding: Holding, quote: Quote | null): string {
 }
 
 function accountKey(holding: Holding): string {
-  return `${holding.broker}:${holding.account_type}`;
+  return `${holding.source}:${holding.broker}:${holding.account_type}`;
 }
 
-function accountLabel(broker: Holding["broker"], accountType: Holding["account_type"]): string {
-  if (broker === "MANUAL") return "직접 등록";
+function accountLabel(
+  source: Holding["source"],
+  broker: Holding["broker"],
+  accountType: Holding["account_type"],
+): string {
+  if (source === "manual") return `직접 · ${brokerLabel(broker)}`;
   const account = accountType === "paper" ? "모의계좌" : "실계좌";
   return `${brokerLabel(broker)} ${account}`;
 }
@@ -104,7 +108,14 @@ const PIE_COLORS = [
   "#8b5cf6", "#06b6d4", "#f97316", "#84cc16",
   "#ec4899", "#64748b",
 ];
-const ACCOUNT_ORDER = ["KIWOOM:paper", "KIS:paper", "KIWOOM:live", "KIS:live", "MANUAL:manual"];
+const ACCOUNT_ORDER = [
+  "stock_trading:KIWOOM:paper",
+  "stock_trading:KIS:paper",
+  "stock_trading:KIWOOM:live",
+  "stock_trading:KIS:live",
+  ...MANUAL_BROKER_OPTIONS.map((option) => `manual:${option.value}:manual`),
+  "manual:MANUAL:manual",
+];
 
 function accountRank(key: string): number {
   const index = ACCOUNT_ORDER.indexOf(key);
@@ -188,12 +199,21 @@ export function PortfolioPanel() {
   const [selectedPreset, setSelectedPreset] = useState<string>("custom");
   const [customCode, setCustomCode] = useState("");
   const [customName, setCustomName] = useState("");
+  const [manualBroker, setManualBroker] = useState<ManualBroker | "">("");
   const [quantity, setQuantity] = useState("");
   const [avgPrice, setAvgPrice] = useState("");
   const [formBusy, setFormBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const isCustom = selectedPreset === "custom";
+
+  const handlePresetChange = (value: string) => {
+    setSelectedPreset(value);
+    const selected = holdings.find(
+      (holding) => holding.source === "manual" && holdingKey(holding) === value,
+    );
+    setManualBroker(selected && isManualBroker(selected.broker) ? selected.broker : "");
+  };
 
   // 종목 자동완성 (직접 입력 시 시장 선택)
   const [customMarket, setCustomMarket] = useState<"KR" | "US" | "JP">("KR");
@@ -434,6 +454,8 @@ export function PortfolioPanel() {
           quantity: Number(quantity),
           avg_price: Number(avgPrice),
           market,
+          broker: manualBroker,
+          previous_broker: owned?.broker,
         }),
       });
       setQuantity("");
@@ -470,7 +492,7 @@ export function PortfolioPanel() {
     if (holding.source !== "manual") return;
     try {
       await api(
-        `/api/holdings?code=${encodeURIComponent(holding.stock_code)}&market=${holding.market}`,
+        `/api/holdings?code=${encodeURIComponent(holding.stock_code)}&market=${holding.market}&broker=${encodeURIComponent(holding.broker)}`,
         { method: "DELETE" },
       );
       await loadHoldings();
@@ -534,7 +556,11 @@ export function PortfolioPanel() {
         const equalWeight = group.length > 0 ? 100 / group.length : 0;
         return {
           key,
-          title: accountLabel(group[0].holding.broker, group[0].holding.account_type),
+          title: accountLabel(
+            group[0].holding.source,
+            group[0].holding.broker,
+            group[0].holding.account_type,
+          ),
           slices: group.map((row, index) => ({
             key: holdingKey(row.holding),
             label: stockLabel(row.holding, row.quote),
@@ -709,13 +735,27 @@ export function PortfolioPanel() {
             <select
               id="pf-stock"
               value={selectedPreset}
-              onChange={(event) => setSelectedPreset(event.target.value)}
+              onChange={(event) => handlePresetChange(event.target.value)}
             >
               <option value="custom">직접 입력 (새 종목)</option>
               {holdings.filter((row) => row.source === "manual").map((row) => (
                 <option key={holdingKey(row)} value={holdingKey(row)}>
-                  {stockLabel(row, quotes[quoteKey(row)] ?? null)} — 수량·단가 갱신
+                  {brokerLabel(row.broker)} · {stockLabel(row, quotes[quoteKey(row)] ?? null)} — 갱신
                 </option>
+              ))}
+            </select>
+          </div>
+          <div className="pf-field">
+            <label htmlFor="pf-broker">증권사</label>
+            <select
+              id="pf-broker"
+              required
+              value={manualBroker}
+              onChange={(event) => setManualBroker(event.target.value as ManualBroker)}
+            >
+              <option value="" disabled>증권사 선택</option>
+              {MANUAL_BROKER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
           </div>
@@ -866,7 +906,9 @@ export function PortfolioPanel() {
             {formBusy ? "등록 중..." : "등록 / 갱신"}
           </button>
         </form>
-        <p className="pf-muted pf-hint">같은 종목을 다시 등록하면 수량·단가가 갱신됩니다.</p>
+        <p className="pf-muted pf-hint">
+          직접 등록은 실계좌로 보며, 자동매매 실계좌와 별도로 표시됩니다.
+        </p>
         {formError && <p className="pf-error">{formError}</p>}
       </section>
 
@@ -944,11 +986,11 @@ export function PortfolioPanel() {
                           aria-hidden="true"
                         />
                         {stockLabel(row.holding, row.quote)}
-                        {row.holding.source === "stock_trading" && (
-                          <span className="pf-source-badge">
-                            자동 · {brokerLabel(row.holding.broker)} · {row.holding.account_type === "paper" ? "모의" : "실계좌"}
-                          </span>
-                        )}
+                        <span className="pf-source-badge">
+                          {row.holding.source === "manual"
+                            ? `직접 · ${brokerLabel(row.holding.broker)}`
+                            : `자동 · ${brokerLabel(row.holding.broker)} · ${row.holding.account_type === "paper" ? "모의" : "실계좌"}`}
+                        </span>
                       </td>
                       <td data-label="수량">{row.holding.quantity.toLocaleString("ko-KR")}</td>
                       <td data-label="평단가">{formatMoney(row.holding.avg_price, row.currency)}</td>
@@ -1007,11 +1049,11 @@ export function PortfolioPanel() {
             <div className="pf-performance-grid">
               {[...performance]
                 .sort((left, right) =>
-                  accountRank(`${left.broker}:${left.account_type}`)
-                  - accountRank(`${right.broker}:${right.account_type}`))
+                  accountRank(`stock_trading:${left.broker}:${left.account_type}`)
+                  - accountRank(`stock_trading:${right.broker}:${right.account_type}`))
                 .map((item) => (
                 <article className="pf-performance-card" key={`${item.broker}:${item.account_type}`}>
-                  <h4>{accountLabel(item.broker, item.account_type)}</h4>
+                  <h4>{accountLabel("stock_trading", item.broker, item.account_type)}</h4>
                   <dl>
                     <div>
                       <dt>역대</dt>

@@ -9,6 +9,10 @@ const verification = await readFile(
 );
 const phase5 = await readFile(new URL("../../db/schema_phase5.sql", import.meta.url), "utf8");
 const phase6 = await readFile(new URL("../../db/schema_phase6.sql", import.meta.url), "utf8");
+const manualBrokerMigration = await readFile(
+  new URL("../../supabase/migrations/20260903032539_manual_broker_accounts.sql", import.meta.url),
+  "utf8",
+);
 const advisorHardening = await readFile(
   new URL("../../db/schema_advisor_hardening.sql", import.meta.url),
   "utf8",
@@ -73,14 +77,26 @@ test("보유종목 API와 화면이 증권사별 행을 구분한다", () => {
   assert.match(holdingsRoute, /source,account_type,broker/);
   assert.match(holdingsRoute, /account_type,broker&select=/);
   assert.match(portfolioPanel, /holding\.account_type}:\$\{holding\.broker}/);
-  assert.match(portfolioPanel, /자동 · \{brokerLabel\(row\.holding\.broker\)} ·/);
+  assert.match(portfolioPanel, /자동 · \$\{brokerLabel\(row\.holding\.broker\)} ·/);
   assert.match(portfolioPanel, /key: holdingKey\(row\.holding\)/);
   assert.match(portfolioPanel, /quote\?\.name\?\.trim\(\) \|\| holding\.stock_name\.trim\(\)/);
   assert.match(portfolioPanel, /label: stockLabel\(row\.holding, row\.quote\)/);
-  assert.match(portfolioPanel, /title: accountLabel\(group\[0\]\.holding\.broker, group\[0\]\.holding\.account_type\)/);
+  assert.match(portfolioPanel, /return `\$\{holding\.source}:\$\{holding\.broker}:\$\{holding\.account_type}`/);
+  assert.match(portfolioPanel, /직접 · \$\{brokerLabel\(row\.holding\.broker\)}/);
+  assert.match(portfolioPanel, /title: accountLabel\([\s\S]*?group\[0\]\.holding\.source,[\s\S]*?group\[0\]\.holding\.broker/);
   assert.match(portfolioPanel, /total > 0 \? \(bases\[index\] \/ total\) \* 100 : equalWeight/);
   assert.match(portfolioPanel, /자동매매 누적 성과/);
   assert.match(portfolioPanel, /최종청산 완료 기준 · 수수료·세금 제외/);
+});
+
+test("직접 등록은 증권사별로 저장하되 자동매매 실계좌와 source로 분리한다", () => {
+  assert.match(manualBrokerMigration, /source = 'manual' and account_type = 'manual'/);
+  assert.match(manualBrokerMigration, /source = 'stock_trading' and account_type in \('paper', 'live'\)/);
+  for (const broker of ["KIWOOM", "KIS", "MIRAE", "NH", "SAMSUNG", "KB", "SHINHAN", "TOSS", "KAKAOPAY", "DAISHIN", "OTHER"]) {
+    assert.match(manualBrokerMigration, new RegExp(`'${broker}'`));
+  }
+  assert.match(holdingsRoute, /broker=eq\.\$\{encodeURIComponent\(broker\)\}/);
+  assert.match(verification, /직접 등록 증권사와 자동매매 출처가 분리되지 않았습니다/);
 });
 
 test("DB 스키마가 RLS와 서버 전용 권한을 적용한다", () => {

@@ -11,7 +11,11 @@ import {
   GET as authGet,
   POST as authPost,
 } from "../src/app/api/auth/[action]/route.ts";
-import { GET as getHoldingsRoute } from "../src/app/api/holdings/route.ts";
+import {
+  DELETE as deleteHoldingRoute,
+  GET as getHoldingsRoute,
+  POST as postHoldingRoute,
+} from "../src/app/api/holdings/route.ts";
 import { PUT as syncHoldingsRoute } from "../src/app/api/sync/holdings/route.ts";
 import {
   createIntegrationToken,
@@ -170,6 +174,78 @@ test("보유종목 조회가 broker를 요청하고 응답에 유지한다", asy
   const payload = await response.json();
   assert.equal(payload.holdings[0].broker, "KIS");
   assert.equal(payload.performance[0].all_count, 3);
+});
+
+test("직접 등록은 선택한 증권사를 저장하고 기존 미지정 행의 증권사를 바꿀 수 있다", async () => {
+  const calls = [];
+  globalThis.fetch = async (url, init = {}) => {
+    calls.push({ url: String(url), init });
+    if (init.method === "GET") {
+      return Response.json([{ stock_code: "SE", market: "US", broker: "MANUAL" }]);
+    }
+    return Response.json([JSON.parse(init.body)]);
+  };
+
+  const response = await postHoldingRoute(new NextRequest("http://localhost/api/holdings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      market: "US",
+      stock_code: "SE",
+      stock_name: "씨 ADR",
+      quantity: 12,
+      avg_price: 115.45,
+      broker: "MIRAE",
+      previous_broker: "MANUAL",
+    }),
+  }));
+
+  assert.equal(response.status, 200);
+  assert.equal(calls[1].init.method, "PATCH");
+  assert.match(calls[1].url, /source=eq\.manual/);
+  assert.match(calls[1].url, /broker=eq\.MANUAL/);
+  const written = JSON.parse(calls[1].init.body);
+  assert.equal(written.source, "manual");
+  assert.equal(written.account_type, "manual");
+  assert.equal(written.broker, "MIRAE");
+});
+
+test("직접 등록 삭제는 같은 종목의 선택한 증권사 행만 대상으로 한다", async () => {
+  let deletedUrl = "";
+  globalThis.fetch = async (url, init = {}) => {
+    deletedUrl = String(url);
+    assert.equal(init.method, "DELETE");
+    return new Response(null, { status: 204 });
+  };
+
+  const response = await deleteHoldingRoute(new NextRequest(
+    "http://localhost/api/holdings?code=SE&market=US&broker=MIRAE",
+    { method: "DELETE" },
+  ));
+
+  assert.equal(response.status, 200);
+  assert.match(deletedUrl, /source=eq\.manual/);
+  assert.match(deletedUrl, /account_type=eq\.manual/);
+  assert.match(deletedUrl, /broker=eq\.MIRAE/);
+});
+
+test("직접 등록은 허용되지 않은 증권사를 DB 호출 전에 거부한다", async () => {
+  globalThis.fetch = async () => assert.fail("잘못된 증권사는 Supabase를 호출하면 안 됩니다.");
+
+  const response = await postHoldingRoute(new NextRequest("http://localhost/api/holdings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      market: "US",
+      stock_code: "SE",
+      stock_name: "씨 ADR",
+      quantity: 12,
+      avg_price: 115.45,
+      broker: "UNKNOWN",
+    }),
+  }));
+
+  assert.equal(response.status, 400);
 });
 
 test("사용자 ID는 토큰 해시 조회 결과에서만 파생하고 빈 전체 스냅샷도 원자 RPC로 전달한다", async () => {

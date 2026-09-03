@@ -65,7 +65,7 @@
 | `web/src/app/api/quotes` | 한·미·일 시세 + 환율 프록시 (교체 가능하게 격리) |
 | `web/src/app/api/stocks` | 종목 자동완성 (국가별 필터) |
 | `web/src/app/api/collect` | 온디맨드 수집 트리거 (종목명 자동 해석 → Actions 원격 실행) |
-| `db/schema*.sql` | pgvector · holdings · 자동매매 성과 · RLS · 권한 (단계별 마이그레이션) |
+| `db/schema*.sql` · `supabase/migrations/*.sql` | pgvector · holdings · 자동매매 성과 · RLS · 권한 (단계별 마이그레이션) |
 
 ## Stock-Trading 스냅샷 API
 
