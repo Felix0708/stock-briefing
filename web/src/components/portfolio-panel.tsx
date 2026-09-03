@@ -937,7 +937,7 @@ export function PortfolioPanel() {
                 <tbody>
                   {computed.rows.map((row, index) => (
                     <tr key={holdingKey(row.holding)}>
-                      <td>
+                      <td data-label="종목">
                         <span
                           className="pf-dot"
                           style={{ background: PIE_COLORS[index % PIE_COLORS.length] }}
@@ -950,9 +950,9 @@ export function PortfolioPanel() {
                           </span>
                         )}
                       </td>
-                      <td>{row.holding.quantity.toLocaleString("ko-KR")}</td>
-                      <td>{formatMoney(row.holding.avg_price, row.currency)}</td>
-                      <td>
+                      <td data-label="수량">{row.holding.quantity.toLocaleString("ko-KR")}</td>
+                      <td data-label="평단가">{formatMoney(row.holding.avg_price, row.currency)}</td>
+                      <td data-label="현재가">
                         {row.quote ? (
                           <>
                             {formatMoney(row.quote.price, row.quote.currency)}
@@ -964,15 +964,15 @@ export function PortfolioPanel() {
                           <span className="pf-muted">시세 없음</span>
                         )}
                       </td>
-                      <td>{row.valueKrw !== null ? formatKrw(row.valueKrw) : "—"}</td>
-                      <td className={row.pl !== null ? plClass(row.pl) : ""}>
+                      <td data-label="평가금액">{row.valueKrw !== null ? formatKrw(row.valueKrw) : "—"}</td>
+                      <td data-label="손익" className={row.pl !== null ? plClass(row.pl) : ""}>
                         {row.pl !== null ? formatSigned(row.pl) : "—"}
                       </td>
-                      <td className={row.plRatio !== null ? plClass(row.plRatio) : ""}>
+                      <td data-label="수익률" className={row.plRatio !== null ? plClass(row.plRatio) : ""}>
                         {row.plRatio !== null ? formatPercent(row.plRatio) : "—"}
                       </td>
-                      <td>{computed.weights[index].toFixed(1)}%</td>
-                      <td>
+                      <td data-label="비중">{computed.weights[index].toFixed(1)}%</td>
+                      <td className="pf-table-action">
                         {row.holding.source === "manual" && (
                           <button
                             type="button"

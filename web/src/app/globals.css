@@ -19,7 +19,6 @@
 }
 
 html {
-  min-width: 320px;
   background: var(--background);
 }
 
@@ -1375,4 +1374,254 @@ a.source-item:focus-visible {
   background: var(--primary-soft);
   color: var(--primary-dark);
   font-size: 0.7rem;
+}
+
+@media (max-width: 640px) {
+  .pf-stack {
+    gap: 12px;
+  }
+
+  .pf-card {
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  .pf-card h2 {
+    margin-top: 0;
+  }
+
+  .pf-toolbar {
+    align-items: stretch;
+    gap: 14px;
+    padding: 16px 18px;
+  }
+
+  .pf-toolbar,
+  .pf-toolbar-actions,
+  .pf-nick-form,
+  .pf-list-tools {
+    flex-direction: column;
+  }
+
+  .pf-toolbar-actions,
+  .pf-nick-form,
+  .pf-list-tools {
+    align-items: stretch;
+  }
+
+  .pf-nick-form input,
+  .pf-primary,
+  .pf-ghost {
+    width: 100%;
+  }
+
+  .pf-primary,
+  .pf-ghost,
+  .pf-delete,
+  .pf-add-form input,
+  .pf-add-form select {
+    min-height: 44px;
+  }
+
+  .pf-mail-toggle {
+    min-height: 36px;
+    white-space: normal;
+  }
+
+  .pf-mail-toggle input {
+    width: 18px;
+    height: 18px;
+    flex: none;
+  }
+
+  .pf-token-actions,
+  .pf-token-once {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pf-token-once code {
+    width: 100%;
+  }
+
+  .pf-add-form {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .pf-field {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .stock-suggest {
+    max-height: 220px;
+  }
+
+  .pf-list-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pf-list-head h2 {
+    margin: 0;
+  }
+
+  .pf-asof {
+    line-height: 1.45;
+  }
+
+  .pf-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .pf-summary > div {
+    min-width: 0;
+    padding: 11px 12px;
+  }
+
+  .pf-summary > div:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .pf-summary strong {
+    font-size: 0.95rem;
+    overflow-wrap: anywhere;
+  }
+
+  .pf-table-wrap {
+    overflow: visible;
+  }
+
+  .pf-table,
+  .pf-table tbody,
+  .pf-table tr,
+  .pf-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .pf-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .pf-table tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .pf-table tr {
+    position: relative;
+    padding: 12px 14px;
+    background: var(--surface-soft);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+
+  .pf-table td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 5px 0;
+    border: 0;
+    text-align: right;
+    white-space: normal;
+  }
+
+  .pf-table td::before {
+    content: attr(data-label);
+    flex: none;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 500;
+  }
+
+  .pf-table td:first-child {
+    display: block;
+    padding: 0 38px 10px 0;
+    margin-bottom: 5px;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    font-weight: 700;
+  }
+
+  .pf-table td:first-child::before,
+  .pf-table-action::before {
+    display: none;
+  }
+
+  .pf-table-action {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    width: auto !important;
+    padding: 0 !important;
+  }
+
+  .pf-source-badge {
+    display: table;
+    margin: 5px 0 0 16px;
+  }
+
+  .pf-pie-grid,
+  .pf-performance-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .pf-pie-card,
+  .pf-performance-card {
+    padding: 14px;
+  }
+
+  .pf-pie {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .pf-pie svg {
+    width: 150px;
+    height: 150px;
+    align-self: center;
+  }
+
+  .pf-legend {
+    font-size: 0.84rem;
+  }
+
+  .pf-legend li {
+    align-items: flex-start;
+  }
+
+  .pf-legend strong {
+    margin-left: auto;
+    white-space: nowrap;
+  }
+
+  .pf-performance {
+    margin-top: 20px;
+    padding-top: 20px;
+  }
+
+  .pf-performance-card dl > div {
+    grid-template-columns: 82px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .pf-performance-card dd {
+    overflow-wrap: anywhere;
+  }
 }
