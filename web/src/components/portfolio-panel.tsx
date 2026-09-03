@@ -139,10 +139,11 @@ function formatRate(value: number | null): string {
   return value === null ? "—" : `${value.toFixed(2)}%`;
 }
 
-function formatPerformanceMoney(value: number, currency: "KRW" | "USD"): string {
+function formatSignedMoney(value: number, currency: "KRW" | "USD" | "JPY"): string {
   const sign = value > 0 ? "+" : value < 0 ? "-" : "";
   const amount = Math.abs(value);
   if (currency === "USD") return `${sign}$${amount.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+  if (currency === "JPY") return `${sign}¥${Math.round(amount).toLocaleString("ja-JP")}`;
   return `${sign}${Math.round(amount).toLocaleString("ko-KR")}원`;
 }
 
@@ -518,13 +519,14 @@ export function PortfolioPanel() {
       const costKrw = toKrw(costNative, currency);
       const valueNative = quote ? holding.quantity * quote.price : null;
       const valueKrw = valueNative !== null ? toKrw(valueNative, currency) : null;
+      const plNative = valueNative !== null ? valueNative - costNative : null;
       const pl = valueKrw !== null && costKrw !== null ? valueKrw - costKrw : null;
       // 수익률은 환율과 무관하게 통화 그대로 계산
       const plRatio =
         quote && holding.avg_price > 0
           ? ((quote.price - holding.avg_price) / holding.avg_price) * 100
           : null;
-      return { holding, quote, currency, costKrw, valueKrw, pl, plRatio };
+      return { holding, quote, currency, costKrw, valueNative, valueKrw, plNative, pl, plRatio };
     });
 
     const realRows = rows.filter((row) => isRealAccount(row.holding));
@@ -925,7 +927,7 @@ export function PortfolioPanel() {
                 checked={showPricesInKrw}
                 onChange={(event) => setShowPricesInKrw(event.target.checked)}
               />
-              평단가·현재가 원화로 보기
+              표 금액 원화로 보기
             </label>
             {quotesAsOf && (
               <span className="pf-muted pf-asof">
@@ -1019,9 +1021,19 @@ export function PortfolioPanel() {
                           <span className="pf-muted">시세 없음</span>
                         )}
                       </td>
-                      <td data-label="평가금액">{row.valueKrw !== null ? formatKrw(row.valueKrw) : "—"}</td>
+                      <td data-label="평가금액">
+                        {row.valueNative !== null
+                          ? showPricesInKrw && row.valueKrw !== null
+                            ? `${formatKrw(row.valueKrw)}원`
+                            : formatMoney(row.valueNative, row.currency)
+                          : "—"}
+                      </td>
                       <td data-label="손익" className={row.pl !== null ? plClass(row.pl) : ""}>
-                        {row.pl !== null ? formatSigned(row.pl) : "—"}
+                        {showPricesInKrw && row.pl !== null
+                          ? formatSignedMoney(row.pl, "KRW")
+                          : row.plNative !== null
+                            ? formatSignedMoney(row.plNative, row.currency)
+                            : "—"}
                       </td>
                       <td data-label="수익률" className={row.plRatio !== null ? plClass(row.plRatio) : ""}>
                         {row.plRatio !== null ? formatPercent(row.plRatio) : "—"}
@@ -1085,14 +1097,14 @@ export function PortfolioPanel() {
                     <div>
                       <dt>KRW 실현손익</dt>
                       <dd>
-                        {item.realized_krw_count.toLocaleString("ko-KR")}건 · <span className={plClass(item.realized_krw_profit_loss)}>{formatPerformanceMoney(item.realized_krw_profit_loss, "KRW")}</span>
+                        {item.realized_krw_count.toLocaleString("ko-KR")}건 · <span className={plClass(item.realized_krw_profit_loss)}>{formatSignedMoney(item.realized_krw_profit_loss, "KRW")}</span>
                         <strong>수익률 {formatRate(item.realized_krw_return_rate)}</strong>
                       </dd>
                     </div>
                     <div>
                       <dt>USD 실현손익</dt>
                       <dd>
-                        {item.realized_usd_count.toLocaleString("ko-KR")}건 · <span className={plClass(item.realized_usd_profit_loss)}>{formatPerformanceMoney(item.realized_usd_profit_loss, "USD")}</span>
+                        {item.realized_usd_count.toLocaleString("ko-KR")}건 · <span className={plClass(item.realized_usd_profit_loss)}>{formatSignedMoney(item.realized_usd_profit_loss, "USD")}</span>
                         <strong>수익률 {formatRate(item.realized_usd_return_rate)}</strong>
                       </dd>
                     </div>

@@ -117,6 +117,8 @@ test("데스크톱 포트폴리오를 넓게 쓰고 가격 원화 표시를 선�
 
   assert.match(page, /className="page-shell pf-page-shell"/);
   assert.match(css, /\.pf-page-shell\s*\{\s*width: min\(100% - 32px, 1180px\)/);
-  assert.match(panel, /평단가·현재가 원화로 보기/);
+  assert.match(panel, /표 금액 원화로 보기/);
   assert.match(panel, /checked=\{showPricesInKrw\}/);
+  assert.match(panel, /valueNative/);
+  assert.match(panel, /plNative/);
 });
