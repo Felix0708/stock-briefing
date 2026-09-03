@@ -145,7 +145,7 @@ npm run typecheck && npm run lint && npm run test:api  # 검증
 - [x] Phase 3: 회원(로그인) · 포트폴리오(수익률·비중) · 회원별 맞춤 알림
 - [x] Phase 3.5: 보유 종목 기반 수집 개인화 · 온디맨드 수집 · 종목 자동완성
 - [x] Phase 4: 미국·일본 주식 (해외 시세 + 환율 자동 환산)
-- [x] Phase 5-1: 미국 공시 (SEC EDGAR — 8-K/10-Q/10-K 등 수집·한국어 요약·RAG 합류)
+- [x] Phase 5-1: 미국 공시 (SEC EDGAR — 8-K/10-Q/10-K 및 실제 내부자 매수·매도 Form 4 수집·한국어 요약·RAG 합류)
 - [x] Phase 5-2: 일본 공시 (EDINET — 날짜별 조회 + secCode 필터, API 키 필요)
 - [ ] Phase 6: 구독 결제 실험 (시세의 공식 API 전환 검토)
 

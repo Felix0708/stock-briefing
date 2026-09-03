@@ -19,6 +19,7 @@ import re
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
+from xml.etree import ElementTree
 
 import requests
 
@@ -49,6 +50,8 @@ FORM_NAMES_KO = {
     "SC 13G": "대량보유 보고 (SC 13G)",
     "SC 13G/A": "대량보유 변동 (SC 13G/A)",
 }
+
+FORM4_NAMES = {"4", "4/A"}
 
 _last_request_at = 0.0
 
@@ -90,6 +93,17 @@ def load_ticker_ciks() -> dict[str, int]:
     return mapping
 
 
+def _form4_open_market_codes(document_url: str) -> set[str]:
+    """Form 4 원문에서 실제 매수(P)·매도(S) 코드만 반환한다."""
+    root = ElementTree.fromstring(_get(document_url).content)
+    return {
+        (node.text or "").strip().upper()
+        for node in root.iter()
+        if node.tag.rsplit("}", 1)[-1] == "transactionCode"
+        and (node.text or "").strip().upper() in {"P", "S"}
+    }
+
+
 def fetch_filings(ticker: str, cik: int, lookback_days: int) -> list[dict]:
     """특정 티커의 최근 공시 목록 (dart.fetch_filings와 동일한 형식).
 
@@ -112,7 +126,7 @@ def fetch_filings(ticker: str, cik: int, lookback_days: int) -> list[dict]:
         date = dates[i]
         if date < since:
             break  # 최신순 정렬이므로 기간을 벗어나면 중단
-        if form not in FORM_NAMES_KO:
+        if form not in FORM_NAMES_KO and form not in FORM4_NAMES:
             continue
 
         accession = accessions[i]
@@ -120,9 +134,34 @@ def fetch_filings(ticker: str, cik: int, lookback_days: int) -> list[dict]:
         document = documents[i] if i < len(documents) else ""
         description = descriptions[i] if i < len(descriptions) else ""
 
-        report_nm = FORM_NAMES_KO[form]
-        if description and description.lower() not in {form.lower(), "form " + form.lower()}:
-            report_nm += f" — {description[:60]}"
+        doc_url = (
+            f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc_nodash}/{document}"
+            if document
+            else ""
+        )
+
+        if form in FORM4_NAMES:
+            if not doc_url:
+                continue
+            try:
+                transaction_codes = _form4_open_market_codes(doc_url)
+            except Exception as exc:
+                print(f"  ⚠ {ticker} Form {form} 거래 코드 확인 실패 (건너뜀): {exc}")
+                continue
+            if not transaction_codes:
+                continue
+            action = (
+                "내부자 매수·매도"
+                if transaction_codes == {"P", "S"}
+                else "내부자 매수"
+                if "P" in transaction_codes
+                else "내부자 매도"
+            )
+            report_nm = f"{action} (Form {form})"
+        else:
+            report_nm = FORM_NAMES_KO[form]
+            if description and description.lower() not in {form.lower(), "form " + form.lower()}:
+                report_nm += f" — {description[:60]}"
 
         filings.append(
             {
@@ -130,13 +169,10 @@ def fetch_filings(ticker: str, cik: int, lookback_days: int) -> list[dict]:
                 "rcept_no": accession,  # 고유 ID (RAG 중복 스킵에 사용)
                 "rcept_dt": date.replace("-", ""),
                 "flr_nm": ticker,
-                "url": f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc_nodash}/{document}"
-                if document
-                else f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={cik:010d}",
+                "url": doc_url
+                or f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={cik:010d}",
                 # 원문 텍스트 추출용 (dart와 달리 문서 URL을 직접 안다)
-                "_doc_url": f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc_nodash}/{document}"
-                if document
-                else "",
+                "_doc_url": doc_url,
             }
         )
     return filings
