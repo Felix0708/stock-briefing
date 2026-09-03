@@ -108,7 +108,7 @@ async function fetchWorldQuote(
   currency: "USD" | "JPY",
 ): Promise<Quote | null> {
   const known = suffixCache.get(`${currency}:${ticker}`);
-  const tryList = known ? [known] : suffixes;
+  const tryList = known !== undefined ? [known] : suffixes;
   for (const suffix of tryList) {
     for (const url of [
       `https://api.stock.naver.com/stock/${ticker}${suffix}/basic`,
@@ -184,7 +184,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         if (cached && now - cached.at < CACHE_TTL_MS) return { key: item.key, quote: cached.quote };
         const quote =
           item.market === "US"
-            ? await fetchWorldQuote(item.code, [".O", ".K", ".A"], "USD")
+            ? await fetchWorldQuote(item.code, [".O", ".K", ".A", ""], "USD")
             : item.market === "JP"
               ? await fetchWorldQuote(item.code, [".T"], "JPY")
               : await fetchKrQuote(item.code);
