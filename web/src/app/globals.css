@@ -1128,8 +1128,8 @@ a.source-item:focus-visible {
 .pf-auth-actions { display: flex; gap: 8px; }
 
 .pf-add-form {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   align-items: flex-end;
 }
@@ -1137,14 +1137,14 @@ a.source-item:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  min-width: 0;
+  min-width: 140px;
 }
 .pf-field label { font-size: 0.8rem; color: var(--text-muted); }
-.pf-add-form input,
-.pf-add-form select,
-.pf-add-form > .pf-primary {
+.pf-suggest-wrap,
+.pf-code-field { flex: 0 0 140px; }
+.pf-suggest-wrap input,
+.pf-code-field input {
   width: 100%;
-  min-height: 44px;
 }
 
 .pf-list-head {
@@ -1409,8 +1409,8 @@ a.source-item:focus-visible {
   font-size: 0.7rem;
 }
 
-@media (min-width: 641px) and (max-width: 900px) {
-  .pf-add-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 641px) {
+  .pf-table tbody tr { height: 51px; }
 }
 
 @media (max-width: 640px) {

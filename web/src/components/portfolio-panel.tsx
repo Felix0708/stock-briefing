@@ -841,7 +841,7 @@ export function PortfolioPanel() {
                   </ul>
                 )}
               </div>
-              <div className="pf-field">
+              <div className="pf-field pf-code-field">
                 <label htmlFor="pf-code">
                   {customMarket === "US"
                     ? "티커"
