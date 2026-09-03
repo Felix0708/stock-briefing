@@ -30,7 +30,7 @@ export default function PortfolioPage() {
       <section className="hero" aria-labelledby="pf-page-title">
         <div className="eyebrow">
           <span className="eyebrow-dot" aria-hidden="true" />
-          실시간 시세 기반
+          최근 시세 기준
         </div>
         <h1 id="pf-page-title">내 포트폴리오</h1>
         <p>

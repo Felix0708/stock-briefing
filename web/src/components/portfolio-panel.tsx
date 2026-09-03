@@ -105,6 +105,7 @@ const ACCOUNT_ORDER = [
   "KIS:paper",
   "LEGACY:paper",
 ];
+const QUOTE_STALE_MS = 60_000;
 
 function accountRank(key: string): number {
   const index = ACCOUNT_ORDER.indexOf(key);
@@ -310,6 +311,21 @@ export function PortfolioPanel() {
       void loadTokenStatus();
     }
   }, [user, loadHoldings, loadTokenStatus]);
+
+  useEffect(() => {
+    if (!user || holdings.length === 0) return;
+    const refreshIfStale = () => {
+      const lastQuoteAt = Date.parse(quotesAsOf ?? "");
+      if (
+        document.visibilityState === "visible" &&
+        (!Number.isFinite(lastQuoteAt) || Date.now() - lastQuoteAt >= QUOTE_STALE_MS)
+      ) {
+        void loadHoldings();
+      }
+    };
+    document.addEventListener("visibilitychange", refreshIfStale);
+    return () => document.removeEventListener("visibilitychange", refreshIfStale);
+  }, [user, holdings.length, quotesAsOf, loadHoldings]);
 
   useEffect(() => {
     if (

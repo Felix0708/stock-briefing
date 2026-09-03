@@ -1049,11 +1049,14 @@ a.source-item:focus-visible {
 
 .pf-card h2 {
   font-size: 1.05rem;
-  margin-bottom: 12px;
+  margin: 0 0 12px;
 }
+
+.pf-card h2 + .pf-muted { margin-top: 0; }
 
 .pf-muted { color: var(--text-muted); font-size: 0.9rem; }
 .pf-hint { margin-top: 10px; }
+.pf-card > .pf-hint:last-child { margin-bottom: 0; }
 .pf-error { color: var(--danger); margin-top: 12px; font-size: 0.9rem; }
 .pf-notice {
   margin-top: 12px;
@@ -1080,6 +1083,10 @@ a.source-item:focus-visible {
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .pf-primary:hover { background: var(--primary-dark); }
 .pf-primary:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -1092,6 +1099,10 @@ a.source-item:focus-visible {
   padding: 9px 14px;
   font-size: 0.88rem;
   cursor: pointer;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .pf-ghost:hover { color: var(--text); }
 .pf-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -1117,8 +1128,8 @@ a.source-item:focus-visible {
 .pf-auth-actions { display: flex; gap: 8px; }
 
 .pf-add-form {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
   align-items: flex-end;
 }
@@ -1126,9 +1137,15 @@ a.source-item:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  min-width: 140px;
+  min-width: 0;
 }
 .pf-field label { font-size: 0.8rem; color: var(--text-muted); }
+.pf-add-form input,
+.pf-add-form select,
+.pf-add-form > .pf-primary {
+  width: 100%;
+  min-height: 44px;
+}
 
 .pf-list-head {
   display: flex;
@@ -1142,13 +1159,12 @@ a.source-item:focus-visible {
 .pf-asof { font-size: 0.8rem; }
 
 .pf-summary {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 16px;
 }
 .pf-summary > div {
-  flex: 1 1 150px;
   background: var(--surface-soft);
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -1162,6 +1178,7 @@ a.source-item:focus-visible {
 .pf-table-wrap { overflow-x: auto; }
 .pf-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.9rem;
   white-space: nowrap;
@@ -1177,7 +1194,21 @@ a.source-item:focus-visible {
 .pf-table td {
   padding: 10px;
   border-bottom: 1px solid var(--line);
+  vertical-align: middle;
 }
+.pf-table th:not(:first-child),
+.pf-table td:not(:first-child) { text-align: right; }
+.pf-table th:first-child { width: 32%; }
+.pf-table th:nth-child(2) { width: 6%; }
+.pf-table th:nth-child(3) { width: 9%; }
+.pf-table th:nth-child(4) { width: 12%; }
+.pf-table th:nth-child(5) { width: 11%; }
+.pf-table th:nth-child(6) { width: 9%; }
+.pf-table th:nth-child(7) { width: 8%; }
+.pf-table th:nth-child(8) { width: 9%; }
+.pf-table th:last-child { width: 4%; }
+.pf-table th:last-child,
+.pf-table td:last-child { text-align: center; }
 .pf-ratio { margin-left: 6px; font-size: 0.8rem; }
 .pf-gain { color: #dc2626; }   /* 한국 관례: 상승 = 빨강 */
 .pf-loss { color: #2563eb; }   /* 하락 = 파랑 */
@@ -1376,6 +1407,10 @@ a.source-item:focus-visible {
   background: var(--primary-soft);
   color: var(--primary-dark);
   font-size: 0.7rem;
+}
+
+@media (min-width: 641px) and (max-width: 900px) {
+  .pf-add-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 640px) {

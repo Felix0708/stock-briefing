@@ -121,4 +121,16 @@ test("데스크톱 포트폴리오를 넓게 쓰고 가격 원화 표시를 선�
   assert.match(panel, /checked=\{showPricesInKrw\}/);
   assert.match(panel, /valueNative/);
   assert.match(panel, /plNative/);
+  assert.match(panel, /QUOTE_STALE_MS = 60_000/);
+  assert.match(panel, /document\.addEventListener\("visibilitychange", refreshIfStale\)/);
+  assert.match(page, /최근 시세 기준/);
+});
+
+test("포트폴리오 카드·등록 폼·표 열을 일정하게 정렬한다", async () => {
+  const css = await readFile(new URL("../src/app/globals.css", import.meta.url), "utf8");
+
+  assert.match(css, /\.pf-summary\s*\{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/s);
+  assert.match(css, /\.pf-add-form\s*\{[^}]*grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/s);
+  assert.match(css, /\.pf-table\s*\{[^}]*table-layout: fixed/s);
+  assert.match(css, /\.pf-table th:not\(:first-child\),\s*\.pf-table td:not\(:first-child\) \{ text-align: right; \}/);
 });
