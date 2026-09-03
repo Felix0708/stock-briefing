@@ -134,6 +134,7 @@ test("포트폴리오 카드·검색 필드·표 행을 일정하게 정렬한�
 
   assert.match(css, /\.pf-summary\s*\{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/s);
   assert.match(css, /\.pf-suggest-wrap,\s*\.pf-code-field \{ flex: 0 0 140px; \}/);
+  assert.match(css, /\.pf-add-form input,\s*\.pf-add-form select,\s*\.pf-add-form > \.pf-primary \{ height: 46px; \}/);
   assert.match(panel, /className="pf-field pf-code-field"/);
   assert.match(css, /\.pf-table\s*\{[^}]*table-layout: fixed/s);
   assert.match(css, /\.pf-table th:not\(:first-child\),\s*\.pf-table td:not\(:first-child\) \{ text-align: right; \}/);

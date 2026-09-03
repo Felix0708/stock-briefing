@@ -1146,6 +1146,9 @@ a.source-item:focus-visible {
 .pf-code-field input {
   width: 100%;
 }
+.pf-add-form input,
+.pf-add-form select,
+.pf-add-form > .pf-primary { height: 46px; }
 
 .pf-list-head {
   display: flex;
