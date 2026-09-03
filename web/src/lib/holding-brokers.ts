@@ -14,6 +14,11 @@ export const MANUAL_BROKER_OPTIONS = [
 
 export type ManualBroker = (typeof MANUAL_BROKER_OPTIONS)[number]["value"];
 export type HoldingBroker = ManualBroker | "MANUAL" | "LEGACY";
+export type HoldingAccount = {
+  source: "manual" | "stock_trading";
+  account_type: "manual" | "paper" | "live";
+  broker: HoldingBroker;
+};
 
 export function isManualBroker(value: unknown): value is ManualBroker {
   return MANUAL_BROKER_OPTIONS.some((option) => option.value === value);
@@ -23,4 +28,17 @@ export function brokerLabel(broker: HoldingBroker): string {
   if (broker === "MANUAL") return "증권사 미지정";
   if (broker === "LEGACY") return "이전 연동";
   return MANUAL_BROKER_OPTIONS.find((option) => option.value === broker)?.label ?? broker;
+}
+
+export function isRealAccount(holding: HoldingAccount): boolean {
+  return holding.source === "manual" || holding.account_type === "live";
+}
+
+export function accountGroupKey(holding: HoldingAccount): string {
+  return `${holding.broker}:${isRealAccount(holding) ? "live" : "paper"}`;
+}
+
+export function accountGroupLabel(holding: HoldingAccount): string {
+  if (holding.broker === "MANUAL") return "증권사 미지정";
+  return `${brokerLabel(holding.broker)} ${isRealAccount(holding) ? "실계좌" : "모의계좌"}`;
 }

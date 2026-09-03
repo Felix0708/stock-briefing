@@ -81,9 +81,11 @@ test("보유종목 API와 화면이 증권사별 행을 구분한다", () => {
   assert.match(portfolioPanel, /key: holdingKey\(row\.holding\)/);
   assert.match(portfolioPanel, /quote\?\.name\?\.trim\(\) \|\| holding\.stock_name\.trim\(\)/);
   assert.match(portfolioPanel, /label: stockLabel\(row\.holding, row\.quote\)/);
-  assert.match(portfolioPanel, /return `\$\{holding\.source}:\$\{holding\.broker}:\$\{holding\.account_type}`/);
+  assert.match(portfolioPanel, /accountGroupKey\(row\.holding\)/);
   assert.match(portfolioPanel, /직접 · \$\{brokerLabel\(row\.holding\.broker\)}/);
-  assert.match(portfolioPanel, /title: accountLabel\([\s\S]*?group\[0\]\.holding\.source,[\s\S]*?group\[0\]\.holding\.broker/);
+  assert.match(portfolioPanel, /title: accountGroupLabel\(group\[0\]\.holding\)/);
+  assert.match(portfolioPanel, /실계좌 총 매입/);
+  assert.match(portfolioPanel, /계좌 내 비중/);
   assert.match(portfolioPanel, /total > 0 \? \(bases\[index\] \/ total\) \* 100 : equalWeight/);
   assert.match(portfolioPanel, /자동매매 누적 성과/);
   assert.match(portfolioPanel, /최종청산 완료 기준 · 수수료·세금 제외/);

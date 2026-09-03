@@ -5,7 +5,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { searchStocks, type StockSuggestion } from "@/lib/client/stock-search";
 import {
+  accountGroupKey,
+  accountGroupLabel,
   brokerLabel,
+  isRealAccount,
   isManualBroker,
   MANUAL_BROKER_OPTIONS,
   type HoldingBroker,
@@ -68,20 +71,6 @@ function stockLabel(holding: Holding, quote: Quote | null): string {
   return name.endsWith(suffix) ? name : `${name}${suffix}`;
 }
 
-function accountKey(holding: Holding): string {
-  return `${holding.source}:${holding.broker}:${holding.account_type}`;
-}
-
-function accountLabel(
-  source: Holding["source"],
-  broker: Holding["broker"],
-  accountType: Holding["account_type"],
-): string {
-  if (source === "manual") return `직접 · ${brokerLabel(broker)}`;
-  const account = accountType === "paper" ? "모의계좌" : "실계좌";
-  return `${brokerLabel(broker)} ${account}`;
-}
-
 function currencyOf(market: "KR" | "US" | "JP"): "KRW" | "USD" | "JPY" {
   return market === "US" ? "USD" : market === "JP" ? "JPY" : "KRW";
 }
@@ -109,12 +98,12 @@ const PIE_COLORS = [
   "#ec4899", "#64748b",
 ];
 const ACCOUNT_ORDER = [
-  "stock_trading:KIWOOM:paper",
-  "stock_trading:KIS:paper",
-  "stock_trading:KIWOOM:live",
-  "stock_trading:KIS:live",
-  ...MANUAL_BROKER_OPTIONS.map((option) => `manual:${option.value}:manual`),
-  "manual:MANUAL:manual",
+  ...MANUAL_BROKER_OPTIONS.map((option) => `${option.value}:live`),
+  "MANUAL:live",
+  "LEGACY:live",
+  "KIWOOM:paper",
+  "KIS:paper",
+  "LEGACY:paper",
 ];
 
 function accountRank(key: string): number {
@@ -526,24 +515,30 @@ export function PortfolioPanel() {
       return { holding, quote, currency, costKrw, valueKrw, pl, plRatio };
     });
 
-    const costed = rows.filter((row) => row.costKrw !== null);
+    const realRows = rows.filter((row) => isRealAccount(row.holding));
+    const costed = realRows.filter((row) => row.costKrw !== null);
     const totalCost = costed.reduce((sum, row) => sum + (row.costKrw ?? 0), 0);
-    const priced = rows.filter((row) => row.valueKrw !== null && row.costKrw !== null);
+    const priced = realRows.filter((row) => row.valueKrw !== null && row.costKrw !== null);
     const totalValue = priced.reduce((sum, row) => sum + (row.valueKrw ?? 0), 0);
     const pricedCost = priced.reduce((sum, row) => sum + (row.costKrw ?? 0), 0);
     const totalPl = totalValue - pricedCost;
     const totalPlRatio = pricedCost > 0 ? (totalPl / pricedCost) * 100 : 0;
 
-    // 비중: 평가금액(없으면 매입금액, 환산 불가면 0) 기준으로 100% 분배
+    // 비중: 같은 증권사의 직접 등록+자동 실계좌는 합치고, 모의계좌는 별도로 100% 분배
     const weightBase = rows.map((row) => row.valueKrw ?? row.costKrw ?? 0);
-    const weightTotal = weightBase.reduce((sum, value) => sum + value, 0);
-    const weights = rows.map((_, index) =>
-      weightTotal > 0 ? (weightBase[index] / weightTotal) * 100 : 0,
-    );
+    const accountTotals = new Map<string, number>();
+    rows.forEach((row, index) => {
+      const key = accountGroupKey(row.holding);
+      accountTotals.set(key, (accountTotals.get(key) ?? 0) + weightBase[index]);
+    });
+    const weights = rows.map((row, index) => {
+      const total = accountTotals.get(accountGroupKey(row.holding)) ?? 0;
+      return total > 0 ? (weightBase[index] / total) * 100 : 0;
+    });
 
     const accountRows = new Map<string, typeof rows>();
     for (const row of rows) {
-      const key = accountKey(row.holding);
+      const key = accountGroupKey(row.holding);
       const group = accountRows.get(key) ?? [];
       group.push(row);
       accountRows.set(key, group);
@@ -556,11 +551,7 @@ export function PortfolioPanel() {
         const equalWeight = group.length > 0 ? 100 / group.length : 0;
         return {
           key,
-          title: accountLabel(
-            group[0].holding.source,
-            group[0].holding.broker,
-            group[0].holding.account_type,
-          ),
+          title: accountGroupLabel(group[0].holding),
           slices: group.map((row, index) => ({
             key: holdingKey(row.holding),
             label: stockLabel(row.holding, row.quote),
@@ -942,17 +933,17 @@ export function PortfolioPanel() {
           <>
             <div className="pf-summary">
               <div>
-                <span className="pf-muted">총 매입</span>
+                <span className="pf-muted">실계좌 총 매입</span>
                 <strong>{formatKrw(computed.totalCost)}원</strong>
               </div>
               <div>
-                <span className="pf-muted">총 평가</span>
+                <span className="pf-muted">실계좌 총 평가</span>
                 <strong>
                   {computed.hasQuotes ? `${formatKrw(computed.totalValue)}원` : "시세 대기"}
                 </strong>
               </div>
               <div>
-                <span className="pf-muted">평가 손익</span>
+                <span className="pf-muted">실계좌 평가 손익</span>
                 <strong className={plClass(computed.totalPl)}>
                   {computed.hasQuotes
                     ? `${formatSigned(computed.totalPl)}원 (${formatPercent(computed.totalPlRatio)})`
@@ -972,7 +963,7 @@ export function PortfolioPanel() {
                     <th>평가금액</th>
                     <th>손익</th>
                     <th>수익률</th>
-                    <th>비중</th>
+                    <th>계좌 내 비중</th>
                     <th aria-label="삭제" />
                   </tr>
                 </thead>
@@ -1013,7 +1004,7 @@ export function PortfolioPanel() {
                       <td data-label="수익률" className={row.plRatio !== null ? plClass(row.plRatio) : ""}>
                         {row.plRatio !== null ? formatPercent(row.plRatio) : "—"}
                       </td>
-                      <td data-label="비중">{computed.weights[index].toFixed(1)}%</td>
+                      <td data-label="계좌 내 비중">{computed.weights[index].toFixed(1)}%</td>
                       <td className="pf-table-action">
                         {row.holding.source === "manual" && (
                           <button
@@ -1049,11 +1040,11 @@ export function PortfolioPanel() {
             <div className="pf-performance-grid">
               {[...performance]
                 .sort((left, right) =>
-                  accountRank(`stock_trading:${left.broker}:${left.account_type}`)
-                  - accountRank(`stock_trading:${right.broker}:${right.account_type}`))
+                  accountRank(`${left.broker}:${left.account_type}`)
+                  - accountRank(`${right.broker}:${right.account_type}`))
                 .map((item) => (
                 <article className="pf-performance-card" key={`${item.broker}:${item.account_type}`}>
-                  <h4>{accountLabel("stock_trading", item.broker, item.account_type)}</h4>
+                  <h4>{accountGroupLabel({ ...item, source: "stock_trading" })}</h4>
                   <dl>
                     <div>
                       <dt>역대</dt>

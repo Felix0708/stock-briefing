@@ -18,6 +18,10 @@ import {
 } from "../src/app/api/holdings/route.ts";
 import { PUT as syncHoldingsRoute } from "../src/app/api/sync/holdings/route.ts";
 import {
+  accountGroupKey,
+  accountGroupLabel,
+} from "../src/lib/holding-brokers.ts";
+import {
   createIntegrationToken,
   hashIntegrationToken,
   isIntegrationToken,
@@ -48,6 +52,17 @@ const VALID_PERFORMANCE = {
   excluded_full_exits: 1,
   updated_at: "2026-09-03T00:00:00Z",
 };
+
+test("같은 증권사의 직접 등록과 자동 실계좌는 한 그룹이고 모의계좌는 별도다", () => {
+  const manual = { source: "manual", account_type: "manual", broker: "KIWOOM" };
+  const live = { source: "stock_trading", account_type: "live", broker: "KIWOOM" };
+  const paper = { source: "stock_trading", account_type: "paper", broker: "KIWOOM" };
+
+  assert.equal(accountGroupKey(manual), accountGroupKey(live));
+  assert.notEqual(accountGroupKey(live), accountGroupKey(paper));
+  assert.equal(accountGroupLabel(manual), "키움증권 실계좌");
+  assert.equal(accountGroupLabel(paper), "키움증권 모의계좌");
+});
 
 test.beforeEach(() => {
   process.env.SUPABASE_URL = "https://example.supabase.co";
