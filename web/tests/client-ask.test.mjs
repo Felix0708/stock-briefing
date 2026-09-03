@@ -107,3 +107,16 @@ test("모바일 포트폴리오는 표를 카드로 바꾸고 터치 영역을 �
     assert.match(panel, new RegExp(`data-label="${label}"`));
   }
 });
+
+test("데스크톱 포트폴리오를 넓게 쓰고 가격 원화 표시를 선택할 수 있다", async () => {
+  const [css, page, panel] = await Promise.all([
+    readFile(new URL("../src/app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../src/app/portfolio/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/components/portfolio-panel.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /className="page-shell pf-page-shell"/);
+  assert.match(css, /\.pf-page-shell\s*\{\s*width: min\(100% - 32px, 1180px\)/);
+  assert.match(panel, /평단가·현재가 원화로 보기/);
+  assert.match(panel, /checked=\{showPricesInKrw\}/);
+});

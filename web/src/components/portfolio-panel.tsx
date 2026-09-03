@@ -115,6 +115,17 @@ function formatKrw(value: number): string {
   return Math.round(value).toLocaleString("ko-KR");
 }
 
+function formatUnitPrice(
+  value: number,
+  currency: "KRW" | "USD" | "JPY",
+  showKrw: boolean,
+  usdKrw: number | null,
+  jpyKrw: number | null,
+): string {
+  const rate = currency === "USD" ? usdKrw : currency === "JPY" ? jpyKrw : 1;
+  return showKrw && rate ? `${formatKrw(value * rate)}원` : formatMoney(value, currency);
+}
+
 function formatSigned(value: number): string {
   const rounded = Math.round(value);
   return `${rounded > 0 ? "+" : ""}${rounded.toLocaleString("ko-KR")}`;
@@ -171,6 +182,7 @@ export function PortfolioPanel() {
   const [quotesAsOf, setQuotesAsOf] = useState<string | null>(null);
   const [usdKrw, setUsdKrw] = useState<number | null>(null);
   const [jpyKrw, setJpyKrw] = useState<number | null>(null);
+  const [showPricesInKrw, setShowPricesInKrw] = useState(false);
   const [listBusy, setListBusy] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
 
@@ -907,6 +919,14 @@ export function PortfolioPanel() {
         <div className="pf-list-head">
           <h2 id="pf-list-title">내 포트폴리오</h2>
           <div className="pf-list-tools">
+            <label className="pf-mail-toggle">
+              <input
+                type="checkbox"
+                checked={showPricesInKrw}
+                onChange={(event) => setShowPricesInKrw(event.target.checked)}
+              />
+              평단가·현재가 원화로 보기
+            </label>
             {quotesAsOf && (
               <span className="pf-muted pf-asof">
                 시세 {new Date(quotesAsOf).toLocaleTimeString("ko-KR")} 기준
@@ -984,11 +1004,13 @@ export function PortfolioPanel() {
                         </span>
                       </td>
                       <td data-label="수량">{row.holding.quantity.toLocaleString("ko-KR")}</td>
-                      <td data-label="평단가">{formatMoney(row.holding.avg_price, row.currency)}</td>
+                      <td data-label="평단가">
+                        {formatUnitPrice(row.holding.avg_price, row.currency, showPricesInKrw, usdKrw, jpyKrw)}
+                      </td>
                       <td data-label="현재가">
                         {row.quote ? (
                           <>
-                            {formatMoney(row.quote.price, row.quote.currency)}
+                            {formatUnitPrice(row.quote.price, row.quote.currency, showPricesInKrw, usdKrw, jpyKrw)}
                             <span className={`pf-ratio ${plClass(row.quote.changeRatio)}`}>
                               {formatPercent(row.quote.changeRatio)}
                             </span>

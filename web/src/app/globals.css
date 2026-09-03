@@ -60,6 +60,8 @@ textarea:focus-visible {
   padding: 22px 0 42px;
 }
 
+.pf-page-shell { width: min(100% - 32px, 1180px); }
+
 .site-header {
   display: flex;
   align-items: center;

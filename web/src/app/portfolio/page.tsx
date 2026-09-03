@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function PortfolioPage() {
   return (
-    <main className="page-shell">
+    <main className="page-shell pf-page-shell">
       <header className="site-header">
         <Link className="brand" href="/" aria-label="Stock Briefing 홈">
           <span className="brand-mark" aria-hidden="true">
