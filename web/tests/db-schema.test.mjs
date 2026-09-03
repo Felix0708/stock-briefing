@@ -89,6 +89,8 @@ test("보유종목 API와 화면이 증권사별 행을 구분한다", () => {
   assert.match(portfolioPanel, /total > 0 \? \(bases\[index\] \/ total\) \* 100 : equalWeight/);
   assert.match(portfolioPanel, /자동매매 누적 성과/);
   assert.match(portfolioPanel, /최종청산 완료 기준 · 수수료·세금 제외/);
+  assert.match(portfolioPanel, /외화 손익 원화로 보기/);
+  assert.match(portfolioPanel, /item\.realized_usd_profit_loss \* usdKrw/);
 });
 
 test("직접 등록은 증권사별로 저장하되 자동매매 실계좌와 source로 분리한다", () => {

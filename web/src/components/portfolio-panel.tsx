@@ -185,6 +185,7 @@ export function PortfolioPanel() {
   const [usdKrw, setUsdKrw] = useState<number | null>(null);
   const [jpyKrw, setJpyKrw] = useState<number | null>(null);
   const [showPricesInKrw, setShowPricesInKrw] = useState(false);
+  const [showPerformanceInKrw, setShowPerformanceInKrw] = useState(false);
   const [listBusy, setListBusy] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
 
@@ -1084,6 +1085,17 @@ export function PortfolioPanel() {
         <div className="pf-performance" aria-labelledby="pf-performance-title">
           <h3 id="pf-performance-title">자동매매 누적 성과</h3>
           <p className="pf-muted pf-hint">최종청산 완료 기준 · 수수료·세금 제외</p>
+          {performance.length > 0 && (
+            <label className="pf-mail-toggle">
+              <input
+                type="checkbox"
+                checked={showPerformanceInKrw}
+                onChange={(event) => setShowPerformanceInKrw(event.target.checked)}
+                disabled={!usdKrw}
+              />
+              외화 손익 원화로 보기{usdKrw ? ` · 현재 환율 ${formatKrw(usdKrw)}원/$` : " · 환율 대기"}
+            </label>
+          )}
           {performance.length === 0 ? (
             <p className="pf-muted">아직 동기화된 자동매매 성과가 없습니다.</p>
           ) : (
@@ -1118,9 +1130,11 @@ export function PortfolioPanel() {
                       </dd>
                     </div>
                     <div>
-                      <dt>USD 실현손익</dt>
+                      <dt>{showPerformanceInKrw && usdKrw ? "USD 실현손익 (원화 환산)" : "USD 실현손익"}</dt>
                       <dd>
-                        {item.realized_usd_count.toLocaleString("ko-KR")}건 · <span className={plClass(item.realized_usd_profit_loss)}>{formatSignedMoney(item.realized_usd_profit_loss, "USD")}</span>
+                        {item.realized_usd_count.toLocaleString("ko-KR")}건 · <span className={plClass(item.realized_usd_profit_loss)}>{showPerformanceInKrw && usdKrw
+                          ? formatSignedMoney(item.realized_usd_profit_loss * usdKrw, "KRW")
+                          : formatSignedMoney(item.realized_usd_profit_loss, "USD")}</span>
                         <strong>수익률 {formatRate(item.realized_usd_return_rate)}</strong>
                       </dd>
                     </div>
