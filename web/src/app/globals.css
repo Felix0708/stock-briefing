@@ -1116,7 +1116,10 @@ a.source-item:focus-visible {
 }
 .pf-auth-form input,
 .pf-add-form input,
-.pf-add-form select {
+.pf-add-form select,
+.pf-filters select,
+.pf-trade-form input,
+.pf-trade-form select {
   background: var(--surface-soft);
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -1159,6 +1162,18 @@ a.source-item:focus-visible {
   margin-bottom: 12px;
 }
 .pf-list-tools { display: flex; align-items: center; gap: 10px; }
+.pf-filters { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.pf-filters label { display: flex; flex-direction: column; gap: 5px; font-size: 0.85rem; }
+.pf-filters select { min-height: 44px; max-width: 100%; }
+.pf-legend-label { min-width: 0; overflow-wrap: anywhere; }
+.pf-notice .pf-ghost { margin: 8px; }
+.pf-trade-form { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,200px),1fr)); gap: 12px; margin-top: 16px; align-items: end; }
+.pf-trade-form label { display: flex; flex-direction: column; gap: 5px; min-width: 0; font-size: 0.85rem; }
+.pf-trade-form input,.pf-trade-form select { min-width: 0; width: 100%; height: 46px; }
+.pf-history { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 8px; }
+.pf-history li { display: flex; flex-direction: column; gap: 5px; border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow-wrap: anywhere; }
+.pf-history span { font-size: 0.85rem; }
+.pf-card summary { cursor: pointer; min-height: 44px; padding: 10px 0; }
 .pf-asof { font-size: 0.8rem; }
 
 .pf-summary {
@@ -1244,6 +1259,7 @@ a.source-item:focus-visible {
 .pf-pie-card h3,
 .pf-performance h3,
 .pf-performance-card h4 { margin: 0; }
+.pf-pie-card > .pf-muted { min-height: 3em; line-height: 1.5; }
 .pf-pie {
   display: flex;
   align-items: center;

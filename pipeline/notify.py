@@ -6,8 +6,9 @@
 """
 
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
-from . import emailer, holdings
+from . import emailer, holdings, status
 from .config import Settings
 
 # 투자 판단에 큰 영향을 주는 공시 키워드 (report_nm 기준 부분 일치)
@@ -47,7 +48,7 @@ def find_important(sections: list[dict]) -> list[str]:
     return found
 
 
-def send_personalized(settings: Settings, sections: list[dict]) -> set[str]:
+def send_personalized(settings: Settings, sections: list[dict], collection_results: list[dict] | None = None) -> set[str]:
     """회원별로 보유 종목 공시만 추려서 발송. 발송된 이메일 집합을 반환.
 
     반환값은 main.py가 관리자 전체 브리핑과의 중복 발송을 막는 데 쓴다
@@ -63,24 +64,41 @@ def send_personalized(settings: Settings, sections: list[dict]) -> set[str]:
 
     sent = 0
     sent_emails: set[str] = set()
-    for subscriber in subscribers[:MAX_RECIPIENTS]:
-        names = by_user.get(str(subscriber["id"]), [])
+    empty = {row["company"] for row in collection_results or [] if row["status"] == "empty"}
+    for index, subscriber in enumerate(subscribers):
+        names = list(dict.fromkeys(by_user.get(str(subscriber["id"]), [])))
         my_sections = [section_by_company[n] for n in names if n in section_by_company]
+        count = sum(len(section["filings"]) for section in my_sections)
+        if not settings.send_email:
+            status.delivery(settings, subscriber["id"], "disabled")
+            continue
+        if index >= MAX_RECIPIENTS:
+            status.delivery(settings, subscriber["id"], "limit_reached", count)
+            continue
         if not my_sections:
-            continue  # 이 회원의 종목엔 오늘 공시 없음
+            state = "no_filings" if all(name in empty for name in names) else "collection_failed"
+            status.delivery(settings, subscriber["id"], state)
+            continue
+        if not settings.smtp_user or not settings.smtp_password:
+            status.delivery(settings, subscriber["id"], "failed", count)
+            continue
 
         important = find_important(my_sections)
         prefix = "⚠️ " if important else ""
-        subject = f"{prefix}📈 내 종목 공시 브리핑 {datetime.now():%m/%d}"
+        subject = f"{prefix}📈 내 종목 공시 브리핑 {datetime.now(ZoneInfo('Asia/Seoul')):%m/%d}"
         if important:
             subject += f" — {important[0].split(' · ')[1][:20]}"
             if len(important) > 1:
                 subject += f" 외 {len(important) - 1}건"
 
-        quiet = [n for n in names if n not in section_by_company]
-        extra_note = (
-            f"오늘 신규 공시가 없었던 내 종목: {', '.join(quiet)}" if quiet else None
-        )
+        quiet = [n for n in names if n in empty]
+        unknown = [n for n in names if n not in section_by_company and n not in empty]
+        notes = []
+        if quiet:
+            notes.append(f"조회 완료 · 신규 공시 없음: {', '.join(quiet)}")
+        if unknown:
+            notes.append(f"수집 미완료 · 공시 유무 확인 불가: {', '.join(unknown)}")
+        extra_note = " / ".join(notes) or None
         html = emailer.build_html(my_sections, extra_note=extra_note)
         try:
             emailer.send(
@@ -94,10 +112,11 @@ def send_personalized(settings: Settings, sections: list[dict]) -> set[str]:
             )
             sent += 1
             sent_emails.add(subscriber["email"].strip().lower())
-            print(f"  - 알림 발송: {subscriber['email']} (종목 {len(my_sections)}개"
-                  f"{', 중요 ' + str(len(important)) + '건' if important else ''})")
-        except Exception as e:
-            print(f"  ⚠ 알림 발송 실패 ({subscriber['email']}): {e}")
+            status.delivery(settings, subscriber["id"], "sent", count)
+            print("  - 맞춤 알림 발송 완료")
+        except Exception:
+            status.delivery(settings, subscriber["id"], "failed", count)
+            print("  ⚠ 맞춤 알림 발송 실패 (수신자·외부 응답 생략)")
 
     print(f"알림: 총 {sent}명에게 발송 완료")
     return sent_emails

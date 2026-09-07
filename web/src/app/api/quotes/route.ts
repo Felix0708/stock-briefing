@@ -153,8 +153,12 @@ async function fetchFxRate(reutersCode: string, min: number, max: number, per = 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const raw = req.nextUrl.searchParams.get("codes") ?? "";
   const entries = [...new Set(raw.split(",").map((c) => c.trim()).filter(Boolean))];
+  const fx = (req.nextUrl.searchParams.get("fx") ?? "").split(",").filter(Boolean);
+  if (fx.some((currency) => currency !== "USD" && currency !== "JPY")) {
+    return NextResponse.json({ error: "환율 통화를 확인해 주세요." }, { status: 400 });
+  }
 
-  if (entries.length === 0) {
+  if (entries.length === 0 && fx.length === 0) {
     return NextResponse.json({ error: "codes 파라미터가 필요합니다." }, { status: 400 });
   }
   if (entries.length > MAX_CODES) {
@@ -174,14 +178,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   const now = Date.now();
-  const hasUs = parsed.some((item) => item.market === "US");
-  const hasJp = parsed.some((item) => item.market === "JP");
+  const hasUs = fx.includes("USD") || parsed.some((item) => item.market === "US");
+  const hasJp = fx.includes("JPY") || parsed.some((item) => item.market === "JP");
 
   const [results, usdKrw, jpyKrw] = await Promise.all([
     Promise.all(
       parsed.map(async (item) => {
         const cached = cache.get(item.key);
-        if (cached && now - cached.at < CACHE_TTL_MS) return { key: item.key, quote: cached.quote };
+        if (cached && now - cached.at < CACHE_TTL_MS) return { key: item.key, quote: cached.quote, at: cached.at };
         const quote =
           item.market === "US"
             ? await fetchWorldQuote(item.code, [".O", ".K", ".A", ""], "USD")
@@ -189,7 +193,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
               ? await fetchWorldQuote(item.code, [".T"], "JPY")
               : await fetchKrQuote(item.code);
         if (quote) cache.set(item.key, { quote, at: now });
-        return { key: item.key, quote };
+        return { key: item.key, quote, at: now };
       }),
     ),
     hasUs ? fetchFxRate("FX_USDKRW", 900, 2500) : Promise.resolve(null),
@@ -197,9 +201,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     hasJp ? fetchFxRate("FX_JPYKRW", 600, 1800, 100) : Promise.resolve(null),
   ]);
 
-  const quotes: Record<string, Quote> = {};
-  results.forEach(({ key, quote }) => {
-    if (quote) quotes[key] = quote;
+  const quotes: Record<string, Quote & { fetchedAt: string }> = {};
+  results.forEach(({ key, quote, at }) => {
+    if (quote) quotes[key] = { ...quote, fetchedAt: new Date(at).toISOString() };
   });
 
   return NextResponse.json({

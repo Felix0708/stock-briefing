@@ -10,6 +10,7 @@ docs/data/briefings/YYYY-MM-DD.json : 그날의 브리핑 데이터
 
 import json
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 from .notify import IMPORTANT_KEYWORDS
@@ -58,6 +59,7 @@ def publish(
     public_target_keys: set[tuple[str, str]],
     base_dir: Path | None = None,
     watchlist: list[str] | None = None,
+    collection_results: list[dict] | None = None,
 ) -> Path:
     """오늘의 브리핑을 JSON으로 저장하고 날짜 인덱스를 갱신한다.
 
@@ -68,7 +70,8 @@ def publish(
     briefings_dir = data_dir / "briefings"
     briefings_dir.mkdir(parents=True, exist_ok=True)
 
-    today = datetime.now().strftime("%Y-%m-%d")
+    now = datetime.now(ZoneInfo("Asia/Seoul"))
+    today = now.strftime("%Y-%m-%d")
     safe_sections = _public_sections(
         [
             section
@@ -79,12 +82,17 @@ def publish(
     )
     payload = {
         "date": today,
-        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "generated_at": now.isoformat(timespec="seconds"),
         "sections": safe_sections,
         # Stock-Trading 08:30 브리핑이 참고용으로 읽는 안정적인 중요 공시 목록.
         # 자동 주문 조건으로 사용하지 않으며 원문 링크와 회사 단위 요약을 함께 제공한다.
         "important_sections": _important_sections(safe_sections),
     }
+    if collection_results is not None:
+        payload["collection_status"] = [
+            {key: row[key] for key in ("company", "market", "status", "filing_count", "checked_at")}
+            for row in collection_results if (row["market"], row["company"]) in public_target_keys
+        ]
     out_file = briefings_dir / f"{today}.json"
     out_file.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 

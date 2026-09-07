@@ -5,7 +5,9 @@ Gmail은 2단계 인증 + 앱 비밀번호로 SMTP를 쓸 수 있다 (SETUP.md �
 """
 
 import smtplib
+from html import escape
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -17,27 +19,27 @@ DISCLAIMER = (
 
 def build_html(sections: list[dict], extra_note: str | None = None) -> str:
     """sections: [{"company": str, "summary_html": str, "filings": [dict]}]"""
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d")
     blocks = []
     for s in sections:
         links = " · ".join(
-            f'<a href="{f["url"]}" style="color:#888;font-size:12px;">{f["report_nm"]}</a>'
+            f'<a href="{escape(f["url"], quote=True)}" style="color:#888;font-size:12px;">{escape(f["report_nm"])}</a>'
             for f in s["filings"]
         )
         blocks.append(
             f"""
             <div style="margin-bottom:28px;">
               <h2 style="font-size:17px;border-bottom:2px solid #333;padding-bottom:6px;">
-                {s["company"]} <span style="color:#999;font-weight:normal;font-size:13px;">공시 {len(s["filings"])}건</span>
+                {escape(s["company"])} <span style="color:#999;font-weight:normal;font-size:13px;">공시 {len(s["filings"])}건</span>
               </h2>
               {s["summary_html"]}
               <p style="margin-top:4px;">원문: {links}</p>
             </div>"""
         )
 
-    body = "\n".join(blocks) if blocks else "<p>오늘은 관심 종목의 신규 공시가 없습니다.</p>"
+    body = "\n".join(blocks) if blocks else "<p>이번 브리핑에 포함된 공시가 없습니다. 아래 조회 상태를 확인해 주세요.</p>"
     if extra_note:
-        body += f'<p style="color:#999;font-size:13px;margin-top:20px;">{extra_note}</p>' 
+        body += f'<p style="color:#999;font-size:13px;margin-top:20px;">{escape(extra_note)}</p>'
     return f"""
     <html><body style="font-family:'Apple SD Gothic Neo',sans-serif;max-width:640px;margin:0 auto;padding:16px;color:#222;">
       <h1 style="font-size:20px;">📈 아침 공시 브리핑 <span style="font-size:14px;color:#999;">{today}</span></h1>
@@ -57,7 +59,7 @@ def send(
     subject: str | None = None,
 ) -> None:
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject or f"📈 아침 공시 브리핑 {datetime.now():%m/%d}"
+    msg["Subject"] = subject or f"📈 아침 공시 브리핑 {datetime.now(ZoneInfo('Asia/Seoul')):%m/%d}"
     msg["From"] = user
     msg["To"] = to
     msg.attach(MIMEText(html, "html", "utf-8"))

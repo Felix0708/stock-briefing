@@ -145,9 +145,8 @@ def fetch_filings(ticker: str, cik: int, lookback_days: int) -> list[dict]:
                 continue
             try:
                 transaction_codes = _form4_open_market_codes(doc_url)
-            except Exception as exc:
-                print(f"  ⚠ {ticker} Form {form} 거래 코드 확인 실패 (건너뜀): {exc}")
-                continue
+            except Exception:
+                raise RuntimeError("Form 4 거래 코드 조회 실패") from None
             if not transaction_codes:
                 continue
             action = (

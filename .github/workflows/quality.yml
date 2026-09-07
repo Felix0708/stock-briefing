@@ -46,3 +46,16 @@ jobs:
 
       - name: Run repository QA
         run: scripts/qa.sh --build
+
+      - name: Install test browsers
+        run: npx --prefix web playwright install --with-deps chromium webkit
+
+      - name: Check desktop and iPhone flows with isolated test data
+        run: npm run test:browser --prefix web
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failure-evidence
+          path: web/test-results/
+          retention-days: 3

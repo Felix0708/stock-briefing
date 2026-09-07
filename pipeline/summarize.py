@@ -44,7 +44,7 @@ def summarize_company(
             contents="\n".join(parts),
             config={"system_instruction": SYSTEM_PROMPT, "temperature": 0.3},
         ),
-        label=f"{company} 요약",
+        label="공시 요약",
     )
     html = (response.text or "").strip()
     # 모델이 규칙을 어기고 코드블록으로 감쌌을 경우 방어

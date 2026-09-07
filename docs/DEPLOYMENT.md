@@ -7,7 +7,7 @@
 
 | 파일 | 역할 | 외부 변경 |
 |---|---|---|
-| `.github/workflows/quality.yml` | Python 구문, 웹 lint·typecheck·테스트·build, production 의존성 audit, Secret 정적 검사 | 없음 |
+| `.github/workflows/quality.yml` | Python 구문, 웹 lint·typecheck·테스트·build, Chromium/iPhone WebKit 브라우저 검증, 의존성 audit, Secret 검사 | 실패 시 가짜 테스트 데이터의 화면/trace를 3일 보관 |
 | `.github/workflows/daily-briefing.yml` | 평일 공시 수집·요약·메일·인덱싱, `docs/data` 커밋 | Git push 및 Pages 워크플로 호출 |
 | `.github/workflows/deploy-pages.yml` | `docs/` 정적 대시보드 배포 | GitHub Pages 배포 |
 
@@ -73,6 +73,9 @@ Vercel CLI의 `.vercel/`과 로컬 `.env*`는 Git ignore 대상이다.
 ```bash
 npm --prefix web ci
 scripts/qa.sh --build
+cd web
+npx playwright install chromium webkit
+npm run test:browser
 ```
 
 실제 연동 검증은 로컬 서버를 실행한 상태에서 수행한다.
@@ -95,3 +98,13 @@ scripts/qa.sh --base-url http://localhost:3000
 - Vercel WAF가 `POST /api/ask`에 정책 문서의 보조 제한으로 설정됨
 
 키 노출이 의심되면 커밋 삭제만으로 끝내지 않고 해당 공급자에서 즉시 폐기·재발급한다.
+
+## 포트폴리오 신뢰성 업데이트
+
+웹 배포 전에 `supabase/migrations/20260907052926_portfolio_reliability.sql`을 한 번 적용한다.
+`db/verify_schema.sql`과 `db/verify_portfolio_reliability.sql`이 모두 PASS여야 한다.
+후자는 임시 사용자로 매수·분할 매도·전량 매도·중복 요청·RLS를 검사한 뒤 모두 롤백한다.
+실제 보유분의 과거 거래를 생성하거나 잔고를 바꾸는 마이그레이션이 아니다.
+
+운영 수집 검증 시 Actions → daily-briefing → Run workflow에서 `send_email=false`로 실행하면 추가 메일 없이 수집·상태 저장을 확인할 수 있다. 정기 발송 설정은 바뀌지 않는다.
+공개 로그 검사는 `python3 scripts/audit-public-logs.py --limit 20`으로 실행한다. 결과는 실행 ID와 검출 건수만 출력하며, 실제 이메일/보유종목명은 출력하지 않는다.

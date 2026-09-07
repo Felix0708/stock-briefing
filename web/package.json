@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test:api": "node --test --experimental-loader ./tests/ts-loader.mjs ./tests/*.test.mjs"
+    "test:api": "node --test --experimental-loader ./tests/ts-loader.mjs ./tests/*.test.mjs",
+    "test:browser": "playwright test"
   },
   "dependencies": {
     "next": "16.3.2",
@@ -20,6 +21,7 @@
     "server-only": "0.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@types/node": "22.13.8",
     "@types/react": "19.0.10",
     "@types/react-dom": "19.0.2",

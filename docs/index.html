@@ -151,9 +151,10 @@ function renderDaily() {
   const sections = b.sections;
   const filingCount = sections.reduce((n, s) => n + s.filings.length, 0);
   setStats([[filingCount, "공시 건수"], [sections.length, "종목"]]);
-  $("content").innerHTML = sections.length
+  const failed = (b.collection_status ?? []).filter((row) => !["success", "empty"].includes(row.status)).length;
+  $("content").innerHTML = (failed ? `<div class="empty">${failed}종목 수집 미완료 · 해당 종목의 공시 유무는 확인되지 않았습니다.</div>` : "") + (sections.length
     ? sections.map((s) => cardHTML(s)).join("")
-    : '<div class="empty">이 날은 관심 종목의 신규 공시가 없습니다 ☕</div>';
+    : `<div class="empty">${failed || !b.collection_status ? "이 날 저장된 공시가 없습니다. 과거 데이터에는 수집 상태가 없을 수 있습니다." : "조회 완료 · 신규 공시가 없습니다 ☕"}</div>`);
 }
 
 /* ---------- 종목별 보기 ---------- */

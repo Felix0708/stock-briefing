@@ -4,6 +4,9 @@ import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { searchStocks, type StockSuggestion } from "@/lib/client/stock-search";
+import { loadPortfolioQuotes, type Quote } from "@/lib/client/portfolio-quotes";
+import { ManualTradesPanel } from "@/components/manual-trades-panel";
+import { BriefingStatusPanel } from "@/components/briefing-status-panel";
 import {
   accountGroupKey,
   accountGroupLabel,
@@ -24,14 +27,6 @@ type Holding = {
   source: "manual" | "stock_trading";
   account_type: "manual" | "paper" | "live";
   broker: HoldingBroker;
-};
-
-type Quote = {
-  code: string;
-  name: string | null;
-  price: number;
-  changeRatio: number;
-  currency: "KRW" | "USD" | "JPY";
 };
 
 type TradingPerformance = {
@@ -186,6 +181,12 @@ export function PortfolioPanel() {
   const [jpyKrw, setJpyKrw] = useState<number | null>(null);
   const [showPricesInKrw, setShowPricesInKrw] = useState(false);
   const [showPerformanceInKrw, setShowPerformanceInKrw] = useState(false);
+  const [accountFilter, setAccountFilter] = useState("all");
+  const [brokerFilter, setBrokerFilter] = useState("all");
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const [quotesError, setQuotesError] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Holding | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [listBusy, setListBusy] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
 
@@ -242,26 +243,16 @@ export function PortfolioPanel() {
   const [nickInput, setNickInput] = useState("");
   const [nickBusy, setNickBusy] = useState(false);
 
-  const loadQuotes = useCallback(async (rows: Holding[]) => {
-    if (rows.length === 0) {
-      setQuotes({});
-      setQuotesAsOf(null);
-      return;
-    }
+  const loadQuotes = useCallback(async (rows: Holding[], needsUsd: boolean) => {
     try {
-      const codes = rows.map((row) => quoteKey(row)).join(",");
-      const data = await api<{
-        quotes: Record<string, Quote>;
-        usdKrw: number | null;
-        jpyKrw: number | null;
-        asOf: string;
-      }>(`/api/quotes?codes=${codes}`);
+      const data = await loadPortfolioQuotes(rows.map(quoteKey), needsUsd);
       setQuotes(data.quotes);
       setUsdKrw(data.usdKrw ?? null);
       setJpyKrw(data.jpyKrw ?? null);
       setQuotesAsOf(data.asOf);
+      setQuotesError(null);
     } catch {
-      // 시세 실패는 치명적이지 않다 — 표에서 "시세 없음"으로 표시
+      setQuotesError("시세 갱신 실패 · 이전 조회값이 있다면 유지됩니다. 다시 새로고침해 주세요.");
     }
   }, []);
 
@@ -272,7 +263,7 @@ export function PortfolioPanel() {
       const data = await api<{ holdings: Holding[]; performance: TradingPerformance[] }>("/api/holdings");
       setHoldings(data.holdings);
       setPerformance(data.performance);
-      await loadQuotes(data.holdings);
+      await loadQuotes(data.holdings, data.performance.some((item) => item.realized_usd_count > 0));
     } catch (error) {
       setListError(error instanceof Error ? error.message : "목록을 불러오지 못했습니다.");
     } finally {
@@ -314,7 +305,7 @@ export function PortfolioPanel() {
   }, [user, loadHoldings, loadTokenStatus]);
 
   useEffect(() => {
-    if (!user || holdings.length === 0) return;
+    if (!user || (holdings.length === 0 && performance.length === 0)) return;
     const refreshIfStale = () => {
       const lastQuoteAt = Date.parse(quotesAsOf ?? "");
       if (
@@ -326,7 +317,42 @@ export function PortfolioPanel() {
     };
     document.addEventListener("visibilitychange", refreshIfStale);
     return () => document.removeEventListener("visibilitychange", refreshIfStale);
-  }, [user, holdings.length, quotesAsOf, loadHoldings]);
+  }, [user, holdings.length, performance.length, quotesAsOf, loadHoldings]);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("portfolio-display") ?? "{}");
+      setShowPricesInKrw(saved.krw === true);
+      setShowPerformanceInKrw(saved.performanceKrw === true);
+    } catch { /* Storage can be unavailable in private browsing. */ }
+    setPreferencesLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!preferencesLoaded) return;
+    try {
+      localStorage.setItem("portfolio-display", JSON.stringify({ krw: showPricesInKrw, performanceKrw: showPerformanceInKrw }));
+    } catch { /* Display preferences do not block the portfolio. */ }
+  }, [preferencesLoaded, showPricesInKrw, showPerformanceInKrw]);
+
+  useEffect(() => {
+    if (!pendingDelete) return;
+    const timer = setTimeout(() => {
+      setDeleting(true);
+      void (async () => {
+        try {
+          await api(`/api/holdings?code=${encodeURIComponent(pendingDelete.stock_code)}&market=${pendingDelete.market}&broker=${encodeURIComponent(pendingDelete.broker)}&quantity=${pendingDelete.quantity}&avg_price=${pendingDelete.avg_price}`, { method: "DELETE" });
+          await loadHoldings();
+        } catch {
+          setListError("삭제 결과를 확인하지 못했거나 잔고가 변경되었습니다. 새로고침 후 확인해 주세요.");
+        } finally {
+          setPendingDelete(null);
+          setDeleting(false);
+        }
+      })();
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [pendingDelete, loadHoldings]);
 
   useEffect(() => {
     if (
@@ -507,19 +533,6 @@ export function PortfolioPanel() {
     }
   }
 
-  async function handleDelete(holding: Holding) {
-    if (holding.source !== "manual") return;
-    try {
-      await api(
-        `/api/holdings?code=${encodeURIComponent(holding.stock_code)}&market=${holding.market}&broker=${encodeURIComponent(holding.broker)}`,
-        { method: "DELETE" },
-      );
-      await loadHoldings();
-    } catch (error) {
-      setListError(error instanceof Error ? error.message : "삭제에 실패했습니다.");
-    }
-  }
-
   // ---------- 계산 ----------
   const computed = useMemo(() => {
     // 모든 합산은 원화(KRW) 기준. 해외 종목은 해당 환율로 환산한다.
@@ -529,7 +542,9 @@ export function PortfolioPanel() {
       return amount;
     };
 
-    const rows = holdings.map((holding) => {
+    const visible = holdings.filter((holding) => (brokerFilter === "all" || holding.broker === brokerFilter)
+      && (accountFilter === "all" || (accountFilter === "live") === isRealAccount(holding)));
+    const rows = visible.map((holding) => {
       const currency = currencyOf(holding.market);
       const quote = quotes[quoteKey(holding)] ?? null;
       const costNative = holding.quantity * holding.avg_price;
@@ -546,7 +561,7 @@ export function PortfolioPanel() {
       return { holding, quote, currency, costKrw, valueNative, valueKrw, plNative, pl, plRatio };
     });
 
-    const realRows = rows.filter((row) => isRealAccount(row.holding));
+    const realRows = rows.filter((row) => accountFilter === "paper" || isRealAccount(row.holding));
     const costed = realRows.filter((row) => row.costKrw !== null);
     const totalCost = costed.reduce((sum, row) => sum + (row.costKrw ?? 0), 0);
     const priced = realRows.filter((row) => row.valueKrw !== null && row.costKrw !== null);
@@ -556,15 +571,16 @@ export function PortfolioPanel() {
     const totalPlRatio = pricedCost > 0 ? (totalPl / pricedCost) * 100 : 0;
 
     // 비중: 같은 증권사의 직접 등록+자동 실계좌는 합치고, 모의계좌는 별도로 100% 분배
-    const weightBase = rows.map((row) => row.valueKrw ?? row.costKrw ?? 0);
+    const weightBase = rows.map((row) => row.valueKrw ?? row.costKrw);
     const accountTotals = new Map<string, number>();
     rows.forEach((row, index) => {
       const key = accountGroupKey(row.holding);
-      accountTotals.set(key, (accountTotals.get(key) ?? 0) + weightBase[index]);
+      accountTotals.set(key, (accountTotals.get(key) ?? 0) + (weightBase[index] ?? 0));
     });
     const weights = rows.map((row, index) => {
       const total = accountTotals.get(accountGroupKey(row.holding)) ?? 0;
-      return total > 0 ? (weightBase[index] / total) * 100 : 0;
+      const incomplete = rows.some((item, i) => accountGroupKey(item.holding) === accountGroupKey(row.holding) && weightBase[i] === null);
+      return !incomplete && total > 0 ? ((weightBase[index] ?? 0) / total) * 100 : null;
     });
 
     const accountRows = new Map<string, typeof rows>();
@@ -577,23 +593,25 @@ export function PortfolioPanel() {
     const charts = [...accountRows.entries()]
       .sort(([left], [right]) => accountRank(left) - accountRank(right))
       .map(([key, group]) => {
-        const bases = group.map((row) => row.valueKrw ?? row.costKrw ?? 0);
-        const total = bases.reduce((sum, value) => sum + value, 0);
-        const equalWeight = group.length > 0 ? 100 / group.length : 0;
+        const bases = group.map((row) => row.valueKrw ?? row.costKrw);
+        const total = bases.reduce<number>((sum, value) => sum + (value ?? 0), 0);
+        const complete = bases.every((value) => value !== null) && total > 0;
         return {
           key,
           title: accountGroupLabel(group[0].holding),
-          slices: group.map((row, index) => ({
+          note: !complete ? "환율 정보가 없어 비중을 계산할 수 없습니다." : group.some((row) => row.valueKrw === null) ? "시세 없는 종목은 현재 환율로 환산한 매입가를 사용한 추정 비중입니다." : "현재 평가금액 기준 비중",
+          slices: !complete ? [] : group.map((row, index) => ({
             key: holdingKey(row.holding),
             label: stockLabel(row.holding, row.quote),
-            percent: total > 0 ? (bases[index] / total) * 100 : equalWeight,
+            percent: ((bases[index] ?? 0) / total) * 100,
             color: PIE_COLORS[index % PIE_COLORS.length],
           })),
         };
       });
 
-    return { rows, totalCost, totalValue, totalPl, totalPlRatio, weights, charts, hasQuotes: priced.length > 0 };
-  }, [holdings, quotes, usdKrw, jpyKrw]);
+    return { rows, totalCost, totalValue, totalPl, totalPlRatio, weights, charts, hasQuotes: priced.length > 0,
+      pricedCount: priced.length, costedCount: costed.length, totalCount: realRows.length };
+  }, [holdings, quotes, usdKrw, jpyKrw, accountFilter, brokerFilter]);
 
   // ---------- 렌더 ----------
   if (checking) {
@@ -929,7 +947,7 @@ export function PortfolioPanel() {
           </button>
         </form>
         <p className="pf-muted pf-hint">
-          직접 등록은 실계좌로 보며, 자동매매 실계좌와 별도로 표시됩니다.
+          이 양식은 현재 잔고 보정용이며 거래 이력을 생성하지 않습니다. 매수·매도는 아래 ‘직접 투자 · 매매 이력’에 기록해 주세요. 직접 등록과 자동매매 행은 구분하며 같은 증권사 실계좌의 비중은 함께 계산합니다.
         </p>
         {formError && <p className="pf-error">{formError}</p>}
       </section>
@@ -948,7 +966,7 @@ export function PortfolioPanel() {
             </label>
             {quotesAsOf && (
               <span className="pf-muted pf-asof">
-                시세 {new Date(quotesAsOf).toLocaleTimeString("ko-KR")} 기준
+                마지막 조회 {new Date(quotesAsOf).toLocaleTimeString("ko-KR")}
                 {usdKrw ? ` · ${formatKrw(usdKrw)}원/$` : ""}
                 {jpyKrw ? ` · ${jpyKrw.toFixed(1)}원/¥` : ""}
               </span>
@@ -965,6 +983,20 @@ export function PortfolioPanel() {
         </div>
 
         {listError && <p className="pf-error">{listError}</p>}
+        {quotesError && <p className="pf-error" role="status">{quotesError}</p>}
+        <div className="pf-filters">
+          <label>계좌 유형<select aria-label="계좌 유형" value={accountFilter} onChange={(event) => setAccountFilter(event.target.value)}>
+            <option value="all">전체</option><option value="live">실계좌</option><option value="paper">모의계좌</option>
+          </select></label>
+          <label>증권사 필터<select aria-label="증권사 필터" value={brokerFilter} onChange={(event) => setBrokerFilter(event.target.value)}>
+            <option value="all">모든 증권사</option>
+            {[...new Set(holdings.map((holding) => holding.broker))].map((broker) => <option key={broker} value={broker}>{brokerLabel(broker)}</option>)}
+          </select></label>
+        </div>
+        {pendingDelete && <div className="pf-notice" role="status">
+          {pendingDelete.stock_name} · {deleting ? "삭제 처리 중입니다." : "8초 뒤 잔고에서 삭제됩니다. 매도 이력은 생성하지 않습니다."}
+          <button type="button" className="pf-ghost" disabled={deleting} onClick={() => setPendingDelete(null)}>삭제 취소</button>
+        </div>}
 
         {holdings.length === 0 && !listBusy ? (
           <p className="pf-muted">아직 등록된 종목이 없습니다. 위에서 첫 종목을 등록해 보세요.</p>
@@ -972,17 +1004,17 @@ export function PortfolioPanel() {
           <>
             <div className="pf-summary">
               <div>
-                <span className="pf-muted">실계좌 총 매입</span>
-                <strong>{formatKrw(computed.totalCost)}원</strong>
+                <span className="pf-muted">{accountFilter === "paper" ? "모의계좌" : "실계좌"} 매입가 · 현재 환율 환산</span>
+                <strong>{computed.costedCount > 0 ? `${formatKrw(computed.totalCost)}원` : "—"}</strong>
               </div>
               <div>
-                <span className="pf-muted">실계좌 총 평가</span>
+                <span className="pf-muted">{accountFilter === "paper" ? "모의계좌" : "실계좌"} {computed.pricedCount < computed.totalCount ? "일부 평가" : "총 평가"}</span>
                 <strong>
                   {computed.hasQuotes ? `${formatKrw(computed.totalValue)}원` : "시세 대기"}
                 </strong>
               </div>
               <div>
-                <span className="pf-muted">실계좌 평가 손익</span>
+                <span className="pf-muted">{accountFilter === "paper" ? "모의계좌" : "실계좌"} 평가 손익 · 환율효과 제외</span>
                 <strong className={plClass(computed.totalPl)}>
                   {computed.hasQuotes
                     ? `${formatSigned(computed.totalPl)}원 (${formatPercent(computed.totalPlRatio)})`
@@ -990,6 +1022,8 @@ export function PortfolioPanel() {
                 </strong>
               </div>
             </div>
+            <p className="pf-muted" role="status">평가 {computed.totalCount}종목 중 {computed.pricedCount}종목 반영 · 매입가 {computed.costedCount}종목 환산 가능. 해외 금액은 현재 조회 환율로 환산하며 실제 원화 매입액과 다를 수 있습니다.</p>
+            {computed.rows.length === 0 && <p className="pf-muted">선택한 조건의 보유 종목이 없습니다.</p>}
 
             <div className="pf-table-wrap">
               <table className="pf-table">
@@ -1055,14 +1089,15 @@ export function PortfolioPanel() {
                       <td data-label="수익률" className={row.plRatio !== null ? plClass(row.plRatio) : ""}>
                         {row.plRatio !== null ? formatPercent(row.plRatio) : "—"}
                       </td>
-                      <td data-label="계좌 내 비중">{computed.weights[index].toFixed(1)}%</td>
+                      <td data-label="계좌 내 비중">{computed.weights[index] !== null ? `${computed.weights[index].toFixed(1)}%` : "환율 대기"}</td>
                       <td className="pf-table-action">
                         {row.holding.source === "manual" && (
                           <button
                             type="button"
                             className="pf-delete"
                             aria-label={`${stockLabel(row.holding, row.quote)} 삭제`}
-                            onClick={() => void handleDelete(row.holding)}
+                            disabled={pendingDelete !== null}
+                            onClick={() => setPendingDelete(row.holding)}
                           >
                             ✕
                           </button>
@@ -1076,7 +1111,7 @@ export function PortfolioPanel() {
 
             <div className="pf-pie-grid">
               {computed.charts.map((chart) => (
-                <PieChart key={chart.key} title={chart.title} slices={chart.slices} />
+                <PieChart key={chart.key} title={chart.title} slices={chart.slices} note={chart.note} />
               ))}
             </div>
           </>
@@ -1152,13 +1187,15 @@ export function PortfolioPanel() {
           )}
         </div>
       </section>
+      <ManualTradesPanel holdings={holdings.filter((holding) => holding.source === "manual")} onChanged={loadHoldings} disabled={pendingDelete !== null} />
+      <BriefingStatusPanel holdings={holdings} />
     </div>
   );
 }
 
 type PieSlice = { key: string; label: string; percent: number; color: string };
 
-function PieChart({ title, slices }: { title: string; slices: PieSlice[] }) {
+function PieChart({ title, slices, note }: { title: string; slices: PieSlice[]; note: string }) {
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
   let offset = 0;
@@ -1166,7 +1203,8 @@ function PieChart({ title, slices }: { title: string; slices: PieSlice[] }) {
   return (
     <article className="pf-pie-card">
       <h3>{title}</h3>
-      <div className="pf-pie" role="img" aria-label={`${title} 종목별 비중 원 그래프`}>
+      <p className="pf-muted">{note}</p>
+      {slices.length > 0 && <div className="pf-pie" role="img" aria-label={`${title} 종목별 비중 원 그래프`}>
         <svg viewBox="0 0 120 120">
           <circle cx="60" cy="60" r={radius} className="pf-pie-track" />
           {slices.map((slice) => {
@@ -1193,12 +1231,12 @@ function PieChart({ title, slices }: { title: string; slices: PieSlice[] }) {
           {slices.map((slice) => (
             <li key={slice.key}>
               <span className="pf-dot" style={{ background: slice.color }} aria-hidden="true" />
-              {slice.label}
+              <span className="pf-legend-label">{slice.label}</span>
               <strong>{slice.percent.toFixed(1)}%</strong>
             </li>
           ))}
         </ul>
-      </div>
+      </div>}
     </article>
   );
 }

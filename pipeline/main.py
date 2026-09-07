@@ -1,267 +1,184 @@
-"""파이프라인 오케스트레이터.
-
-흐름: watchlist → DART 공시 수집 → 원문 다운로드 → Gemini 요약 → 메일 발송
-
-실행:
-    python -m pipeline.main            # 실제 발송
-    python -m pipeline.main --dry-run  # 메일 대신 HTML 파일로 저장 (테스트용)
-"""
-
+"""공시 수집 → 요약 → 개인/공개 브리핑. 실패와 공시 0건을 별도로 기록한다."""
 import argparse
+import html
 import sys
 from pathlib import Path
 
-from . import dart, edgar, edinet, emailer, embed, holdings, notify, publish, summarize
+from . import dart, edgar, edinet, emailer, embed, holdings, notify, publish, status, summarize
 from .config import load_settings
 
-# 온디맨드(--index-only) 수집 시 종목당 인덱싱할 최대 공시 수 (임베딩 예산 보호)
 INDEX_ONLY_MAX_FILINGS = 15
 
 
-def run(
-    dry_run: bool = False,
-    companies: list[str] | None = None,
-    index_only: bool = False,
-    lookback: int | None = None,
-) -> None:
-    settings = load_settings()
-    if index_only:
-        settings.send_email = False  # 인덱싱 전용 모드는 메일·SMTP 설정 불필요
-    if lookback:
-        settings.lookback_days = lookback
-    settings.validate()
-
-    # 수집 대상 결정:
-    # --companies 지정 시 그 목록만 (온디맨드 수집용)
-    # 아니면 watchlist + 사용자 보유 종목(Phase 3 개인화) 병합
-    # 수집 대상: {"name", "market", "code"} — 시장별로 공시 소스가 다르다 (KR→DART, US→EDGAR)
-    if companies:
-        targets = [{"name": c, "market": "KR", "code": ""} for c in companies]
-        public_target_keys = {("KR", c) for c in companies}
-    else:
-        targets = [{"name": c, "market": "KR", "code": ""} for c in settings.watchlist]
-        public_target_keys = {("KR", c) for c in settings.watchlist}
-        try:
-            known = {t["name"] for t in targets}
-            extras = []
-            for row in holdings.fetch_market_targets(settings):
-                if row["market"] == "JP" and not settings.edinet_api_key:
-                    continue  # EDINET 키 없으면 일본은 시세만 (공시 수집 생략)
-                if row["name"] not in known:
-                    known.add(row["name"])
-                    targets.append(row)
-                    extras.append(f"{row['name']}({row['market']})")
-            if extras:
-                print(f"보유 종목 추가 수집 대상: {extras}")
-        except Exception as e:
-            print(f"⚠ 보유 종목 조회 실패 (watchlist만 사용): {e}")
-        try:
-            public_target_keys.update(
-                (row["market"], row["name"])
-                for row in holdings.fetch_public_market_targets(settings)
-            )
-        except Exception as e:
-            # 동의 조회 실패 시 공개 범위를 넓히지 않고 watchlist만 공개한다.
-            print(f"⚠ 공개 동의 종목 조회 실패 (watchlist만 공개): {e}")
-
-    if not targets:
-        print("수집 대상이 없습니다 (watchlist 비어 있음 + 등록된 보유 종목 없음). 정상 종료.")
-        return
-
-    print(f"[1/4] 기업 코드 로드 중... (대상: {[t['name'] for t in targets]})")
-    corp_codes = (
-        dart.load_corp_codes(settings.dart_api_key)
-        if any(t["market"] == "KR" for t in targets)
-        else {}
-    )
-    cik_map: dict[str, int] = {}
-    if any(t["market"] == "US" for t in targets):
-        try:
-            cik_map = edgar.load_ticker_ciks()
-        except Exception as e:
-            # EDGAR 실패가 국내 수집까지 죽이면 안 된다 — 미국 종목만 건너뛴다
-            print(f"⚠ SEC 티커 목록 로드 실패 (미국 종목 건너뜀): {e}")
-
-    sections = []
-    for target in targets:
-        company = target["name"]
-        market = target["market"]
-
+def collect_target(settings, target, corp_codes, cik_map, index_only=False, dry_run=False):
+    company, market = target["name"], target["market"]
+    result = {"company": company, "market": market, "stock_code": target["code"],
+              "status": "failed", "filing_count": 0, "checked_at": status.timestamp()}
+    try:
         if market == "US":
-            ticker = target["code"].upper()
-            cik = cik_map.get(ticker)
+            cik = cik_map.get(target["code"].upper())
             if not cik:
-                print(f"  ⚠ '{company}'({ticker}) 를 SEC 티커 목록에서 찾지 못함")
-                continue
-            print(f"[2/4] {company}: 최근 {settings.lookback_days}일 SEC 공시 조회...")
-            try:
-                filings = edgar.fetch_filings(ticker, cik, settings.lookback_days)
-            except Exception as e:
-                print(f"  ⚠ {company} SEC 조회 실패 (건너뜀): {e}")
-                continue
+                return None, result
+            filings = edgar.fetch_filings(target["code"], cik, settings.lookback_days)
         elif market == "JP":
             if not settings.edinet_api_key:
-                print(f"  ⚠ '{company}' EDINET 키 없음 — 일본 공시 수집 생략")
-                continue
-            print(f"[2/4] {company}: 최근 {settings.lookback_days}일 EDINET 공시 조회...")
-            try:
-                filings = edinet.fetch_filings(target["code"], settings.lookback_days, settings.edinet_api_key)
-            except Exception as e:
-                print(f"  ⚠ {company} EDINET 조회 실패 (건너뜀): {e}")
-                continue
+                result["status"] = "unsupported"
+                return None, result
+            filings = edinet.fetch_filings(target["code"], settings.lookback_days, settings.edinet_api_key)
         else:
             corp_code = corp_codes.get(company)
             if not corp_code:
-                print(f"  ⚠ '{company}' 를 DART 상장사 목록에서 찾지 못함 (정확한 법인명인지 확인)")
-                continue
-            print(f"[2/4] {company}: 최근 {settings.lookback_days}일 공시 조회...")
-            try:
-                filings = dart.fetch_filings(settings.dart_api_key, corp_code, settings.lookback_days)
-            except Exception as e:
-                print(f"  ⚠ {company} DART 조회 실패 (건너뜀): {e}")
-                continue
+                return None, result
+            filings = dart.fetch_filings(settings.dart_api_key, corp_code, settings.lookback_days)
+    except Exception:
+        return None, result
 
-        if not filings:
-            print(f"  - 신규 공시 없음")
-            continue
-        print(f"  - {len(filings)}건 발견")
-        if index_only and len(filings) > INDEX_ONLY_MAX_FILINGS:
-            filings = filings[:INDEX_ONLY_MAX_FILINGS]
-            print(f"  - 인덱싱 전용 모드: 최근 {INDEX_ONLY_MAX_FILINGS}건으로 제한")
-
-        if market == "US":
-            doc_texts = {
-                f["rcept_no"]: edgar.fetch_document_text(f, settings.doc_max_chars)
-                for f in filings
-            }
-            for f in filings:
-                f.pop("_doc_url", None)  # 내부용 키는 저장 데이터에서 제외
-        elif market == "JP":
-            doc_texts = {
-                f["rcept_no"]: edinet.fetch_document_text(f, settings.doc_max_chars)
-                for f in filings
-            }
-        else:
-            doc_texts = {
-                f["rcept_no"]: dart.fetch_document_text(
-                    settings.dart_api_key, f["rcept_no"], settings.doc_max_chars
-                )
-                for f in filings
-            }
-
-        if index_only:
-            # 온디맨드 수집: 요약·브리핑 없이 RAG 인덱싱만 수행
-            for f in filings:
-                try:
-                    n = embed.index_filing(settings, company, f, doc_texts.get(f["rcept_no"], ""))
-                    if n:
-                        print(f"  - RAG 인덱싱: {f['report_nm']} ({n} 청크)")
-                except Exception as e:
-                    print(f"  ⚠ RAG 인덱싱 실패 ({f['report_nm']}): {e}")
-            continue
-
-        print(f"[3/4] {company}: Gemini 요약 생성...")
-        # 종목 단위 격리: 한 종목의 요약 실패가 전체 브리핑을 죽이지 않게 한다.
-        # 실패한 종목은 요약 대신 공시 목록만 표시 (링크는 살아있으므로 정보 가치 유지)
-        try:
-            summary_html = summarize.summarize_company(
-                settings.gemini_api_key, settings.gemini_model, company, filings, doc_texts
-            )
-        except Exception as e:
-            print(f"  ⚠ {company} 요약 실패 (공시 목록만 표시): {e}")
-            summary_html = (
-                "<ul>"
-                + "".join(f"<li>{f['report_nm']} ({f['rcept_dt']})</li>" for f in filings)
-                + "</ul><p><i>AI 요약 생성에 실패해 목록만 표시합니다.</i></p>"
-            )
-        sections.append(
-            {"company": company, "market": market, "summary_html": summary_html, "filings": filings}
-        )
-
-        # Phase 2: RAG용 임베딩 저장 (Supabase 설정이 있을 때만, dry-run 제외)
-        # 실패해도 브리핑 자체는 계속되도록 개별 공시 단위로 예외 처리
-        if settings.rag_enabled and not dry_run:
-            for f in filings:
-                try:
-                    n = embed.index_filing(settings, company, f, doc_texts.get(f["rcept_no"], ""))
-                    if n:
-                        print(f"  - RAG 인덱싱: {f['report_nm']} ({n} 청크)")
-                except Exception as e:
-                    print(f"  ⚠ RAG 인덱싱 실패 ({f['report_nm']}): {e}")
-
+    result["filing_count"] = len(filings)
+    if not filings:
+        result.update(status="empty", last_success_at=result["checked_at"])
+        return None, result
     if index_only:
-        print("인덱싱 전용 모드 완료 ✅ (브리핑·메일·대시보드 생략)")
-        return
-
-    # 웹 대시보드용 JSON 저장 (공시 없는 날도 기록)
-    # dry-run은 배포 대상(docs/data)을 건드리지 않고 .preview/에 저장
-    # → 로컬 테스트가 git 충돌을 만들지 않도록 분리
-    if dry_run:
-        out_json = publish.publish(
-            sections,
-            public_target_keys,
-            base_dir=Path(".preview"),
-            watchlist=settings.watchlist,
-        )
-    else:
-        out_json = publish.publish(sections, public_target_keys, watchlist=settings.watchlist)
-    print(f"[4/4] 웹 대시보드 데이터 저장: {out_json}")
-
-    # Phase 3 알림: 수신 동의 회원에게 보유 종목 공시만 맞춤 발송
-    # (관리자 메일과 독립적으로 동작. 실패해도 브리핑은 계속)
-    personalized_sent: set[str] = set()
-    if not dry_run and sections and settings.rag_enabled and settings.smtp_user and settings.smtp_password:
+        filings = filings[:INDEX_ONLY_MAX_FILINGS]
+    result["status"] = "success"
+    doc_texts = {}
+    for filing in filings:
         try:
-            personalized_sent = notify.send_personalized(settings, sections)
-        except Exception as e:
-            print(f"⚠ 회원 알림 발송 실패: {e}")
+            if market == "US":
+                text = edgar.fetch_document_text(filing, settings.doc_max_chars)
+            elif market == "JP":
+                text = edinet.fetch_document_text(filing, settings.doc_max_chars)
+            else:
+                text = dart.fetch_document_text(settings.dart_api_key, filing["rcept_no"], settings.doc_max_chars)
+            if not text:
+                result["status"] = "partial"
+            doc_texts[filing["rcept_no"]] = text
+        except Exception:
+            doc_texts[filing["rcept_no"]] = ""
+            result["status"] = "partial"
+        filing.pop("_doc_url", None)
 
-    if not settings.send_email:
-        print("SEND_EMAIL=false → 메일 발송 생략 (웹 대시보드로 확인)")
-        return
-    if not sections and not settings.send_empty_briefing:
-        print("신규 공시 없음 → 메일 발송 생략 (SEND_EMPTY_BRIEFING=true로 바꾸면 발송)")
-        return
-    # 맞춤 브리핑을 이미 받은 주소에는 전체 브리핑을 중복 발송하지 않음
-    if settings.mail_to.strip().lower() in personalized_sent:
-        print(f"관리자 메일({settings.mail_to})은 맞춤 브리핑을 이미 수신 → 전체 브리핑 생략")
-        return
+    section = None
+    if not index_only:
+        try:
+            summary_html = summarize.summarize_company(settings.gemini_api_key, settings.gemini_model, company, filings, doc_texts)
+        except Exception:
+            result["status"] = "partial"
+            summary_html = "<ul>" + "".join(f"<li>{html.escape(f['report_nm'])} ({html.escape(f['rcept_dt'])})</li>" for f in filings) + "</ul><p>AI 요약 생성에 실패해 목록만 표시합니다.</p>"
+        section = {"company": company, "market": market, "summary_html": summary_html, "filings": filings}
+    if settings.rag_enabled and not dry_run:
+        for filing in filings:
+            try:
+                embed.index_filing(settings, company, filing, doc_texts[filing["rcept_no"]])
+            except Exception:
+                result["status"] = "partial"
+    if result["status"] == "success":
+        result["last_success_at"] = result["checked_at"]
+    return section, result
 
-    html = emailer.build_html(sections)
 
-    if dry_run:
-        out = Path("briefing_preview.html")
-        out.write_text(html, encoding="utf-8")
-        print(f"dry-run: {out} 에 저장 완료. 브라우저로 열어서 확인하세요.")
+def run(dry_run=False, companies=None, index_only=False, lookback=None):
+    settings = load_settings()
+    if index_only:
+        settings.send_email = False
+    if lookback:
+        settings.lookback_days = lookback
+    settings.validate()
+    record = not dry_run and not index_only
+    if record:
+        status.record_run(settings, "running")
+    try:
+        _run(settings, dry_run, companies, index_only, record)
+    except Exception:
+        if record:
+            status.record_run(settings, "failed")
+        raise
+
+
+def _run(settings, dry_run, companies, index_only, record):
+    names = companies if companies is not None else settings.watchlist
+    targets = [{"name": name, "market": "KR", "code": ""} for name in names]
+    public_keys = {("KR", name) for name in names}
+    incomplete = False
+    if companies is None:
+        try:
+            known = {(target["market"], target["name"]) for target in targets}
+            for row in holdings.fetch_market_targets(settings):
+                key = (row["market"], row["name"])
+                if key not in known:
+                    known.add(key)
+                    targets.append(row)
+        except Exception:
+            incomplete = True
+            print("⚠ 보유 종목 조회 실패 · watchlist만 수집")
+        try:
+            public_keys.update((row["market"], row["name"]) for row in holdings.fetch_public_market_targets(settings))
+        except Exception:
+            incomplete = True
+            print("⚠ 공개 동의 조회 실패 · watchlist만 공개")
+    print(f"수집 대상 {len(targets)}개 (종목명·회원 정보 생략)")
+    corp_codes = {}
+    if any(target["market"] == "KR" for target in targets):
+        try:
+            corp_codes = dart.load_corp_codes(settings.dart_api_key)
+        except Exception:
+            incomplete = True
+            print("⚠ DART 기업 목록 조회 실패")
+    cik_map = {}
+    if any(target["market"] == "US" for target in targets):
+        try:
+            cik_map = edgar.load_ticker_ciks()
+        except Exception:
+            incomplete = True
+            print("⚠ SEC 기업 목록 조회 실패")
+    sections, results = [], []
+    for index, target in enumerate(targets):
+        section, result = collect_target(settings, target, corp_codes, cik_map, index_only, dry_run)
+        results.append(result)
+        if section:
+            sections.append(section)
+        if result["status"] not in ("success", "empty"):
+            incomplete = True
+        print(f"대상 {index+1}/{len(targets)} · {result['status']} · 공시 {result['filing_count']}건")
+        if not dry_run:
+            if not status.save(settings, "collection_status", result, "market,company"):
+                incomplete = True
+    if index_only:
+        print("인덱싱 전용 모드 완료" if not incomplete else "인덱싱 전용 모드 일부 실패 · 개인 상태 화면 확인")
         return
-
-    print(f"메일 발송 → {settings.mail_to}")
-    emailer.send(
-        settings.smtp_host,
-        settings.smtp_port,
-        settings.smtp_user,
-        settings.smtp_password,
-        settings.mail_to,
-        html,
-    )
-    print("완료 ✅")
+    out = publish.publish(sections, public_keys, base_dir=Path(".preview") if dry_run else None,
+                          watchlist=settings.watchlist, collection_results=results)
+    print(f"대시보드 데이터 저장: {out}")
+    personalized_sent = set()
+    if not dry_run and settings.rag_enabled:
+        try:
+            personalized_sent = notify.send_personalized(settings, sections, results)
+        except Exception:
+            incomplete = True
+            print("⚠ 회원 알림 처리 실패 (수신자·외부 응답 생략)")
+    if settings.send_email and (sections or settings.send_empty_briefing) and settings.mail_to.strip().lower() not in personalized_sent:
+        extra = "일부 종목의 수집이 완료되지 않아 공시 유무를 확인할 수 없습니다." if incomplete else None
+        message = emailer.build_html(sections, extra_note=extra)
+        if dry_run:
+            Path("briefing_preview.html").write_text(message, encoding="utf-8")
+            print("dry-run: briefing_preview.html 저장")
+        else:
+            emailer.send(settings.smtp_host, settings.smtp_port, settings.smtp_user, settings.smtp_password, settings.mail_to, message)
+            print("관리자 브리핑 발송 완료")
+    if record:
+        status.record_run(settings, "partial" if incomplete else "success")
+    print("완료 · 일부 처리 실패 있음" if incomplete else "완료")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dry-run", action="store_true", help="메일 대신 HTML 파일로 저장")
-    parser.add_argument("--companies", help="쉼표로 구분한 수집 대상 (watchlist 대신 사용)")
-    parser.add_argument("--index-only", action="store_true", help="요약·메일 없이 RAG 인덱싱만")
-    parser.add_argument("--lookback", type=int, help="조회 기간(일) 재정의")
+    parser.add_argument("--dry-run", action="store_true", help="메일 대신 HTML 저장")
+    parser.add_argument("--companies", help="쉼표로 구분한 수집 대상")
+    parser.add_argument("--index-only", action="store_true", help="요약·메일 없이 인덱싱만")
+    parser.add_argument("--lookback", type=int, help="조회 기간(일)")
     args = parser.parse_args()
-    company_list = [c.strip() for c in args.companies.split(",") if c.strip()] if args.companies else None
     try:
-        run(
-            dry_run=args.dry_run,
-            companies=company_list,
-            index_only=args.index_only,
-            lookback=args.lookback,
-        )
-    except Exception as e:
-        print(f"실패: {e}", file=sys.stderr)
+        run(dry_run=args.dry_run, companies=[c.strip() for c in args.companies.split(",") if c.strip()] if args.companies else None,
+            index_only=args.index_only, lookback=args.lookback)
+    except Exception as error:
+        print(f"파이프라인 실패: {type(error).__name__} (민감한 오류 본문 생략)", file=sys.stderr)
         sys.exit(1)

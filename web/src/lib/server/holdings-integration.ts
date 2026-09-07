@@ -85,19 +85,19 @@ function serviceHeaders(): Record<string, string> {
   return headers;
 }
 
-async function serviceRest<T>(path: string, init: RequestInit): Promise<T> {
+export async function serviceRest<T>(path: string, init: RequestInit): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${serviceEnv().url}/rest/v1/${path}`, {
       ...init,
+      signal: init.signal ?? AbortSignal.timeout(15_000),
       headers: { ...serviceHeaders(), ...(init.headers ?? {}) },
     });
   } catch {
     throw new UpstreamError("Supabase");
   }
   if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    console.error(`[integration] PostgREST ${response.status}: ${detail.slice(0, 300)}`);
+    console.error(`[integration] PostgREST ${response.status}`);
     throw new UpstreamError("Supabase", response.status);
   }
   const text = await response.text();

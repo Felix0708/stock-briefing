@@ -16,6 +16,11 @@ on:
         description: "조회 기간(일) — 비우면 1일. 테스트로 지난 공시를 잡고 싶을 때 늘려서 실행"
         required: false
         default: ""
+      send_email:
+        description: "이번 실행에서 메일 발송 (false는 수집·상태 확인만)"
+        type: choice
+        options: ["true", "false"]
+        default: "true"
 
 permissions:
   contents: write # 브리핑 JSON을 저장소에 커밋하기 위해 필요
@@ -45,7 +50,7 @@ jobs:
           # 모델명은 비밀이 아니므로 secrets 대신 평문으로 지정
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash-lite' }}
           LOOKBACK_DAYS: ${{ inputs.lookback || '1' }}
-          SEND_EMAIL: ${{ vars.SEND_EMAIL || 'true' }}
+          SEND_EMAIL: ${{ inputs.send_email || vars.SEND_EMAIL || 'true' }}
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           SMTP_USER: ${{ secrets.SMTP_USER }}

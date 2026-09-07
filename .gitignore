@@ -10,6 +10,8 @@
 **/out/
 **/.vercel/
 **/*.tsbuildinfo
+web/test-results/
+web/playwright-report/
 npm-debug.log*
 
 # Python 로컬 환경과 캐시

@@ -85,7 +85,7 @@ function handleKnownError(error: unknown): NextResponse {
       );
     }
     return NextResponse.json(
-      { error: `데이터 서버 요청에 실패했습니다. (오류 ${error.status ?? "네트워크"}) ${error.message}` },
+      { error: "보유 종목 처리에 실패했습니다. 잠시 후 다시 시도해 주세요." },
       { status: 502 },
     );
   }
@@ -102,9 +102,8 @@ async function restFetch<T>(
     headers: { ...userHeaders(session.accessToken), ...(init.headers ?? {}) },
   });
   if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    console.error(`[holdings] PostgREST ${response.status}: ${detail.slice(0, 300)}`);
-    throw new UpstreamError("Supabase", response.status, detail.slice(0, 200) || undefined);
+    console.error(`[holdings] PostgREST ${response.status}`);
+    throw new UpstreamError("Supabase", response.status);
   }
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
@@ -264,13 +263,26 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "증권사를 확인해 주세요." }, { status: 400 });
     }
 
-    await restFetch<undefined>(
+    const expectedQuantity = req.nextUrl.searchParams.get("quantity");
+    const expectedPrice = req.nextUrl.searchParams.get("avg_price");
+    const guarded = expectedQuantity !== null || expectedPrice !== null;
+    if (guarded && (!expectedQuantity || !expectedPrice ||
+      !Number.isFinite(Number(expectedQuantity)) || Number(expectedQuantity) <= 0 ||
+      !Number.isFinite(Number(expectedPrice)) || Number(expectedPrice) <= 0)) {
+      return NextResponse.json({ error: "삭제할 잔고를 다시 확인해 주세요." }, { status: 400 });
+    }
+    const expected = guarded ? `&quantity=eq.${Number(expectedQuantity)}&avg_price=eq.${Number(expectedPrice)}` : "";
+    const deleted = await restFetch<unknown[]>(
       session,
-      `holdings?stock_code=eq.${encodeURIComponent(code)}&market=eq.${market}&source=eq.manual&account_type=eq.manual&broker=eq.${encodeURIComponent(broker)}`,
+      `holdings?stock_code=eq.${encodeURIComponent(code)}&market=eq.${market}&source=eq.manual&account_type=eq.manual&broker=eq.${encodeURIComponent(broker)}${expected}`,
       {
-      method: "DELETE",
+        method: "DELETE",
+        headers: { Prefer: "return=representation" },
       },
     );
+    if (guarded && !deleted?.length) {
+      return withSession(NextResponse.json({ error: "잔고가 변경되었습니다. 새로고침 후 다시 삭제해 주세요." }, { status: 409 }), session);
+    }
     return withSession(NextResponse.json({ ok: true }), session);
   } catch (error) {
     return handleKnownError(error);
