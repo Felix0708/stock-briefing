@@ -16,7 +16,7 @@
 - Python 11개, API/계약 60개, 실제 Chromium·iPhone WebKit 10개 시나리오 통과. 라이트/다크 화면, 배지 넘침, 범례 중앙 정렬, 부분 합계, 환율 누락, 필터, 통화 저장, 삭제 취소와 수동 매수 입력을 확인했다.
 - lint/typecheck/production build/Secret 점검 통과. production 의존성 audit 취약점 0건.
 - 운영 Supabase 마이그레이션 적용 및 `verify_schema.sql`, `verify_portfolio_reliability.sql` 모두 PASS. 후자는 임시 데이터만 사용하고 롤백했다. 기존 수동 잔고로부터의 매도, 자동매매 잔고 불변, 다른 회원 이력·상태 차단도 검증했다.
-- 최신 공개 daily-briefing 실행 20건에 과거 보유종목명 출력 흔적이 있었다. 메일 발송 로그의 미마스킹 이메일은 검출되지 않았다. 과거 로그 삭제는 복구 불가 작업이므로 승인 대기 중이며 새 코드에서는 종목명/수신자/오류 본문을 출력하지 않는다.
+- 점검한 과거 공개 daily-briefing 실행 20건(2026-08-10~2026-09-05, UTC)에 보유종목명 출력 흔적이 있었다. 메일 발송 로그의 미마스킹 이메일은 검출되지 않았다. 사용자의 판단 위임에 따라 해당 20건의 로그만 영구 삭제했으며, 각 로그 조회가 404이고 실행 결과는 보존됐음을 확인했다. 코드·커밋·브리핑 데이터와 최신 검증 로그는 변경하지 않았다. 새 코드에서는 종목명/수신자/오류 본문을 출력하지 않는다.
 - Stock-Trading의 `PUT /api/sync/holdings`와 공개 `important_sections` 계약은 그대로다. 직접 투자 이력은 자동매매 성과에 섞지 않는다.
 - 최초 구현 `b51c7f9`는 운영 Vercel 배포와 [GitHub quality](https://github.com/Felix0708/stock-briefing/actions/runs/34089375066)를 통과했다. 비로그인 API 접근 401, 페이지 200, 보유종목 없는 USD 환율 조회를 운영에서 확인했다.
 - 사용자 승인 후 `scripts/verify-live-portfolio.mjs`로 운영 로그인 → 시작 잔고 → 매수/매도 → 동일 요청 재전송 → 초과 매도 차단 → 이력/집계 → 조건부 삭제를 검증했다. 임시 비구독 계정과 테스트 데이터는 즉시 삭제했으며 실제 회원 잔고·주문·메일은 건드리지 않았다.
