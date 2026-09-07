@@ -1,0 +1,34 @@
+name: portfolio-backup
+on:
+  schedule:
+    - cron: "17 0 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: portfolio-backup
+  cancel-in-progress: false
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+      - run: npm ci --prefix web --no-audit --no-fund
+      - name: Encrypt private account data and verify restoration in disposable PostgreSQL
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          PORTFOLIO_BACKUP_KEY: ${{ secrets.PORTFOLIO_BACKUP_KEY }}
+        run: node scripts/backup.mjs create
+      # This repository is public. Upload only authenticated ciphertext, never the key or plaintext.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-portfolio-${{ github.run_id }}
+          path: .backups/*.sbbackup
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30

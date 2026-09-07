@@ -5,6 +5,8 @@ Gmail은 2단계 인증 + 앱 비밀번호로 SMTP를 쓸 수 있다 (SETUP.md �
 """
 
 import smtplib
+import imaplib
+import re
 from html import escape
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -57,13 +59,40 @@ def send(
     to: str,
     html: str,
     subject: str | None = None,
+    message_id: str | None = None,
 ) -> None:
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject or f"📈 아침 공시 브리핑 {datetime.now(ZoneInfo('Asia/Seoul')):%m/%d}"
     msg["From"] = user
     msg["To"] = to
+    if message_id:
+        msg["Message-ID"] = message_id
     msg.attach(MIMEText(html, "html", "utf-8"))
 
-    with smtplib.SMTP_SSL(smtp_host, smtp_port) as server:
+    with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=30) as server:
         server.login(user, password)
         server.sendmail(user, [addr.strip() for addr in to.split(",")], msg.as_string())
+
+
+def was_sent(user: str, password: str, message_id: str) -> bool:
+    """Search only this app's exact Message-ID in Gmail Sent. Never fetch email content."""
+    if not re.fullmatch(r"<stock-briefing\.[0-9a-f-]{36}@stock-briefing\.local>", message_id):
+        raise ValueError("Not an application Message-ID")
+    with imaplib.IMAP4_SSL("imap.gmail.com", timeout=30) as client:
+        client.login(user, password)
+        result, folders = client.list()
+        if result != "OK":
+            raise RuntimeError("Sent folder lookup failed")
+        for folder in folders or []:
+            if not isinstance(folder,bytes):
+                continue
+            match = re.match(rb'^\(([^)]*)\) "[^"]*" (.+)$',folder)
+            if match and b"\\sent" in match[1].lower().split():
+                result, _ = client.select(match[2], readonly=True)
+                if result != "OK":
+                    raise RuntimeError("Sent folder unavailable")
+                result, ids = client.uid("search",None,"HEADER","Message-ID",f'"{message_id}"')
+                if result != "OK":
+                    raise RuntimeError("Delivery verification failed")
+                return bool(ids and ids[0])
+        raise RuntimeError("Sent folder not found")

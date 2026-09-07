@@ -16,7 +16,7 @@ async function mock(page:Page, overrides:Record<string,unknown>={}, count=4){
       "/api/holdings":{holdings,performance:[]},
       "/api/integration-token":{active:false},
       "/api/quotes":{quotes:{"US:SE":{code:"SE",name:"씨 ADR",currency:"USD",price:110,changeRatio:1},"US:ZETA":{code:"ZETA",name:"제타 글로벌 홀딩스",currency:"USD",price:31,changeRatio:1}},usdKrw:1400,jpyKrw:null,asOf:new Date().toISOString()},
-      "/api/manual-trades":req.method()==="POST"?{ok:true,trade:{id:1,quantity_after:11,realized_profit_loss:null}}:{trades:[],summary:[],next:null},
+      "/api/manual-trades":req.method()!=="GET"?{ok:true,trade:{id:1,quantity_after:11,realized_profit_loss:null}}:{trades:[],summary:[],next:null},
       "/api/briefing-status":{collections:[],delivery:null,run:null,emailEnabled:true},
     };
     await route.fulfill({json:overrides[url.pathname]??data[url.pathname]??{ok:true}});
@@ -42,6 +42,38 @@ test("부분 합계·계좌 필터·원화 설정을 실제 렌더링과 조작�
   await page.reload();
   await expect(page.getByLabel("표 금액 원화로 보기",{exact:true})).toBeChecked();
   expect(errors).toEqual([]);
+});
+
+test("과거 거래 정정·취소는 사유와 버전을 포함하고 확인 화면이 넘치지 않는다",async({page},info)=>{
+  const trade={id:4,request_id:"00000000-0000-4000-8000-000000000004",market:"US",stock_code:"SE",stock_name:"씨 ADR",broker:"KIWOOM",side:"BUY",quantity:5,price:130,traded_on:"2026-09-01",quantity_after:15,realized_profit_loss:null,revision:2,cancelled:false};
+  const calls=await mock(page,{"/api/manual-trades":{trades:[trade],summary:[],next:null}});
+  await page.getByRole("button",{name:"정정 / 취소",exact:true}).click();
+  await page.getByLabel("체결 단가 (USD)",{exact:true}).fill("160");
+  await page.getByLabel("정정 사유",{exact:true}).fill("체결 단가 오입력 수정");
+  await page.getByLabel("이 거래 취소 (삭제하지 않고 이력 보존)",{exact:true}).check();
+  await page.locator(".pf-trade-form").screenshot({path:info.outputPath("trade-correction.png")});
+  await page.getByRole("button",{name:"정정 저장",exact:true}).click();
+  expect(calls.find(call=>call.method==="PATCH")!.body).toMatchObject({trade_id:4,expected_revision:2,cancelled:true,reason:"체결 단가 오입력 수정",trade:{price:160}});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+test("백업 복원은 미리보기와 명시적 교체 확인 없이는 진행되지 않는다",async({page},info)=>{
+  await mock(page);
+  const writes:Record<string,unknown>[]=[];
+  await page.route("**/api/portfolio-backup",async route=>{
+    const body=route.request().postDataJSON();
+    if(body)writes.push(body);
+    await route.fulfill({json:body?{holdings:4,trades:2,revisions:1,fingerprint:"a".repeat(32)}:{fingerprint:"a".repeat(32)}});
+  });
+  await page.getByText("백업 파일 복원",{exact:true}).click();
+  await page.getByLabel("백업 JSON 파일",{exact:true}).setInputFiles({name:"backup.json",mimeType:"application/json",buffer:Buffer.from('{"format":"stock-briefing.portfolio"}')});
+  await page.getByRole("button",{name:"복원 미리보기",exact:true}).click();
+  await expect(page.getByRole("button",{name:"확인한 백업으로 복원",exact:true})).toBeDisabled();
+  expect(writes[0].apply).toBe(false);
+  await page.getByLabel("현재 데이터를 이 백업으로 교체하는 것을 확인했습니다.",{exact:true}).check();
+  await expect(page.getByRole("button",{name:"확인한 백업으로 복원",exact:true})).toBeEnabled();
+  await page.locator('section[aria-labelledby="backup-title"]').screenshot({path:info.outputPath("backup-preview.png")});
+  expect(writes.filter(row=>row.apply)).toHaveLength(0);
 });
 
 test("긴 배지·범례가 화면 밖으로 넘치지 않고 중앙에 정렬된다",async({page},info)=>{
@@ -88,6 +120,6 @@ test("수동 매수 입력이 통화·증권사와 함께 API에 전달된다",a
   await page.getByLabel("체결 수량",{exact:true}).fill("1");
   await page.getByLabel("체결 단가 (USD)",{exact:true}).fill("105");
   await page.getByRole("button",{name:"거래 기록",exact:true}).click();
-  await expect(page.getByText(/매수 기록 완료 · 남은 수량 11/)).toBeVisible();
+  await expect(page.getByText(/매수 기록 완료 · 거래 직후 수량 11/)).toBeVisible();
   expect(calls.find(call=>call.url==="/api/manual-trades"&&call.method==="POST")!.body).toMatchObject({market:"US",broker:"KIWOOM",side:"BUY",quantity:1,price:105});
 });

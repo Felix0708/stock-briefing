@@ -101,7 +101,7 @@ scripts/qa.sh --base-url http://localhost:3000
 
 ## 포트폴리오 신뢰성 업데이트
 
-웹 배포 전에 `supabase/migrations/20260907052926_portfolio_reliability.sql`을 한 번 적용한다.
+웹 배포 전에 `supabase/migrations/20260907054535_portfolio_reliability.sql`을 한 번 적용한다.
 `db/verify_schema.sql`과 `db/verify_portfolio_reliability.sql`이 모두 PASS여야 한다.
 후자는 임시 사용자로 매수·분할 매도·전량 매도·중복 요청·RLS를 검사한 뒤 모두 롤백한다.
 실제 보유분의 과거 거래를 생성하거나 잔고를 바꾸는 마이그레이션이 아니다.
@@ -110,3 +110,11 @@ scripts/qa.sh --base-url http://localhost:3000
 공개 로그 검사는 `python3 scripts/audit-public-logs.py --limit 20`으로 실행한다. 결과는 실행 ID와 검출 건수만 출력하며, 실제 이메일/보유종목명은 출력하지 않는다.
 
 운영 로그인·거래 흐름을 추가 검증할 때는 별도의 사용자 승인이 필요하다. 승인 후 `ALLOW_TEMP_QA_USER=1 node scripts/verify-live-portfolio.mjs https://운영주소`를 실행한다. 기본 설정 파일은 루트 `.env`이며 `QA_ENV_FILE`로 변경할 수 있다. 임시 비구독 계정 한 개만 만들고 종료 시 삭제한다. 실제 사용자 데이터·주문·메일은 사용하지 않는다.
+
+## 공시 복구·과거 거래 정정·백업 업데이트
+
+운영 적용 순서는 `20260907072405_briefing_recovery.sql` → `20260907072434_portfolio_revisions.sql` → `20260907072444_portfolio_backup.sql` → `20260907073219_recovery_verification_hardening.sql`이다 (`supabase/migrations/`). 운영에는 2026-09-07 적용했고, 파일명도 실제 마이그레이션 이력과 맞췄다. 적용된 파일을 다시 실행하지 않는다.
+
+새 환경은 기존 수동 거래가 있는 상태에서 초기 잔고를 임의 추정하지 않는다. 해당 마이그레이션은 그 경우 중단하므로 기존 장부의 시작 잔고를 먼저 대조해야 한다. 최초 운영 적용 시 거래 0건과 직접 잔고 3행을 확인했다.
+
+배포 전 `scripts/qa.sh --build`, `npm run test:browser --prefix web`를 실행한다. 자동 백업 키를 처음 구성할 때만 `node scripts/backup.mjs init-key`를 사용한다. 키는 출력하지 않으며 로컬 비공개 파일과 GitHub Secret에 저장한다. [복구 운영 문서](RECOVERY_WORK.md)의 백업 범위·보관기간·복원 검증 절차를 따른다.

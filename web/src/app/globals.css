@@ -1170,6 +1170,8 @@ a.source-item:focus-visible {
 .pf-trade-form { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,200px),1fr)); gap: 12px; margin-top: 16px; align-items: end; }
 .pf-trade-form label { display: flex; flex-direction: column; gap: 5px; min-width: 0; font-size: 0.85rem; }
 .pf-trade-form input,.pf-trade-form select { min-width: 0; width: 100%; height: 46px; }
+.pf-check, .pf-trade-form .pf-check { display: flex; flex-direction: row; align-items: center; gap: 8px; min-height: 44px; }
+.pf-check input[type="checkbox"] { flex: 0 0 18px; width: 18px; height: 18px; padding: 0; margin: 0; }
 .pf-history { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 8px; }
 .pf-history li { display: flex; flex-direction: column; gap: 5px; border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow-wrap: anywhere; }
 .pf-history span { font-size: 0.85rem; }

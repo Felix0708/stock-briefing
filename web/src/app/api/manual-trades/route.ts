@@ -32,13 +32,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
     const before = req.nextUrl.searchParams.get("before");
+    const tradeId = req.nextUrl.searchParams.get("trade_id");
     if (before && !/^\d{1,16}$/.test(before)) return NextResponse.json({ error: "페이지를 확인해 주세요." }, { status: 400 });
     const headers = userHeaders(session.accessToken);
+    if (tradeId) {
+      if (!/^\d{1,16}$/.test(tradeId)) return NextResponse.json({ error: "거래를 확인해 주세요." }, { status: 400 });
+      const rows = await requestJson<{id: number}[]>("Supabase", `${supabaseUrl()}/rest/v1/manual_trade_revisions?trade_id=eq.${tradeId}&select=id,previous,updated,reason,created_at&order=id.desc&limit=51${before ? `&id=lt.${before}` : ""}`, { headers }, { attempts: 1 });
+      const response = NextResponse.json({ revisions: rows.slice(0,50), next: rows.length > 50 ? rows[49].id : null }, { headers: {"Cache-Control":"no-store"} });
+      if (session.renewedTokens) applySessionCookies(response, session.renewedTokens);
+      return response;
+    }
     const [trades, summary] = await Promise.all([
-      requestJson<{ id: number }[]>("Supabase", `${supabaseUrl()}/rest/v1/manual_trades?select=id,request_id,market,stock_code,stock_name,broker,side,quantity,price,cost_basis,realized_profit_loss,quantity_after,avg_price_after,traded_on,created_at&order=id.desc&limit=51${before ? `&id=lt.${before}` : ""}`, { headers }, { attempts: 1 }),
+      requestJson<{ id: number }[]>("Supabase", `${supabaseUrl()}/rest/v1/manual_trades?select=id,request_id,market,stock_code,stock_name,broker,side,quantity,price,cost_basis,realized_profit_loss,quantity_after,avg_price_after,traded_on,created_at,revision,cancelled,original_input&order=id.desc&limit=51${before ? `&id=lt.${before}` : ""}`, { headers }, { attempts: 1 }),
       requestJson("Supabase", `${supabaseUrl()}/rest/v1/rpc/manual_trade_summary`, { headers, method: "POST", body: "{}" }, { attempts: 1 }),
     ]);
-    const response = NextResponse.json({ trades: trades.slice(0,50), summary, next: trades.length > 50 ? trades[49].id : null });
+    const response = NextResponse.json({ trades: trades.slice(0,50), summary, next: trades.length > 50 ? trades[49].id : null }, { headers: {"Cache-Control":"no-store"} });
     if (session.renewedTokens) applySessionCookies(response, session.renewedTokens);
     return response;
   } catch {
@@ -47,19 +55,33 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  return writeTrade(req, false);
+}
+
+export async function PATCH(req: NextRequest): Promise<NextResponse> {
+  return writeTrade(req, true);
+}
+
+async function writeTrade(req: NextRequest, correcting: boolean): Promise<NextResponse> {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
     const user = await fetchUser(session.accessToken);
     if (!user) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
     const trade = await req.json().catch(() => null);
-    if (!validTrade(trade)) return NextResponse.json({ error: "거래 입력을 확인해 주세요. 수량은 소수 4자리, 가격은 소수 8자리까지 가능합니다." }, { status: 400 });
-    const recorded = await serviceRest("rpc/record_manual_trade", { method: "POST", body: JSON.stringify({ target_user_id: user.id, trade }) });
+    const valid = correcting
+      ? trade && Object.keys(trade).length === 6 && Number.isSafeInteger(trade.trade_id) && trade.trade_id > 0
+        && Number.isSafeInteger(trade.expected_revision) && trade.expected_revision > 0 && typeof trade.cancelled === "boolean"
+        && typeof trade.reason === "string" && trade.reason.trim().length > 0 && trade.reason.length <= 500
+        && trade.trade && Object.keys(trade.trade).length === 8 && validTrade({...trade.trade, request_id:trade.request_id})
+      : validTrade(trade);
+    if (!valid) return NextResponse.json({ error: "거래 입력과 정정 사유를 확인해 주세요. 수량은 소수 4자리, 가격은 소수 8자리까지 가능합니다." }, { status: 400 });
+    const recorded = await serviceRest(correcting ? "rpc/revise_manual_trade" : "rpc/record_manual_trade", { method: "POST", body: JSON.stringify({ target_user_id: user.id, [correcting ? "change" : "trade"]: trade }) });
     const response = NextResponse.json({ ok: true, trade: recorded });
     if (session.renewedTokens) applySessionCookies(response, session.renewedTokens);
     return response;
   } catch (error) {
     const rejected = error instanceof UpstreamError && (error.status === 400 || error.status === 409);
-    return NextResponse.json({ error: rejected ? "기록하지 못했습니다. 보유 수량, 거래일, 종목 입력 또는 중복 요청을 확인해 주세요." : "처리 결과를 확인하지 못했습니다. 같은 입력으로 재시도해 주세요. 중복 거래는 기록되지 않습니다." }, { status: rejected ? 400 : 502 });
+    return NextResponse.json({ error: rejected ? "저장하지 못했습니다. 이후 거래의 잔고가 부족해지거나 다른 화면에서 거래가 변경됐을 수 있습니다. 이력을 새로 조회한 뒤 수량·거래일을 확인해 주세요." : "처리 결과를 확인하지 못했습니다. 같은 입력으로 재시도해 주세요. 중복 거래는 기록되지 않습니다." }, { status: rejected ? 400 : 502 });
   }
 }

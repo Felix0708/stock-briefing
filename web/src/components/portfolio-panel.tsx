@@ -7,6 +7,7 @@ import { searchStocks, type StockSuggestion } from "@/lib/client/stock-search";
 import { loadPortfolioQuotes, type Quote } from "@/lib/client/portfolio-quotes";
 import { ManualTradesPanel } from "@/components/manual-trades-panel";
 import { BriefingStatusPanel } from "@/components/briefing-status-panel";
+import { PortfolioBackupPanel } from "@/components/portfolio-backup-panel";
 import {
   accountGroupKey,
   accountGroupLabel,
@@ -195,6 +196,8 @@ export function PortfolioPanel() {
     active: boolean;
     tokenHint?: string;
     issuedAt?: string;
+    syncStale?: boolean;
+    sync?: {received_at:string; holdings_count:number; accounts:{broker:HoldingBroker;account_type:string;holdings_count:number}[]} | null;
   }>({ active: false });
   const [plainToken, setPlainToken] = useState<string | null>(null);
   const [tokenBusy, setTokenBusy] = useState(false);
@@ -745,10 +748,14 @@ export function PortfolioPanel() {
           {tokenStatus.active && (
             <span className="pf-muted">
               활성 토큰 · 끝 6자리 {tokenStatus.tokenHint}
-              {tokenStatus.issuedAt ? ` · ${new Date(tokenStatus.issuedAt).toLocaleString("ko-KR")}` : ""}
+              {tokenStatus.issuedAt ? ` · 발급 ${new Date(tokenStatus.issuedAt).toLocaleString("ko-KR")}` : ""}
             </span>
           )}
         </div>
+        <p className="pf-muted">{tokenStatus.sync
+          ? `마지막 동기화 수신: ${new Date(tokenStatus.sync.received_at).toLocaleString("ko-KR")} · 보유종목 ${tokenStatus.sync.holdings_count}건${tokenStatus.sync.holdings_count===0 ? " (빈 잔고 정상 수신)" : ""}`
+          : "아직 동기화 수신 기록이 없습니다. 다음 Stock-Trading 전송부터 표시됩니다."}</p>
+        {tokenStatus.syncStale && <p className="pf-notice">마지막 수신 후 48시간 이상 지났습니다. 휴장·컴퓨터 종료 또는 전송 일정 때문일 수 있으니 Stock-Trading 실행 상태를 확인해 주세요.</p>}
         {plainToken && (
           <div className="pf-token-once" role="status">
             <code>{plainToken}</code>
@@ -1189,6 +1196,7 @@ export function PortfolioPanel() {
       </section>
       <ManualTradesPanel holdings={holdings.filter((holding) => holding.source === "manual")} onChanged={loadHoldings} disabled={pendingDelete !== null} />
       <BriefingStatusPanel holdings={holdings} />
+      <PortfolioBackupPanel onChanged={async()=>{await loadHoldings();window.location.reload();}} />
     </div>
   );
 }

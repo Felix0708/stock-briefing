@@ -3,7 +3,8 @@ import test from "node:test";
 import { NextRequest } from "next/server";
 import { loadPortfolioQuotes } from "../src/lib/client/portfolio-quotes.ts";
 import { GET as quotes } from "../src/app/api/quotes/route.ts";
-import { POST as trade } from "../src/app/api/manual-trades/route.ts";
+import { POST as trade, PATCH as correct } from "../src/app/api/manual-trades/route.ts";
+import { GET as backup, POST as restore } from "../src/app/api/portfolio-backup/route.ts";
 import { DELETE as deleteHolding } from "../src/app/api/holdings/route.ts";
 
 const originalFetch=globalThis.fetch;
@@ -85,4 +86,35 @@ test("삭제 대기 중 변경된 잔고는 조건부 삭제로 보호한다",as
   assert.equal(response.status,409);
   assert.match(target,/quantity=eq\.10&avg_price=eq\.100/);
   assert.match(target,/source=eq\.manual/);
+});
+
+test("정정과 백업 복원도 서버가 소유자를 결정하고 파일의 소수 문자열을 보존한다",async()=>{
+  auth();const calls=[];
+  globalThis.fetch=async(url,init)=>{
+    if(String(url).endsWith('/auth/v1/user'))return Response.json({id:'owner',email:'owner@example.com'});
+    calls.push({url:String(url),body:JSON.parse(init.body)});
+    return Response.json({ok:true});
+  };
+  const fields={...input};delete fields.request_id;
+  const change={request_id:input.request_id,trade_id:1,expected_revision:2,trade:fields,cancelled:true,reason:'오입력'};
+  assert.equal((await correct(request(change))).status,200);
+  assert.equal(calls[0].body.target_user_id,'owner');
+  assert.match(calls[0].url,/revise_manual_trade/);
+  assert.equal((await correct(request({...change,expected_revision:0}))).status,400);
+  const archive_text='{"price":"123456.12345678"}';
+  assert.equal((await restore(request({archive_text,apply:false,expected_fingerprint:'a'.repeat(32)}))).status,200);
+  assert.equal(calls[1].body.archive_text,archive_text);
+  assert.equal(calls[1].body.owner_id,'owner');
+  assert.equal((await restore(request({archive_text,apply:true,expected_fingerprint:'a'.repeat(32),owner_id:'victim'}))).status,400);
+});
+
+test("CSV는 수식 실행을 차단하고 큰 금액의 문자열 정밀도를 보존한다",async()=>{
+  auth();
+  globalThis.fetch=async(url)=>String(url).endsWith('/auth/v1/user')?Response.json({id:'owner',email:'owner@example.com'}):Response.json(JSON.stringify({data:{holdings:[{stock_name:' =HYPERLINK("bad")',quantity:'1.0000',avg_price:'123456789012.12345678'}]}}));
+  const response=await backup(new NextRequest('http://localhost/api/portfolio-backup?format=holdings'));
+  assert.equal(response.status,200);
+  assert.equal(response.headers.get('Cache-Control'),'no-store');
+  const text=await response.text();
+  assert.match(text,/' =HYPERLINK/);
+  assert.match(text,/123456789012\.12345678/);
 });

@@ -6,18 +6,20 @@
 - v2부터 API 키(Subscription-Key)가 필수. 환경변수 EDINET_API_KEY로 주입.
 - 종목코드는 4자리지만 EDINET secCode는 끝에 0이 붙은 5자리 (7203 → 72030).
 
-원문(XBRL/PDF) 텍스트 추출은 무거워서 1차 구현에선 생략하고,
-서류명(docDescription) 기반으로 요약한다 (DART의 "원문 실패 시 제목만" 폴백과 동일 전략).
+공식 XBRL/HTML 또는 PDF 원문을 읽고, 목록 조회 실패를 공시 없음과 구분한다.
 
 반환 형식은 dart.fetch_filings와 동일한 dict로 맞춘다 → 하위 파이프라인 재사용.
 API 문서: https://disclosure2dl.edinet-fsa.go.jp/guide/static/disclosure/WZEK0110.html
 """
 
 from datetime import datetime, timedelta
+import re
+from zoneinfo import ZoneInfo
 
 import requests
 
 from .retry import with_retry
+from .documents import extract_text
 
 BASE = "https://api.edinet-fsa.go.jp/api/v2"
 _TIMEOUT = 30
@@ -61,16 +63,15 @@ def fetch_filings(stock_code: str, lookback_days: int, api_key: str) -> list[dic
         sec_code += "0"  # EDINET secCode는 5자리 (끝에 0)
 
     filings: list[dict] = []
-    today = datetime.now()
+    today = datetime.now(ZoneInfo("Asia/Tokyo"))
     for offset in range(lookback_days + 1):
         day = (today - timedelta(days=offset)).strftime("%Y-%m-%d")
-        try:
-            data = _get(
-                f"{BASE}/documents.json",
-                {"date": day, "type": "2", "Subscription-Key": api_key},
-            ).json()
-        except Exception:
-            continue  # 특정 날짜 실패는 건너뜀 (주말·공휴일은 결과가 비어있음)
+        data = _get(
+            f"{BASE}/documents.json",
+            {"date": day, "type": "2", "Subscription-Key": api_key},
+        ).json()
+        if str(data.get("metadata", {}).get("status")) != "200" or not isinstance(data.get("results"), list):
+            raise ValueError("EDINET list request did not succeed")
 
         for item in data.get("results", []):
             if str(item.get("secCode") or "") != sec_code:
@@ -93,6 +94,7 @@ def fetch_filings(stock_code: str, lookback_days: int, api_key: str) -> list[dic
                     "rcept_no": doc_id,  # 고유 ID (RAG 중복 스킵)
                     "rcept_dt": submit_dt,
                     "flr_nm": (item.get("filerName") or stock_code).strip(),
+                    "_document_type": 1 if str(item.get("xbrlFlag")) == "1" else 2,
                     # EDINET 웹 뷰어 링크
                     "url": f"https://disclosure2.edinet-fsa.go.jp/WEEK0040.aspx?"
                     f"dwn={doc_id}" if doc_id else "https://disclosure2.edinet-fsa.go.jp/",
@@ -101,10 +103,12 @@ def fetch_filings(stock_code: str, lookback_days: int, api_key: str) -> list[dic
     return filings
 
 
-def fetch_document_text(filing: dict, max_chars: int) -> str:
-    """원문 텍스트. 1차 구현은 서류명만으로 요약하므로 빈 문자열 반환.
-
-    (XBRL 파싱은 무겁고, 요약은 제목만으로도 충분히 동작한다 — DART와 동일 전략)
-    향후 필요 시 여기서 documents/{docID}?type=5 (CSV)를 받아 파싱하도록 확장.
-    """
-    return ""
+def fetch_document_text(filing: dict, max_chars: int, api_key: str = "") -> str:
+    doc_id = filing.get("rcept_no", "")
+    if not api_key or not re.fullmatch(r"S[0-9A-Z]{7}", doc_id):
+        raise ValueError("Missing EDINET document credentials or ID")
+    response = _get(f"{BASE}/documents/{doc_id}", {"type": filing.get("_document_type", 1), "Subscription-Key": api_key})
+    text = extract_text(response.content)
+    if not text:
+        raise ValueError("EDINET document contains no extractable text")
+    return text[:max_chars]

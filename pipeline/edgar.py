@@ -19,11 +19,13 @@ import re
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
+from urllib.parse import urljoin, urlsplit, unquote
 from xml.etree import ElementTree
 
 import requests
 
 from .retry import with_retry
+from .documents import Links, extract_text
 
 CACHE_DIR = Path(__file__).resolve().parent.parent / ".cache"
 
@@ -42,7 +44,9 @@ FORM_NAMES_KO = {
     "10-K": "연차보고서 (10-K)",
     "10-K/A": "연차보고서 정정 (10-K/A)",
     "6-K": "외국기업 수시보고 (6-K)",
+    "6-K/A": "외국기업 수시보고 정정 (6-K/A)",
     "20-F": "외국기업 연차보고 (20-F)",
+    "20-F/A": "외국기업 연차보고 정정 (20-F/A)",
     "DEF 14A": "주주총회 위임장 (DEF 14A)",
     "S-1": "증권신고서 (S-1)",
     "SC 13D": "대량보유 보고 (SC 13D)",
@@ -62,13 +66,22 @@ def _get(url: str, timeout: int = 30) -> requests.Response:
 
     def call() -> requests.Response:
         global _last_request_at
-        wait = 0.12 - (time.time() - _last_request_at)
-        if wait > 0:
-            time.sleep(wait)
-        resp = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=timeout)
-        _last_request_at = time.time()
-        resp.raise_for_status()
-        return resp
+        current=url
+        for _ in range(4):
+            parsed=urlsplit(current)
+            if parsed.scheme!='https' or parsed.netloc not in ('www.sec.gov','data.sec.gov'):
+                raise ValueError('SEC request cannot leave official hosts')
+            wait = 0.12 - (time.time() - _last_request_at)
+            if wait > 0:
+                time.sleep(wait)
+            resp = requests.get(current, headers={"User-Agent": USER_AGENT}, timeout=timeout,allow_redirects=False)
+            _last_request_at = time.time()
+            if resp.status_code in (301,302,303,307,308):
+                current=urljoin(current,resp.headers['Location'])
+                continue
+            resp.raise_for_status()
+            return resp
+        raise ValueError('Too many SEC redirects')
 
     return with_retry(call, label="EDGAR")
 
@@ -132,7 +145,19 @@ def fetch_filings(ticker: str, cik: int, lookback_days: int) -> list[dict]:
     """
     since = (datetime.now() - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
     data = _get(f"https://data.sec.gov/submissions/CIK{cik:010d}.json").json()
-    recent = data.get("filings", {}).get("recent", {})
+    filings_data = data.get("filings")
+    if not isinstance(filings_data, dict) or not isinstance(filings_data.get("recent"), dict):
+        raise ValueError("Invalid SEC submissions response")
+    recent = {key: list(value) for key, value in filings_data["recent"].items()}
+    for archive in filings_data.get("files", []):
+        if archive.get("filingTo", "") < since:
+            continue
+        name = archive.get("name", "")
+        if not re.fullmatch(r"CIK\d+-submissions-\d+\.json", name):
+            raise ValueError("Invalid SEC submissions archive")
+        older = _get(f"https://data.sec.gov/submissions/{name}").json()
+        for key in ("form", "filingDate", "accessionNumber", "primaryDocument", "primaryDocDescription"):
+            recent.setdefault(key, []).extend(older.get(key, [""] * len(older.get("form", []))))
 
     forms = recent.get("form", [])
     dates = recent.get("filingDate", [])
@@ -145,7 +170,7 @@ def fetch_filings(ticker: str, cik: int, lookback_days: int) -> list[dict]:
         form = forms[i]
         date = dates[i]
         if date < since:
-            break  # 최신순 정렬이므로 기간을 벗어나면 중단
+            continue  # Archive blocks need not be globally sorted.
         if form not in FORM_NAMES_KO and form not in FORM4_NAMES:
             continue
 
@@ -192,27 +217,53 @@ def fetch_filings(ticker: str, cik: int, lookback_days: int) -> list[dict]:
                 or f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={cik:010d}",
                 # 원문 텍스트 추출용 (dart와 달리 문서 URL을 직접 안다)
                 "_doc_url": doc_url,
+                "form": form,
             }
         )
-    return filings
-
-
-_TAG_RE = re.compile(r"<(script|style)[^>]*>.*?</\1>", re.DOTALL | re.IGNORECASE)
-_HTML_RE = re.compile(r"<[^>]+>")
-_WS_RE = re.compile(r"\s+")
+    return sorted({row["rcept_no"]: row for row in filings}.values(), key=lambda row: row["rcept_dt"], reverse=True)
 
 
 def fetch_document_text(filing: dict, max_chars: int) -> str:
-    """공시 원문 HTML을 순수 텍스트로 반환 (실패 시 빈 문자열 — 제목만으로 요약 가능)."""
+    """Read the filing and same-filing exhibits, prioritizing exhibits over a cover page."""
     doc_url = filing.get("_doc_url", "")
     if not doc_url:
         return ""
-    try:
-        raw = _get(doc_url, timeout=60).text
-    except Exception:
-        return ""
-
-    text = _TAG_RE.sub(" ", raw)
-    text = _HTML_RE.sub(" ", text)
-    text = _WS_RE.sub(" ", text).strip()
-    return text[:max_chars]
+    parsed = urlsplit(doc_url)
+    if parsed.scheme != "https" or parsed.netloc != "www.sec.gov" or not parsed.path.startswith("/Archives/edgar/data/"):
+        raise ValueError("Invalid SEC document URL")
+    response = _get(doc_url, timeout=60)
+    raw = response.text
+    main_text = extract_text(response.content)
+    parser = Links()
+    parser.feed(raw)
+    directory = parsed.path.rsplit("/", 1)[0] + "/"
+    # Exhibits need not be linked from the cover. SEC's filing index lists their document types.
+    if filing.get('form','').startswith(('6-K','8-K')) and re.fullmatch(r'\d{10}-\d{2}-\d{6}',filing.get('rcept_no','')):
+        index_url=urljoin(doc_url,filing['rcept_no']+'-index.html')
+        index_html=_get(index_url,timeout=60).text
+        for row in re.findall(r'<tr\b[^>]*>(.*?)</tr>',index_html,re.S|re.I):
+            if re.search(r'>\s*EX-\d',row,re.I):
+                parser.feed(row)
+    attachments = []
+    for link in parser.links:
+        target = urlsplit(urljoin(doc_url, link))
+        path = unquote(target.path)
+        if (target.scheme != "https" or target.netloc != "www.sec.gov" or target.query
+                or not path.startswith(directory) or path == parsed.path
+                or any(part in (".", "..") for part in path.split("/"))
+                or not path.lower().endswith((".htm", ".html", ".pdf", ".txt"))):
+            continue
+        url = target._replace(fragment="").geturl()
+        if url not in attachments:
+            attachments.append(url)
+    parts = []
+    for url in attachments:
+        response = _get(url, timeout=60)
+        body = extract_text(response.content)
+        if not body:
+            raise ValueError("Empty SEC exhibit")
+        parts.append(f"[첨부 원문: {url}]\n{body}")
+    # Equal allocation keeps a long first exhibit from hiding the rest of the filing.
+    parts.append(f"[대표 원문: {doc_url}]\n{main_text}")
+    budget = max_chars // len(parts)
+    return "\n\n".join(part[:budget] for part in parts)

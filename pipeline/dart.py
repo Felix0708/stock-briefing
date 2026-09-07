@@ -12,6 +12,7 @@ import io
 import re
 import zipfile
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -75,7 +76,7 @@ def fetch_filings(api_key: str, corp_code: str, lookback_days: int) -> list[dict
     반환 예: [{"report_nm": "주요사항보고서(유상증자결정)", "rcept_no": "...",
               "rcept_dt": "20260703", "flr_nm": "삼성전자", "url": "..."}]
     """
-    end = datetime.now()
+    end = datetime.now(ZoneInfo("Asia/Seoul"))
     begin = end - timedelta(days=lookback_days)
     params = {
         "crtfc_key": api_key,
@@ -84,25 +85,25 @@ def fetch_filings(api_key: str, corp_code: str, lookback_days: int) -> list[dict
         "end_de": end.strftime("%Y%m%d"),
         "page_count": 100,
     }
-    data = _get(f"{BASE}/list.json", params).json()
-
-    status = data.get("status")
-    if status == "013":  # 조회 결과 없음 (정상 케이스)
-        return []
-    if status != "000":
-        raise DartError(f"DART list.json 오류 status={status}: {data.get('message')}")
-
     filings = []
-    for item in data.get("list", []):
-        filings.append(
-            {
+    page = 1
+    while True:
+        data = _get(f"{BASE}/list.json", {**params,"page_no":page}).json()
+        if data.get("status") == "013":
+            break
+        if data.get("status") != "000" or not isinstance(data.get("list"),list):
+            raise DartError("DART list request failed")
+        for item in data["list"]:
+            filings.append({
                 "report_nm": item.get("report_nm", "").strip(),
                 "rcept_no": item.get("rcept_no", ""),
                 "rcept_dt": item.get("rcept_dt", ""),
                 "flr_nm": item.get("flr_nm", ""),
                 "url": VIEWER_URL.format(rcept_no=item.get("rcept_no", "")),
-            }
-        )
+            })
+        if page >= int(data.get("total_page",1)):
+            break
+        page += 1
     return filings
 
 

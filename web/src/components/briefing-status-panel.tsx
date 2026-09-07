@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 
 type Collection = { company: string; market: string; stock_code: string; status: string; filing_count: number; checked_at: string; last_success_at: string | null };
 type Status = { collections: Collection[]; delivery: {status: string; checked_at: string; last_sent_at: string | null; filing_count: number} | null; run: {status: string; checked_at: string; last_success_at: string | null} | null; emailEnabled: boolean };
-const labels: Record<string,string> = {success:"수집 완료",empty:"신규 공시 없음",failed:"실패",unsupported:"수집 설정 없음",partial:"일부 처리 실패",sent:"메일 서버에 전달 완료",no_filings:"보낼 신규 공시 없음",collection_failed:"수집 미완료 · 발송 대기",disabled:"이번 실행은 메일 발송 생략",limit_reached:"발송 한도 도달",running:"수집 진행 중"};
+const labels: Record<string,string> = {success:"수집 완료",empty:"신규 공시 없음",failed:"실패",unsupported:"수집 설정 없음",partial:"일부 처리 실패",sent:"메일 서버에 전달 완료",no_filings:"보낼 신규 공시 없음",collection_failed:"수집 미완료 · 발송 대기",disabled:"이번 실행은 메일 발송 생략",limit_reached:"발송 한도 도달",running:"수집 진행 중",uncertain:"발송 여부 확인 중 · 중복 발송 방지",already_sent:"새로 보낼 공시 없음 · 기존 공시는 전달 완료"};
 function time(value: string | null) { return value ? new Date(value).toLocaleString("ko-KR") : "아직 기록 없음"; }
 export function BriefingStatusPanel({ holdings }: {holdings: {market: string; stock_code: string; stock_name: string}[]}) {
   const [data,setData] = useState<Status | null>(null);

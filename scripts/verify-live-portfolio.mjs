@@ -48,11 +48,26 @@ try {
   const status = await call("/api/briefing-status");
   assert.equal(status.emailEnabled, false);
   assert.equal(status.delivery, null);
-  await call("/api/holdings?code=TEST&market=US&broker=KIWOOM&quantity=10&avg_price=110", "DELETE", undefined, 409);
-  await call("/api/holdings?code=TEST&market=US&broker=KIWOOM&quantity=12&avg_price=110", "DELETE");
+  const revisedInput={...trade};delete revisedInput.request_id;
+  const correction={request_id:randomUUID(),trade_id:bought.trade.id,expected_revision:1,trade:{...revisedInput,price:160},cancelled:false,reason:"QA price correction"};
+  await call('/api/manual-trades','PATCH',correction);
+  assert.equal((await call('/api/manual-trades')).summary[0].profit_loss,90);
+  await call('/api/manual-trades','PATCH',{...correction,request_id:randomUUID(),expected_revision:2,cancelled:true});
+  assert.equal((await call('/api/manual-trades')).summary[0].profit_loss,150);
+  assert.equal((await call('/api/manual-trades?trade_id='+bought.trade.id)).revisions.length,2);
+  const backup=await call('/api/portfolio-backup');
+  await call('/api/manual-trades','POST',{...trade,request_id:randomUUID(),quantity:1,price:100});
+  const current=await call('/api/portfolio-backup');
+  const restoration={archive_text:JSON.stringify(backup),expected_fingerprint:current.fingerprint,apply:false};
+  assert.equal((await call('/api/portfolio-backup','POST',restoration)).trades,2);
+  await call('/api/portfolio-backup','POST',{...restoration,apply:true});
+  assert.equal((await call('/api/portfolio-backup?previous=true')).data.manual_trades.length,3);
+  assert.equal((await call('/api/holdings')).holdings[0].quantity,7);
+  await call("/api/holdings?code=TEST&market=US&broker=KIWOOM&quantity=10&avg_price=100", "DELETE", undefined, 409);
+  await call("/api/holdings?code=TEST&market=US&broker=KIWOOM&quantity=7&avg_price=100", "DELETE");
   assert.equal((await call("/api/holdings")).holdings.length, 0);
   assert.equal((await call("/api/manual-trades")).trades.length, 2);
-  console.log("PASS: live auth, baseline, buy/sell, idempotency, oversell rejection, history, status and guarded deletion");
+  console.log("PASS: live auth, buy/sell, past corrections, cancellation, audit, backup preview/restore, rollback guard and deletion");
 } finally {
   if (userId) {
     const removed = await fetch(`${database}/auth/v1/admin/users/${userId}`, { method: "DELETE", headers: adminHeaders, signal: AbortSignal.timeout(20000) });

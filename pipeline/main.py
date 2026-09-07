@@ -3,12 +3,10 @@ import argparse
 import html
 import sys
 from pathlib import Path
+from dataclasses import replace
 
-from . import dart, edgar, edinet, emailer, embed, holdings, notify, publish, status, summarize
+from . import dart, edgar, edinet, emailer, embed, holdings, notify, publish, status, summarize, recovery
 from .config import load_settings
-
-INDEX_ONLY_MAX_FILINGS = 15
-
 
 def collect_target(settings, target, corp_codes, cik_map, index_only=False, dry_run=False):
     company, market = target["name"], target["market"]
@@ -40,40 +38,46 @@ def collect_target(settings, target, corp_codes, cik_map, index_only=False, dry_
     if not filings:
         result.update(status="empty", last_success_at=result["checked_at"])
         return None, result
-    if index_only:
-        filings = filings[:INDEX_ONLY_MAX_FILINGS]
     result["status"] = "success"
-    doc_texts = {}
+    summaries = []
     for filing in filings:
+        durable = settings.rag_enabled and not dry_run and not index_only
+        cached = recovery.cached(settings,market,filing["rcept_no"]) if durable else None
+        if cached:
+            summaries.append(cached["summary_html"])
+            continue
+        ready = True
         try:
             if market == "US":
                 text = edgar.fetch_document_text(filing, settings.doc_max_chars)
             elif market == "JP":
-                text = edinet.fetch_document_text(filing, settings.doc_max_chars)
+                text = edinet.fetch_document_text(filing, settings.doc_max_chars, settings.edinet_api_key)
             else:
                 text = dart.fetch_document_text(settings.dart_api_key, filing["rcept_no"], settings.doc_max_chars)
             if not text:
-                result["status"] = "partial"
-            doc_texts[filing["rcept_no"]] = text
+                ready = False
         except Exception:
-            doc_texts[filing["rcept_no"]] = ""
-            result["status"] = "partial"
+            text = ""
+            ready = False
         filing.pop("_doc_url", None)
-
-    section = None
-    if not index_only:
-        try:
-            summary_html = summarize.summarize_company(settings.gemini_api_key, settings.gemini_model, company, filings, doc_texts)
-        except Exception:
-            result["status"] = "partial"
-            summary_html = "<ul>" + "".join(f"<li>{html.escape(f['report_nm'])} ({html.escape(f['rcept_dt'])})</li>" for f in filings) + "</ul><p>AI 요약 생성에 실패해 목록만 표시합니다.</p>"
-        section = {"company": company, "market": market, "summary_html": summary_html, "filings": filings}
-    if settings.rag_enabled and not dry_run:
-        for filing in filings:
+        summary_html = ""
+        if not index_only:
             try:
-                embed.index_filing(settings, company, filing, doc_texts[filing["rcept_no"]])
+                summary_html = summarize.summarize_company(settings.gemini_api_key, settings.gemini_model, company, [filing], {filing["rcept_no"]:text})
             except Exception:
-                result["status"] = "partial"
+                ready = False
+                summary_html = f"<ul><li>{html.escape(filing['report_nm'])}</li></ul><p>AI 요약 생성 실패 · 재처리 대기</p>"
+            summaries.append(summary_html)
+        if settings.rag_enabled and not dry_run and text:
+            try:
+                embed.index_filing(settings, company, filing, text)
+            except Exception:
+                ready = False
+        if durable:
+            recovery.save_item(settings,target,filing,text,summary_html,ready)
+        if not ready:
+            result["status"] = "partial"
+    section = {"company":company,"market":market,"summary_html":"".join(summaries),"filings":filings} if not index_only else None
     if result["status"] == "success":
         result["last_success_at"] = result["checked_at"]
     return section, result
@@ -135,7 +139,15 @@ def _run(settings, dry_run, companies, index_only, record):
             print("⚠ SEC 기업 목록 조회 실패")
     sections, results = [], []
     for index, target in enumerate(targets):
-        section, result = collect_target(settings, target, corp_codes, cik_map, index_only, dry_run)
+        try:
+            target_settings = settings
+            if not index_only and not dry_run:
+                target_settings = replace(settings,lookback_days=recovery.lookback(settings,target))
+            section, result = collect_target(target_settings, target, corp_codes, cik_map, index_only, dry_run)
+        except Exception:
+            section=None
+            result={"company":target["name"],"market":target["market"],"stock_code":target["code"],"status":"failed","filing_count":0,"checked_at":status.timestamp()}
+            print("⚠ 수집 결과 저장/복구 실패 · 다른 대상은 계속 처리")
         results.append(result)
         if section:
             sections.append(section)
@@ -158,15 +170,22 @@ def _run(settings, dry_run, companies, index_only, record):
         except Exception:
             incomplete = True
             print("⚠ 회원 알림 처리 실패 (수신자·외부 응답 생략)")
-    if settings.send_email and (sections or settings.send_empty_briefing) and settings.mail_to.strip().lower() not in personalized_sent:
+    if settings.send_email and (sections or settings.send_empty_briefing or settings.rag_enabled) and settings.mail_to.strip().lower() not in personalized_sent:
         extra = "일부 종목의 수집이 완료되지 않아 공시 유무를 확인할 수 없습니다." if incomplete else None
         message = emailer.build_html(sections, extra_note=extra)
         if dry_run:
             Path("briefing_preview.html").write_text(message, encoding="utf-8")
             print("dry-run: briefing_preview.html 저장")
         else:
-            emailer.send(settings.smtp_host, settings.smtp_port, settings.smtp_user, settings.smtp_password, settings.mail_to, message)
-            print("관리자 브리핑 발송 완료")
+            if settings.rag_enabled:
+                items=recovery.ready_items(settings)
+                for recipient in settings.mail_to.split(","):
+                    if recipient.strip() and recipient.strip().lower() not in personalized_sent:
+                        state,_=notify.send_batch(settings,recipient.strip(),None,items,extra_note=extra)
+                        if state not in ('sent','already_sent'): incomplete=True
+            else:
+                emailer.send(settings.smtp_host, settings.smtp_port, settings.smtp_user, settings.smtp_password, settings.mail_to, message)
+            print("관리자 브리핑 발송 대기열 처리 완료")
     if record:
         status.record_run(settings, "partial" if incomplete else "success")
     print("완료 · 일부 처리 실패 있음" if incomplete else "완료")

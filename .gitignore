@@ -23,6 +23,8 @@ npm-debug.log*
 # 로컬 실행 산출물
 briefing_preview.html
 .preview/
+.backups/
+*.sbbackup
 
 # OS / 인증서 파일
 .DS_Store

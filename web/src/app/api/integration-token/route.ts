@@ -8,7 +8,7 @@ import {
   type Session,
 } from "@/lib/server/auth";
 import { ConfigurationError } from "@/lib/server/config";
-import { getTokenStatus, issueToken, revokeToken } from "@/lib/server/holdings-integration";
+import { getTokenStatus, issueToken, revokeToken, serviceRest } from "@/lib/server/holdings-integration";
 import { UpstreamError } from "@/lib/server/http";
 
 export const runtime = "nodejs";
@@ -42,8 +42,11 @@ export async function GET(): Promise<NextResponse> {
   try {
     const auth = await authenticate();
     if (auth instanceof NextResponse) return auth;
-    const status = await getTokenStatus(auth.userId);
-    return respond({ active: !!status, ...status }, 200, auth.session);
+    const [status, sync] = await Promise.all([
+      getTokenStatus(auth.userId),
+      serviceRest<{received_at:string}[]>(`integration_sync_status?user_id=eq.${encodeURIComponent(auth.userId)}&select=received_at,holdings_count,accounts&limit=1`,{method:"GET"}),
+    ]);
+    return respond({ active: !!status, ...status, sync: sync[0] ?? null, syncStale:!!sync[0] && Date.now()-Date.parse(sync[0].received_at)>48*60*60*1000 }, 200, auth.session);
   } catch (error) {
     return knownError(error);
   }

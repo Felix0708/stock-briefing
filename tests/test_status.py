@@ -27,7 +27,7 @@ class BriefingStatusTest(unittest.TestCase):
         self.assertIn("last_success_at", empty)
 
     def test_personal_mail_separates_failed_and_empty_and_logs_no_email(self):
-        settings = Settings(smtp_user="sender", smtp_password="password", send_email=True)
+        settings = Settings(smtp_user="sender", smtp_password="password", send_email=True, supabase_url="", supabase_secret_key="")
         sections = [{"company":"정상", "summary_html":"summary", "filings":[{"url":"https://example.com", "report_nm":"공시"}]}]
         subscribers = [{"id":"owner", "email":"private@example.com"}]
         output = io.StringIO()
@@ -44,7 +44,7 @@ class BriefingStatusTest(unittest.TestCase):
         record.assert_called_once_with(settings,"owner","sent",1)
 
     def test_no_content_failure_does_not_become_no_filings(self):
-        settings=Settings(send_email=True)
+        settings=Settings(send_email=True,supabase_url="",supabase_secret_key="")
         with patch.object(notify.holdings,"fetch_subscribers",return_value=[{"id":"owner","email":"private@example.com"}]), \
              patch.object(notify.holdings,"fetch_holdings_by_user",return_value={"owner":["실패"]}), \
              patch.object(status,"delivery") as record, patch.object(notify.emailer,"send") as send:
