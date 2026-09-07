@@ -74,25 +74,64 @@ def send(
         server.sendmail(user, [addr.strip() for addr in to.split(",")], msg.as_string())
 
 
+def _select_sent(client) -> None:
+    result, folders = client.list()
+    if result != "OK":
+        raise RuntimeError("Sent folder lookup failed")
+    for folder in folders or []:
+        if not isinstance(folder, bytes):
+            continue
+        match = re.match(rb'^\(([^)]*)\) "[^"]*" (.+)$', folder)
+        if match and b"\\sent" in match[1].lower().split():
+            result, _ = client.select(match[2], readonly=True)
+            if result != "OK":
+                raise RuntimeError("Sent folder unavailable")
+            return
+    raise RuntimeError("Sent folder not found")
+
+
 def was_sent(user: str, password: str, message_id: str) -> bool:
     """Search only this app's exact Message-ID in Gmail Sent. Never fetch email content."""
     if not re.fullmatch(r"<stock-briefing\.[0-9a-f-]{36}@stock-briefing\.local>", message_id):
         raise ValueError("Not an application Message-ID")
     with imaplib.IMAP4_SSL("imap.gmail.com", timeout=30) as client:
         client.login(user, password)
-        result, folders = client.list()
+        _select_sent(client)
+        result, ids = client.uid("search", None, "HEADER", "Message-ID", f'"{message_id}"')
         if result != "OK":
-            raise RuntimeError("Sent folder lookup failed")
-        for folder in folders or []:
-            if not isinstance(folder,bytes):
-                continue
-            match = re.match(rb'^\(([^)]*)\) "[^"]*" (.+)$',folder)
-            if match and b"\\sent" in match[1].lower().split():
-                result, _ = client.select(match[2], readonly=True)
-                if result != "OK":
-                    raise RuntimeError("Sent folder unavailable")
-                result, ids = client.uid("search",None,"HEADER","Message-ID",f'"{message_id}"')
-                if result != "OK":
-                    raise RuntimeError("Delivery verification failed")
-                return bool(ids and ids[0])
-        raise RuntimeError("Sent folder not found")
+            raise RuntimeError("Delivery verification failed")
+        return bool(ids and ids[0])
+
+
+def sent_filings(user: str, password: str, recipient: str, items: list[dict]) -> set[tuple[str, str]]:
+    """Match app briefing + sender + recipient + filing ID in Sent; never FETCH content."""
+    address = r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+"
+    if not all(re.fullmatch(address, value) for value in (user, recipient)):
+        raise ValueError("Invalid briefing address")
+    patterns = {"KR": r"[0-9]{14}", "US": r"[0-9]{10}-[0-9]{2}-[0-9]{6}", "JP": r"S[0-9A-Z]{7}"}
+    queries = {}
+    for item in items:
+        market, receipt = item["market"], item["rcept_no"]
+        if market not in patterns or not re.fullmatch(patterns[market], receipt):
+            raise ValueError("Invalid filing identifier")
+        # SEC links contain the accession without hyphens; older mails only included that link.
+        terms = f'{{"{receipt}" "{receipt.replace("-", "")}"}}' if market == "US" else f'"{receipt}"'
+        queries[(market, receipt)] = (
+            f'in:sent from:"{user}" to:"{recipient}" '
+            '{subject:"아침 공시 브리핑" subject:"내 종목 공시 브리핑"} ' + terms
+        )
+    if not queries:
+        return set()
+    found = set()
+    with imaplib.IMAP4_SSL("imap.gmail.com", timeout=30) as client:
+        client.login(user, password)
+        _select_sent(client)
+        for key, query in queries.items():
+            # An IMAP literal preserves Korean UTF-8 without altering the command's syntax.
+            client.literal = query.encode("utf-8")
+            result, ids = client.uid("search", "CHARSET", "UTF-8", "X-GM-RAW")
+            if result != "OK":
+                raise RuntimeError("Previous briefing verification failed")
+            if ids and ids[0]:
+                found.add(key)
+    return found

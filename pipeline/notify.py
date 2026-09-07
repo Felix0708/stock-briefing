@@ -146,10 +146,16 @@ def send_batch(settings, email, member_id, items, extra_note=None):
                 return 'uncertain',count
     elif batch["state"] in ("sending","uncertain"):
         return "uncertain",count
+    previous = emailer.sent_filings(settings.smtp_user, settings.smtp_password, email, batch["items"]) if settings.smtp_host == "smtp.gmail.com" else set()
+    unsent = [item for item in batch["items"] if (item["market"], item["rcept_no"]) not in previous]
     if not recovery.start(settings,batch_id):
         return "uncertain",count
+    if not unsent:
+        recovery.finish(settings, batch_id, "sent")
+        return "already_sent", 0
+    count = len(unsent)
     grouped = {}
-    for item in batch["items"]:
+    for item in unsent:
         key=(item["market"],item["company"])
         section=grouped.setdefault(key,{"company":item["company"],"market":item["market"],"summary_html":"","filings":[]})
         section["summary_html"]+=item["summary_html"]

@@ -89,11 +89,55 @@ class RecoveryTest(unittest.TestCase):
         send.assert_not_called()
 
     def test_successful_send_has_stable_id_and_collection_warning(self):
-        batch={"id":"00000000-0000-4000-8000-000000000001","state":"prepared","items":[{"market":"US","company":"Test","summary_html":"<p>Fact</p>","filing":{"report_nm":"Report","url":"https://www.sec.gov/"}}]}
-        with patch.object(recovery,'prepare',return_value=batch),patch.object(emailer,'was_sent',return_value=False),patch.object(recovery,'start',return_value=True),patch.object(recovery,'finish'),patch.object(emailer,'send') as send:
+        batch={"id":"00000000-0000-4000-8000-000000000001","state":"prepared","items":[{"market":"US","rcept_no":"0000000001-26-000001","company":"Test","summary_html":"<p>Fact</p>","filing":{"report_nm":"Report","url":"https://www.sec.gov/"}}]}
+        with patch.object(recovery,'prepare',return_value=batch),patch.object(emailer,'was_sent',return_value=False),patch.object(emailer,'sent_filings',return_value=set()),patch.object(recovery,'start',return_value=True),patch.object(recovery,'finish'),patch.object(emailer,'send') as send:
             self.assertEqual(notify.send_batch(self.settings(),'test@example.com',None,[],extra_note='일부 수집 실패'),('sent',1))
         self.assertIn('일부 수집 실패',send.call_args.args[5])
         self.assertIn(batch['id'],send.call_args.kwargs['message_id'])
+
+    def test_previous_briefing_search_is_narrow_and_does_not_fetch_content(self):
+        client=MagicMock()
+        client.list.return_value=("OK",[b'(\\Sent) "/" "Sent"'])
+        client.select.return_value=("OK",[])
+        queries=[]
+        def search(*args):
+            self.assertEqual(args,("search","CHARSET","UTF-8","X-GM-RAW"))
+            queries.append(client.literal.decode("utf-8"))
+            return "OK",[b"17" if len(queries)==1 else b""]
+        client.uid.side_effect=search
+        items=[{"market":"US","rcept_no":"0001193125-26-344596"},{"market":"KR","rcept_no":"20260901000001"}]
+        with patch.object(emailer.imaplib,"IMAP4_SSL") as imap:
+            imap.return_value.__enter__.return_value=client
+            self.assertEqual(emailer.sent_filings("sender@example.com","test","member@example.com",items),{("US","0001193125-26-344596")})
+            with self.assertRaises(ValueError):
+                emailer.sent_filings("sender@example.com","test",'member@example.com" OR in:anywhere',items)
+            with self.assertRaises(ValueError):
+                emailer.sent_filings("sender@example.com","test","member@example.com",[{"market":"US","rcept_no":'" OR in:anywhere'}])
+            self.assertEqual(imap.call_count,1)
+        for query in queries:
+            self.assertIn('in:sent from:"sender@example.com" to:"member@example.com"',query)
+            self.assertIn('{subject:"아침 공시 브리핑" subject:"내 종목 공시 브리핑"}',query)
+        self.assertIn('"0001193125-26-344596" "000119312526344596"',queries[0])
+        client.fetch.assert_not_called()
+        client.select.assert_called_once_with(b'"Sent"',readonly=True)
+
+    def test_previous_mail_is_excluded_from_a_mixed_batch_and_receipts_are_finished(self):
+        old={"market":"US","rcept_no":"0000000001-26-000001","company":"Old","summary_html":"<p>Old filing</p>","filing":{"report_nm":"Old","url":"https://www.sec.gov/old"}}
+        new={**old,"rcept_no":"0000000001-26-000002","company":"New","summary_html":"<p>New filing</p>","filing":{"report_nm":"New","url":"https://www.sec.gov/new"}}
+        batch={"id":"00000000-0000-4000-8000-000000000001","state":"prepared","items":[old,new]}
+        with patch.object(recovery,"prepare",return_value=batch),patch.object(emailer,"was_sent",return_value=False),patch.object(emailer,"sent_filings",return_value={("US",old["rcept_no"])}) as lookup,patch.object(recovery,"start",return_value=True),patch.object(recovery,"finish") as finish,patch.object(emailer,"send") as send:
+            self.assertEqual(notify.send_batch(self.settings(),"test@example.com",None,[]),("sent",1))
+            self.assertNotIn("Old filing",send.call_args.args[5])
+            self.assertIn("New filing",send.call_args.args[5])
+            finish.assert_called_once_with(self.settings(),batch["id"],"sent")
+            lookup.return_value={("US",item["rcept_no"]) for item in batch["items"]}
+            send.reset_mock()
+            self.assertEqual(notify.send_batch(self.settings(),"test@example.com",None,[]),("already_sent",0))
+            send.assert_not_called()
+            lookup.side_effect=RuntimeError("lookup unavailable")
+            with self.assertRaises(RuntimeError):
+                notify.send_batch(self.settings(),"test@example.com",None,[])
+            send.assert_not_called()
 
     def test_summary_output_has_no_active_attributes_or_external_links(self):
         safe=documents.SummaryHTML()

@@ -119,4 +119,4 @@ scripts/qa.sh --base-url http://localhost:3000
 
 배포 전 `scripts/qa.sh --build`, `npm run test:browser --prefix web`를 실행한다. 자동 백업 키를 처음 구성할 때만 `node scripts/backup.mjs init-key`를 사용한다. 키는 출력하지 않으며 로컬 비공개 파일과 GitHub Secret에 저장한다. [복구 운영 문서](RECOVERY_WORK.md)의 백업 범위·보관기간·복원 검증 절차를 따른다.
 
-2026-09-07 현재 `portfolio-backup` 워크플로는 `disabled_manually`다. 공개 저장소의 Actions artifact에는 암호문도 다른 사람이 내려받을 수 있으므로, 해당 보관 위치에 대한 사용자 승인 전에는 활성화하거나 실행하지 않는다. 로컬 비공개 암호화 백업과 격리 복원 검증은 완료했다.
+2026-09-07 사용자 승인 후 `portfolio-backup` 워크플로를 활성화했다. 매일 KST 09:17 실행하며 공개 저장소의 Actions artifact에는 암호문만 30일 보관한다. 암호문은 다른 사람이 내려받을 수 있으므로 키·평문은 절대 포함하지 않는다. 첫 자동 백업의 격리 복원과 원격 파일을 다시 내려받아 복원하는 검사 모두 통과했다.
