@@ -23,3 +23,4 @@
 - 메일 없는 [수집 실행](https://github.com/Felix0708/stock-briefing/actions/runs/34089525671)에서 4종목 조회 성공/공시 0건과 SE 매핑 실패를 구분해 기록했다. SE는 기본 `company_tickers.json`과 거래소 목록에서 누락됐지만 [SEC 공식 보조 목록](https://www.sec.gov/include/ticker.txt)에 매핑이 있어 누락 시에만 보조 조회하도록 보완했다. 수정 후 SE 공식 제출 목록 조회가 성공하고 최근 1일 대상 공시 0건임을 확인했다.
 - 실제 SEC Form 4의 `xslF345X..` 경로는 HTML, 해당 경로를 제외한 원문은 XML임을 확인했다. 분석은 원문 XML로 수행하고 HTML을 거래 없음으로 오인하지 않게 했다.
 - Supabase 보안 Advisor는 이번 변경으로 추가된 경고가 없다. 기존 유출 비밀번호 보호 비활성화 권고는 별개로 남아 있다.
+- 보완 후 [운영 재수집](https://github.com/Felix0708/stock-briefing/actions/runs/34090569194)에서 5개 대상 모두 조회 성공·기간 내 공시 0건으로 저장됐고 전체 수집 상태가 `success`로 전환됐다. 임시 QA 계정 잔존 수는 0이다. 발송을 생략한 실행은 회원의 수신 토글이 꺼진 것으로 오해하지 않도록 별도 문구로 표시한다.
