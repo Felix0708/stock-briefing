@@ -1,43 +1,43 @@
 {
   "date": "2026-09-07",
-  "generated_at": "2026-09-07T15:09:03+09:00",
+  "generated_at": "2026-09-07T15:23:11+09:00",
   "sections": [],
   "important_sections": [],
   "collection_status": [
     {
       "company": "씨 ADR",
       "market": "US",
-      "status": "failed",
+      "status": "empty",
       "filing_count": 0,
-      "checked_at": "2026-09-07T06:09:01+00:00"
+      "checked_at": "2026-09-07T06:23:08+00:00"
     },
     {
       "company": "ST 마이크로 일렉트로닉스 ADR",
       "market": "US",
       "status": "empty",
       "filing_count": 0,
-      "checked_at": "2026-09-07T06:09:01+00:00"
+      "checked_at": "2026-09-07T06:23:09+00:00"
     },
     {
       "company": "블룸 에너지",
       "market": "US",
       "status": "empty",
       "filing_count": 0,
-      "checked_at": "2026-09-07T06:09:01+00:00"
+      "checked_at": "2026-09-07T06:23:09+00:00"
     },
     {
       "company": "제타 글로벌 홀딩스",
       "market": "US",
       "status": "empty",
       "filing_count": 0,
-      "checked_at": "2026-09-07T06:09:02+00:00"
+      "checked_at": "2026-09-07T06:23:10+00:00"
     },
     {
       "company": "델 테크놀로지스",
       "market": "US",
       "status": "empty",
       "filing_count": 0,
-      "checked_at": "2026-09-07T06:09:02+00:00"
+      "checked_at": "2026-09-07T06:23:10+00:00"
     }
   ]
 }
