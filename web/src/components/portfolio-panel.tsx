@@ -664,6 +664,7 @@ export function PortfolioPanel() {
             </button>
           </div>
         </form>
+        <p className="pf-muted">가입 시 유출 비밀번호를 차단합니다. Have I Been Pwned에 비밀번호 대신 해시 앞 5글자만 전송하며, 이메일은 보내지 않습니다.</p>
         {authMessage && <p className="pf-notice">{authMessage}</p>}
         {authError && <p className="pf-error">{authError}</p>}
       </section>

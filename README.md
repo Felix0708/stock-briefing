@@ -117,6 +117,12 @@ Content-Type: application/json
 
 ## 설계 결정 기록 (요약)
 
+### 로그인·가입 보호
+
+- 모든 `/api/*` 변경 요청은 공통 Proxy에서 같은 출처의 `Origin`을 요구한다. 다른 출처·누락된 Origin과 교차 사이트 요청은 로그인/쿠키 발급 전에 403으로 차단한다. 공개 Q&A의 POST와 Bearer 토큰 전용 Stock-Trading 동기화 PUT만 제외하며, 각 API의 인증·소유자 검사도 그대로 유지한다. 쿠키 인증 API를 스크립트로 호출할 때는 사이트 URL의 Origin을 함께 보내야 한다.
+- 웹 회원가입은 [HIBP Pwned Passwords](https://haveibeenpwned.com/API/v3#PwnedPasswords)로 유출 비밀번호를 차단한다. 서버에서 SHA-1 해시 앞 5글자만 전송하고 응답 패딩을 사용한다. 비밀번호·전체 해시·이메일은 HIBP에 보내지 않는다. 조회 실패 시 가입만 잠시 중단하고 기존 로그인은 유지한다. SHA-1은 조회 프로토콜용이지 비밀번호 저장 방식이 아니다.
+- 현재 Supabase 무료 요금제에는 [기본 유출 비밀번호 보호(Pro 이상)](https://supabase.com/docs/guides/auth/password-security)가 없어 Advisor 경고는 남는다. 위 검사는 **웹 가입 경로의 보완책**이며 직접 Supabase Auth API를 통한 가입·비밀번호 변경이나 기존 비밀번호까지 보호하지 않는다. 유료 전환 없이 경고를 숨기거나 해결됐다고 표시하지 않는다.
+
 ### 포트폴리오 계산·거래 기록 기준
 
 - 실계좌 합계에 모의계좌는 포함하지 않는다. 같은 증권사의 직접 등록과 자동 실계좌는 비중을 함께 계산한다.

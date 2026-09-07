@@ -17,7 +17,7 @@ const password = randomUUID() + "Aa1!";
 const email = `portfolio-qa-${randomUUID()}@example.com`;
 
 async function call(path, method = "GET", body, expected = 200) {
-  const response = await fetch(site + path, { method, headers: { "Content-Type": "application/json", Cookie: cookie }, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(25000) });
+  const response = await fetch(site + path, { method, headers: { "Content-Type": "application/json", Cookie: cookie, Origin: new URL(site).origin }, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(25000) });
   assert.equal(response.status, expected, `${method} ${path} returned unexpected status`);
   if (response.headers.getSetCookie().length) cookie = response.headers.getSetCookie().map(value => value.split(";")[0]).join("; ");
   return response.json();

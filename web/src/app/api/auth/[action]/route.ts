@@ -15,6 +15,7 @@ import {
 } from "@/lib/server/auth";
 import { ConfigurationError } from "@/lib/server/config";
 import { UpstreamError } from "@/lib/server/http";
+import { PasswordSecurityError } from "@/lib/server/password-security";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,6 +30,9 @@ function badRequest(message: string): NextResponse {
 }
 
 function handleKnownError(error: unknown): NextResponse {
+  if (error instanceof PasswordSecurityError) {
+    return NextResponse.json({ error: error.message }, { status: error.status, headers: { "Cache-Control": "no-store" } });
+  }
   if (error instanceof ConfigurationError) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 
 import { ConfigurationError } from "./config";
 import { UpstreamError, requestJson } from "./http";
+import { requireSafeSignupPassword } from "./password-security";
 
 // Supabase Auth(GoTrue) REST를 서버에서 직접 호출한다.
 // 클라이언트에는 어떤 키도 내려가지 않으며, 세션은 httpOnly 쿠키로만 유지된다.
@@ -122,6 +123,7 @@ export async function signUp(
   email: string,
   password: string,
 ): Promise<{ tokens: AuthTokens | null; needsEmailConfirm: boolean }> {
+  await requireSafeSignupPassword(password);
   const session = await requestJson<GoTrueSession>(
     "Supabase Auth",
     `${supabaseUrl()}/auth/v1/signup`,
