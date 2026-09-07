@@ -118,3 +118,5 @@ scripts/qa.sh --base-url http://localhost:3000
 새 환경은 기존 수동 거래가 있는 상태에서 초기 잔고를 임의 추정하지 않는다. 해당 마이그레이션은 그 경우 중단하므로 기존 장부의 시작 잔고를 먼저 대조해야 한다. 최초 운영 적용 시 거래 0건과 직접 잔고 3행을 확인했다.
 
 배포 전 `scripts/qa.sh --build`, `npm run test:browser --prefix web`를 실행한다. 자동 백업 키를 처음 구성할 때만 `node scripts/backup.mjs init-key`를 사용한다. 키는 출력하지 않으며 로컬 비공개 파일과 GitHub Secret에 저장한다. [복구 운영 문서](RECOVERY_WORK.md)의 백업 범위·보관기간·복원 검증 절차를 따른다.
+
+2026-09-07 현재 `portfolio-backup` 워크플로는 `disabled_manually`다. 공개 저장소의 Actions artifact에는 암호문도 다른 사람이 내려받을 수 있으므로, 해당 보관 위치에 대한 사용자 승인 전에는 활성화하거나 실행하지 않는다. 로컬 비공개 암호화 백업과 격리 복원 검증은 완료했다.

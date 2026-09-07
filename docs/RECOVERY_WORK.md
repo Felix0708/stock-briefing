@@ -8,7 +8,9 @@
 - [x] 과거 매매 정정·취소와 후속 잔고/평단/실현손익 재계산, 변경 이력 보존
 - [x] Stock-Trading 실제 수신 시각·종목 수·오래된 동기화 안내
 - [x] CSV 내보내기, 비공개 백업 및 복원 검증
-- [ ] 회귀/브라우저/DB 검증, 운영 적용, 커밋·푸시 및 배포 확인
+- [x] 회귀/브라우저/DB 검증, 운영 적용, 커밋·푸시 및 배포 확인
+- [ ] 공개 GitHub Actions의 암호화 백업 보관 승인 후 자동 작업 활성화
+- [ ] 변경 전 발송 메일의 좁은 범위 검색 승인 후 과거 중복 판별 보완
 
 ## 데이터 안전 원칙
 
@@ -24,6 +26,7 @@
 
 - 수집: 마지막 성공 시점부터 2일 겹침을 두고 재조회한다. DART 페이지와 SEC 과거 제출 목록도 따라간다. 실패한 공시는 완료로 기록하지 않아 다음 실행에서 다시 처리하며, 완료된 공시의 본문·요약은 재사용한다. 인덱싱 전용 실행의 15건 잘림도 제거했다.
 - 발송: 수신자 주소의 SHA-256 + 시장 + 접수번호로 전달 장부를 만든다. SMTP 접수 직후 DB 저장이 끊겨도 Gmail Sent에서 앱 전용 Message-ID만 검색해 확인한다. 확실하지 않으면 무조건 재발송하지 않는다. 재확인 작업이 동시에 실행돼도 새 발송 시도를 덮어쓰지 않는다. Gmail 이외 SMTP의 불명확한 결과는 확인 대기 상태로 유지한다.
+  변경 전 메일에는 새 전달 장부와 앱 전용 ID가 없으므로 과거 공시 재수집 시 중복될 수 있다. 이전 브리핑의 제목·수신자·접수번호 일치 여부만 검색하는 추가 권한은 요청했으나 아직 사용하지 않았다.
 - SEC: 대표 문서 링크와 공시 인덱스의 EX 문서를 읽는다. 동일 SEC 공시 디렉터리의 자료만 허용하며 연락처 User-Agent를 외부 호스트에 전달하지 않는다. 설정된 요약 입력 예산은 대표 문서와 첨부자료에 나눠 배정한다.
 - EDINET: 공식 XBRL ZIP/HTML 또는 PDF를 텍스트로 추출한다. API 오류를 0건으로 오인하지 않는다. 이미지 스캔처럼 텍스트를 얻지 못한 원문은 요약하지 않고 재처리 대상으로 남긴다. 일본 실서비스 호출은 EDINET 키가 설정돼야 하며, 이번 검증은 공식 계약과 격리 응답 테스트 기준이다.
 - 매매: 최초 입력은 그대로 두고 현재 유효 거래와 정정 이력을 별도로 보존한다. 거래일/입력 시각 순서로 전체 수동 장부를 재계산한다. 직접 잔고 보정은 절대 수량·평단 이벤트로 남긴다. 같은 트랜잭션 안에서도 실제 입력 순서가 보존되도록 거래 생성 시각은 `clock_timestamp()`를 쓴다.
@@ -35,7 +38,9 @@
 
 웹 화면에서 JSON 다운로드 → 같은 계정으로 파일 선택 → 복원 미리보기 → 현재 데이터 교체 확인 → 복원을 누른다. 처리 중 다른 잔고 변경이 있으면 다시 확인해야 한다. 잘못된 파일이나 장부/잔고 불일치는 전체 롤백한다. 복원 직전 상태는 서버의 비공개 복원점으로 남으며 화면에서 다시 내려받을 수 있다. 웹 복원 파일은 전송 플랫폼 한도를 고려해 2 MB까지 허용한다. CSV는 열람용이며 정정 이력 전체를 담는 복원 파일이 아니다.
 
-자동 작업 `portfolio-backup`은 매일 UTC 00:17(KST 09:17)에 실행한다. Node 기본 AES-256-GCM으로 암호화하고, **암호문 파일만** GitHub Actions artifact에 30일 보관한다. 공개 저장소이므로 평문 또는 키 업로드는 금지한다. 암호화 키는 GitHub Secret `PORTFOLIO_BACKUP_KEY`와 로컬 Git 제외 경로 `.backups/encryption.key`에 별도 보관한다. 키는 복구 시 필요하므로 잃지 않도록 별도 안전한 저장소에도 보관해야 한다.
+자동 작업 `portfolio-backup`은 매일 UTC 00:17(KST 09:17) 실행하도록 구현했지만 **현재 `disabled_manually` 상태다.** 공개 GitHub 저장소의 Actions artifact에 암호문을 보관하는 행위는 별도 사용자 승인이 필요하다는 안전 검토 결과에 따라 실행하지 않았다. 따라서 원격 백업 파일은 업로드하지 않았으며 승인 전에는 활성화하지 않는다.
+
+승인 후에는 Node 기본 AES-256-GCM으로 암호화한 **암호문 파일만** Actions artifact에 30일 보관한다. 공개 저장소이므로 암호문 자체는 다른 사람이 내려받을 수 있으며, 평문 또는 키 업로드는 금지한다. 암호화 키는 GitHub Secret `PORTFOLIO_BACKUP_KEY`와 로컬 Git 제외 경로 `.backups/encryption.key`에 별도 보관한다. 키는 복구 시 필요하므로 잃지 않도록 별도 안전한 저장소에도 보관해야 한다.
 
 운영자 명령:
 
@@ -54,6 +59,9 @@ node scripts/backup.mjs verify .backups/대상파일.sbbackup
 - 운영 마이그레이션 전후 보유 7행 전체 체크섬 동일. 기존 수동 3행은 초기 잔고로 보존했다.
 - 운영 `verify_schema.sql`, `verify_portfolio_reliability.sql` PASS. 후자의 가짜 데이터는 전체 롤백됐다.
 - 운영 DB + 로컬 웹 서버: 비구독 임시 QA 계정으로 로그인, 매수/매도, 과거 정정, 취소, 이력, 백업/복원, 조건부 삭제 검증 후 계정과 테스트 데이터 삭제 완료.
+- [운영 웹](https://web-mu-inky-93.vercel.app)에서도 동일한 전체 QA 통과. 검증 후 보유 7행 유지, 남은 임시 QA 계정 0개를 확인했다.
 - 운영 2계정의 실제 암호화 백업을 격리 DB에 복원하고 대조했다. 운영 계정 잔고에는 쓰지 않았다.
+- 구현 커밋 [be944f8](https://github.com/Felix0708/stock-briefing/commit/be944f800bec44d3634a4541fb7333656a996363)의 Vercel 운영 배포 READY 확인. [quality 검사](https://github.com/Felix0708/stock-briefing/actions/runs/34096708902), [Pages 배포](https://github.com/Felix0708/stock-briefing/actions/runs/34096708887) 성공.
+- [메일 없는 운영 수집 검증](https://github.com/Felix0708/stock-briefing/actions/runs/34096881969) 성공. 5개 대상 모두 조회 성공·해당 기간 공시 0건이었으며 DB 실행 상태도 `success`다. 이는 새 공시 발송 성공을 의미하지 않는다.
 
 Supabase Advisor의 `Leaked Password Protection Disabled`는 기존 Auth 설정 경고로 이번 변경에 의해 생긴 것이 아니다. [Supabase 비밀번호 보호 안내](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)를 별도로 확인해야 한다. 신규 서버 전용 테이블은 명시적인 브라우저 차단 정책을 적용했고, 신규 인덱스의 `unused_index` INFO는 실제 사용 전 통계이므로 제거하지 않는다.
