@@ -108,3 +108,5 @@ scripts/qa.sh --base-url http://localhost:3000
 
 운영 수집 검증 시 Actions → daily-briefing → Run workflow에서 `send_email=false`로 실행하면 추가 메일 없이 수집·상태 저장을 확인할 수 있다. 정기 발송 설정은 바뀌지 않는다.
 공개 로그 검사는 `python3 scripts/audit-public-logs.py --limit 20`으로 실행한다. 결과는 실행 ID와 검출 건수만 출력하며, 실제 이메일/보유종목명은 출력하지 않는다.
+
+운영 로그인·거래 흐름을 추가 검증할 때는 별도의 사용자 승인이 필요하다. 승인 후 `ALLOW_TEMP_QA_USER=1 node scripts/verify-live-portfolio.mjs https://운영주소`를 실행한다. 기본 설정 파일은 루트 `.env`이며 `QA_ENV_FILE`로 변경할 수 있다. 임시 비구독 계정 한 개만 만들고 종료 시 삭제한다. 실제 사용자 데이터·주문·메일은 사용하지 않는다.

@@ -18,6 +18,7 @@ def collect_target(settings, target, corp_codes, cik_map, index_only=False, dry_
         if market == "US":
             cik = cik_map.get(target["code"].upper())
             if not cik:
+                print("⚠ SEC 티커 매핑 없음 (종목명 생략)")
                 return None, result
             filings = edgar.fetch_filings(target["code"], cik, settings.lookback_days)
         elif market == "JP":
@@ -30,7 +31,9 @@ def collect_target(settings, target, corp_codes, cik_map, index_only=False, dry_
             if not corp_code:
                 return None, result
             filings = dart.fetch_filings(settings.dart_api_key, corp_code, settings.lookback_days)
-    except Exception:
+    except Exception as error:
+        http_status = getattr(getattr(error, "response", None), "status_code", None)
+        print(f"⚠ 공시 목록 조회 실패: {type(error).__name__} · HTTP {http_status or '해당 없음'} (오류 본문 생략)")
         return None, result
 
     result["filing_count"] = len(filings)
@@ -126,7 +129,7 @@ def _run(settings, dry_run, companies, index_only, record):
     cik_map = {}
     if any(target["market"] == "US" for target in targets):
         try:
-            cik_map = edgar.load_ticker_ciks()
+            cik_map = edgar.load_ticker_ciks([target["code"] for target in targets if target["market"] == "US"])
         except Exception:
             incomplete = True
             print("⚠ SEC 기업 목록 조회 실패")

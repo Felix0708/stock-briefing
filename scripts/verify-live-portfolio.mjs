@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
 assert.equal(process.env.ALLOW_TEMP_QA_USER, "1", "Set ALLOW_TEMP_QA_USER=1 to allow isolated test writes");
-process.loadEnvFile("web/.env.local");
+process.loadEnvFile(process.env.QA_ENV_FILE ?? ".env");
 const site = process.argv[2];
 assert.ok(site && (site.startsWith("https://") || site.startsWith("http://127.0.0.1:")), "Supply the site URL");
 const database = process.env.SUPABASE_URL;

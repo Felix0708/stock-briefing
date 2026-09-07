@@ -7,14 +7,19 @@
 - [x] 실계좌/모의·증권사 필터, 통화 보기 저장, 삭제 취소
 - [x] 수동 매수·매도 이력과 통화별 실현손익 (기존 잔고 보존)
 - [x] 실제 브라우저 모바일 시나리오 및 DB 권한·수량·중복 요청 검증
-- [ ] 마이그레이션 적용, QA, 커밋·푸시·배포, Stock-Trading 영향 보고
+- [x] 마이그레이션 적용, QA, 커밋·푸시·배포, Stock-Trading 영향 보고
 
 기존 보유 수량과 평단을 거래 이력으로 소급 생성하지 않는다. 수동 거래 기록은 현재 잔고를 시작점으로 순서대로 적용하며, 이미 처리한 요청의 재전송은 중복 기록하지 않는다. 실현손익은 현지 통화 기준이며 세금·수수료와 과거 환율은 포함하지 않는다.
 
 ## 검증 기록 (2026-09-07)
 
-- Python 9개, API/계약 60개, 실제 Chromium·iPhone WebKit 10개 시나리오 통과. 라이트/다크 화면, 배지 넘침, 범례 중앙 정렬, 부분 합계, 환율 누락, 필터, 통화 저장, 삭제 취소와 수동 매수 입력을 확인했다.
+- Python 11개, API/계약 60개, 실제 Chromium·iPhone WebKit 10개 시나리오 통과. 라이트/다크 화면, 배지 넘침, 범례 중앙 정렬, 부분 합계, 환율 누락, 필터, 통화 저장, 삭제 취소와 수동 매수 입력을 확인했다.
 - lint/typecheck/production build/Secret 점검 통과. production 의존성 audit 취약점 0건.
 - 운영 Supabase 마이그레이션 적용 및 `verify_schema.sql`, `verify_portfolio_reliability.sql` 모두 PASS. 후자는 임시 데이터만 사용하고 롤백했다. 기존 수동 잔고로부터의 매도, 자동매매 잔고 불변, 다른 회원 이력·상태 차단도 검증했다.
 - 최신 공개 daily-briefing 실행 20건에 과거 보유종목명 출력 흔적이 있었다. 메일 발송 로그의 미마스킹 이메일은 검출되지 않았다. 과거 로그 삭제는 복구 불가 작업이므로 승인 대기 중이며 새 코드에서는 종목명/수신자/오류 본문을 출력하지 않는다.
 - Stock-Trading의 `PUT /api/sync/holdings`와 공개 `important_sections` 계약은 그대로다. 직접 투자 이력은 자동매매 성과에 섞지 않는다.
+- 최초 구현 `b51c7f9`는 운영 Vercel 배포와 [GitHub quality](https://github.com/Felix0708/stock-briefing/actions/runs/34089375066)를 통과했다. 비로그인 API 접근 401, 페이지 200, 보유종목 없는 USD 환율 조회를 운영에서 확인했다.
+- 사용자 승인 후 `scripts/verify-live-portfolio.mjs`로 운영 로그인 → 시작 잔고 → 매수/매도 → 동일 요청 재전송 → 초과 매도 차단 → 이력/집계 → 조건부 삭제를 검증했다. 임시 비구독 계정과 테스트 데이터는 즉시 삭제했으며 실제 회원 잔고·주문·메일은 건드리지 않았다.
+- 메일 없는 [수집 실행](https://github.com/Felix0708/stock-briefing/actions/runs/34089525671)에서 4종목 조회 성공/공시 0건과 SE 매핑 실패를 구분해 기록했다. SE는 기본 `company_tickers.json`과 거래소 목록에서 누락됐지만 [SEC 공식 보조 목록](https://www.sec.gov/include/ticker.txt)에 매핑이 있어 누락 시에만 보조 조회하도록 보완했다. 수정 후 SE 공식 제출 목록 조회가 성공하고 최근 1일 대상 공시 0건임을 확인했다.
+- 실제 SEC Form 4의 `xslF345X..` 경로는 HTML, 해당 경로를 제외한 원문은 XML임을 확인했다. 분석은 원문 XML로 수행하고 HTML을 거래 없음으로 오인하지 않게 했다.
+- Supabase 보안 Advisor는 이번 변경으로 추가된 경고가 없다. 기존 유출 비밀번호 보호 비활성화 권고는 별개로 남아 있다.

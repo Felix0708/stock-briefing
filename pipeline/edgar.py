@@ -33,7 +33,7 @@ USER_AGENT = os.getenv(
     "stock-briefing personal project (github.com/Felix0708/stock-briefing)",
 )
 
-# 브리핑에 포함할 서식 (Form 4 내부자거래는 건수가 너무 많아 제외)
+# 브리핑에 포함할 서식. Form 4는 아래에서 실제 P/S 거래만 선별한다.
 FORM_NAMES_KO = {
     "8-K": "수시보고 (8-K)",
     "8-K/A": "수시보고 정정 (8-K/A)",
@@ -73,7 +73,7 @@ def _get(url: str, timeout: int = 30) -> requests.Response:
     return with_retry(call, label="EDGAR")
 
 
-def load_ticker_ciks() -> dict[str, int]:
+def load_ticker_ciks(tickers: list[str] | None = None) -> dict[str, int]:
     """티커 → CIK 매핑 (일 단위 캐시). 예: {"AAPL": 320193, "DELL": 1571996}"""
     CACHE_DIR.mkdir(exist_ok=True)
     cache_file = CACHE_DIR / f"edgar_ciks_{datetime.now():%Y%m%d}.json"
@@ -90,12 +90,32 @@ def load_ticker_ciks() -> dict[str, int]:
         cik = item.get("cik_str")
         if ticker and isinstance(cik, int):
             mapping[ticker] = cik
+    # Some ADRs are absent from company_tickers.json but remain in SEC's official
+    # ticker.txt. Only fill missing entries; the primary mapping stays authoritative.
+    if tickers and any(ticker.upper() not in mapping for ticker in tickers):
+        try:
+            legacy_file = CACHE_DIR / f"edgar_tickers_{datetime.now():%Y%m%d}.txt"
+            if legacy_file.exists():
+                legacy = legacy_file.read_text()
+            else:
+                legacy = _get("https://www.sec.gov/include/ticker.txt").text
+                legacy_file.write_text(legacy)
+            for line in legacy.splitlines():
+                parts = line.split()
+                if len(parts) == 2 and re.fullmatch(r"[A-Za-z][A-Za-z0-9.\-]{0,9}", parts[0]) and parts[1].isdigit():
+                    mapping.setdefault(parts[0].upper(), int(parts[1]))
+        except Exception:
+            print("⚠ SEC 보조 티커 목록 조회 실패 (기존 매핑 유지)")
     return mapping
 
 
 def _form4_open_market_codes(document_url: str) -> set[str]:
     """Form 4 원문에서 실제 매수(P)·매도(S) 코드만 반환한다."""
-    root = ElementTree.fromstring(_get(document_url).content)
+    # SEC's xslF345X.. URL renders HTML; transaction codes live in the raw XML.
+    xml_url = re.sub(r"/xslF345X\d+/", "/", document_url)
+    root = ElementTree.fromstring(_get(xml_url).content)
+    if root.tag.rsplit("}", 1)[-1] != "ownershipDocument":
+        raise ValueError("Expected Form 4 ownership XML")
     return {
         (node.text or "").strip().upper()
         for node in root.iter()
