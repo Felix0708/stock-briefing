@@ -15,6 +15,7 @@ async function mock(page:Page, overrides:Record<string,unknown>={}, count=4){
       "/api/auth/me":{user:{email:"demo@example.com",nickname:"검증 계정",briefingEmail:true}},
       "/api/holdings":{holdings,performance:[]},
       "/api/integration-token":{active:false},
+      "/api/account-equity":{series:[]},
       "/api/quotes":{quotes:{"US:SE":{code:"SE",name:"씨 ADR",currency:"USD",price:110,changeRatio:1},"US:ZETA":{code:"ZETA",name:"제타 글로벌 홀딩스",currency:"USD",price:31,changeRatio:1}},usdKrw:1400,jpyKrw:null,asOf:new Date().toISOString()},
       "/api/manual-trades":req.method()!=="GET"?{ok:true,trade:{id:1,quantity_after:11,realized_profit_loss:null}}:{trades:[],summary:[],next:null},
       "/api/briefing-status":{collections:[],delivery:null,run:null,emailEnabled:true},
@@ -34,10 +35,12 @@ test("부분 합계·계좌 필터·원화 설정을 실제 렌더링과 조작�
   await expect(page.locator(".pf-summary")).toContainText("1,540,000원");
   await expect(page.getByText(/평가 2종목 중 1종목 반영/)).toBeVisible();
   await expect(page.getByText(/시세 없는 종목은 현재 환율로/)).toBeVisible();
-  await page.getByLabel("계좌 유형",{exact:true}).selectOption("paper");
+  await page.getByLabel("계좌 선택",{exact:true}).selectOption("paper");
   await expect(page.locator(".pf-table tbody tr")).toHaveCount(2);
-  await page.getByLabel("증권사 필터",{exact:true}).selectOption("KIWOOM");
+  await page.getByLabel("계좌 선택",{exact:true}).selectOption("KIWOOM:paper");
   await expect(page.locator(".pf-table tbody tr")).toHaveCount(1);
+  await page.getByLabel("계좌 선택",{exact:true}).selectOption("broker:KIWOOM");
+  await expect(page.locator(".pf-table tbody tr")).toHaveCount(3);
   await page.getByLabel("표 금액 원화로 보기",{exact:true}).check();
   await page.reload();
   await expect(page.getByLabel("표 금액 원화로 보기",{exact:true})).toBeChecked();

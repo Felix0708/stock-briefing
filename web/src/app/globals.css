@@ -1164,7 +1164,7 @@ a.source-item:focus-visible {
 .pf-list-tools { display: flex; align-items: center; gap: 10px; }
 .pf-filters { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
 .pf-filters label { display: flex; flex-direction: column; gap: 5px; font-size: 0.85rem; }
-.pf-filters select { min-height: 44px; max-width: 100%; }
+.pf-filters select { height: 46px; max-width: 100%; width: 100%; }
 .pf-legend-label { min-width: 0; overflow-wrap: anywhere; }
 .pf-notice .pf-ghost { margin: 8px; }
 .pf-trade-form { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,200px),1fr)); gap: 12px; margin-top: 16px; align-items: end; }
@@ -1194,6 +1194,33 @@ a.source-item:focus-visible {
   gap: 4px;
 }
 .pf-summary strong { font-size: 1.05rem; }
+
+.pf-fold > summary h2 { display: inline; margin: 0; }
+.pf-fold > summary > span { display: block; margin-top: 5px; padding-left: 16px; }
+.pf-fold[open] > summary { margin-bottom: 14px; }
+.pf-filters label { min-width: 0; max-width: 100%; }
+.pf-equity-summary strong { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.pf-equity-chart { border-top: 1px solid var(--line); margin-top: 24px; padding-top: 12px; }
+.pf-equity-switches, .pf-equity-switches > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.pf-equity-switches { justify-content: space-between; gap: 12px; }
+.pf-equity-switches .pf-ghost { width: auto; }
+.pf-equity-switches [aria-pressed="true"] { color: var(--primary-dark); background: var(--primary-soft); border-color: var(--primary); }
+.pf-equity-empty { padding: 28px 0; line-height: 1.6; }
+.pf-equity-svg { display: block; width: 100%; cursor: crosshair; }
+.pf-equity-svg text { fill: var(--text-muted); font: 11px system-ui, sans-serif; }
+.pf-equity-svg line { stroke: var(--line); }
+.pf-equity-svg path { fill: none; stroke: var(--primary); stroke-width: 2; stroke-linejoin: round; }
+.pf-equity-svg circle { fill: var(--primary); }
+.pf-equity-svg .pf-equity-marker { stroke: var(--text-muted); stroke-dasharray: 4; }
+.pf-equity-inspect { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.pf-equity-inspect .pf-filters { margin: 0; }
+@media (max-width: 640px) {
+  .pf-summary.pf-equity-summary > div:first-child { grid-column: 1 / -1; }
+  .pf-summary.pf-equity-summary > div:last-child { grid-column: auto; }
+}
+@media (max-width: 360px) {
+  .pf-summary.pf-equity-summary { grid-template-columns: minmax(0, 1fr); }
+}
 
 .pf-table-wrap { overflow-x: auto; }
 .pf-table {

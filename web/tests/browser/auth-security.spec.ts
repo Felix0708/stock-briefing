@@ -25,6 +25,10 @@ test("real proxy blocks forged requests while browser-origin validation reaches 
   expect(sameOrigin.body.error).toContain("이메일");
   const sync = await request.put("/api/sync/holdings", { data: {} });
   expect(sync.status()).toBe(401);
+  const equity = await request.put("/api/sync/account-equity", { data: { version: 1, series: [] } });
+  expect(equity.status()).toBe(401);
+  expect(equity.headers()["set-cookie"]).toBeUndefined();
+  expect((await request.get("/api/account-equity")).status()).toBe(401);
   expect(errors).toEqual([]);
   await page.goto("/");
   await expect(page.locator("body")).not.toHaveText("");

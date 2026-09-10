@@ -27,7 +27,7 @@ test("all cookie mutation routes, including future API routes, require an exact 
     const source = await readFile(new URL(path, root), "utf8");
     const url = "/api/" + path.replace(/\/?route\.ts$/, "").replace("[action]", "login");
     assert.equal(unstable_doesMiddlewareMatch({ config, nextConfig: {}, url }), true, url);
-    if (["/api/ask", "/api/sync/holdings"].includes(url)) continue;
+    if (["/api/ask", "/api/sync/holdings", "/api/sync/account-equity"].includes(url)) continue;
     for (const [, method] of source.matchAll(/export async function (POST|PUT|PATCH|DELETE)\(/g)) {
       for (const origin of [undefined, "null", "https://untrusted.invalid", site + ".evil.com", "http://portfolio.example.com", site + "/"]) {
         const blocked = proxy(request(url, method, origin ? { Origin: origin } : {}));
@@ -45,7 +45,7 @@ test("all cookie mutation routes, including future API routes, require an exact 
   local.headers.set("Origin", "http://localhost:3100");
   assert.equal(proxy(local).status, 403);
   assert.equal(proxy(request("/api/auth/login", "POST", { Origin: "https://untrusted.invalid", "X-Forwarded-Host": "untrusted.invalid" })).status, 403);
-  for (const [path, method] of [["/api/auth/me", "GET"], ["/api/ask", "POST"], ["/api/sync/holdings", "PUT"]]) {
+  for (const [path, method] of [["/api/auth/me", "GET"], ["/api/ask", "POST"], ["/api/sync/holdings", "PUT"], ["/api/sync/account-equity", "PUT"]]) {
     assert.equal(proxy(request(path, method)).headers.get("x-middleware-next"), "1");
   }
 });

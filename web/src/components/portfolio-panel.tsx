@@ -1,13 +1,15 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { searchStocks, type StockSuggestion } from "@/lib/client/stock-search";
 import { loadPortfolioQuotes, type Quote } from "@/lib/client/portfolio-quotes";
 import { ManualTradesPanel } from "@/components/manual-trades-panel";
 import { BriefingStatusPanel } from "@/components/briefing-status-panel";
 import { PortfolioBackupPanel } from "@/components/portfolio-backup-panel";
+import { AccountEquityPanel } from "@/components/account-equity-panel";
+import { equityKey, equityLabel, type EquityRecord } from "@/lib/account-equity";
 import {
   accountGroupKey,
   accountGroupLabel,
@@ -182,8 +184,12 @@ export function PortfolioPanel() {
   const [jpyKrw, setJpyKrw] = useState<number | null>(null);
   const [showPricesInKrw, setShowPricesInKrw] = useState(false);
   const [showPerformanceInKrw, setShowPerformanceInKrw] = useState(false);
-  const [accountFilter, setAccountFilter] = useState("all");
-  const [brokerFilter, setBrokerFilter] = useState("all");
+  const [selectedAccount, setSelectedAccount] = useState("all");
+  const [equityState, setEquityState] = useState<{owner: string; series: EquityRecord[]; error: boolean}>({owner:"",series:[],error:false});
+  const [equityRefresh, setEquityRefresh] = useState(0);
+  const [equityBusy, setEquityBusy] = useState(false);
+  const [integrationOpen, setIntegrationOpen] = useState(false);
+  const [registrationOpen, setRegistrationOpen] = useState(false);
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [quotesError, setQuotesError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Holding | null>(null);
@@ -306,6 +312,19 @@ export function PortfolioPanel() {
       void loadTokenStatus();
     }
   }, [user, loadHoldings, loadTokenStatus]);
+
+  const memberEmail = user?.email;
+  useEffect(() => {
+    if (!memberEmail) return;
+    const controller = new AbortController();
+    setEquityBusy(true);
+    void api<{series: EquityRecord[]}>("/api/account-equity", {signal:controller.signal,cache:"no-store"})
+      .then(data => { if (!Array.isArray(data.series)) throw new Error("Invalid account list");
+        if (!controller.signal.aborted) setEquityState({owner:memberEmail,series:data.series,error:false}); })
+      .catch(() => { if (!controller.signal.aborted) setEquityState(current => ({owner:memberEmail,series:current.owner === memberEmail ? current.series : [],error:true})); })
+      .finally(() => { if (!controller.signal.aborted) setEquityBusy(false); });
+    return () => controller.abort();
+  }, [memberEmail, equityRefresh]);
 
   useEffect(() => {
     if (!user || (holdings.length === 0 && performance.length === 0)) return;
@@ -476,6 +495,8 @@ export function PortfolioPanel() {
     setUser(null);
     setHoldings([]);
     setPerformance([]);
+    setEquityState({owner:"",series:[],error:false});
+    setSelectedAccount("all");
     setQuotes({});
     setPlainToken(null);
     setTokenStatus({ active: false });
@@ -537,7 +558,26 @@ export function PortfolioPanel() {
   }
 
   // ---------- 계산 ----------
-  const computed = useMemo(() => {
+  const equitySeries = equityState.owner === user?.email ? equityState.series : [];
+  const groups = new Map<string, {broker: HoldingBroker; account_type: "paper" | "live"}>();
+  for (const row of holdings) groups.set(accountGroupKey(row), {broker:row.broker,account_type:isRealAccount(row) ? "live" : "paper"});
+  for (const row of [...performance, ...equitySeries]) groups.set(`${row.broker}:${row.account_type}`, {broker:row.broker,account_type:row.account_type});
+  const accountOptions: {value:string;label:string;broker?:HoldingBroker;account_type?:"paper"|"live";series?:EquityRecord}[] = [
+    {value:"all",label:"전체 계좌"},{value:"live",label:"전체 실계좌",account_type:"live"},{value:"paper",label:"전체 모의계좌",account_type:"paper"},
+  ];
+  for (const broker of new Set([...groups.values()].map(group => group.broker))) {
+    if ([...groups.values()].filter(group => group.broker === broker).length > 1) accountOptions.push({value:`broker:${broker}`,label:`${brokerLabel(broker)} · 실/모의 전체`,broker});
+  }
+  for (const [key, group] of [...groups.entries()].sort(([a],[b]) => accountRank(a) - accountRank(b))) {
+    const matched = equitySeries.filter(row => row.broker === group.broker && row.account_type === group.account_type);
+    if (matched.length !== 1) accountOptions.push({value:key,label:`${brokerLabel(group.broker)} ${group.account_type === "paper" ? "모의계좌" : "실계좌"}${matched.length > 1 ? " · 합쳐 보기" : ""}`,...group});
+    for (const series of matched) accountOptions.push({value:`series:${equityKey(series)}`,label:equityLabel(series)+(matched.length > 1 ? ` · 식별 ${series.account_ref.slice(0,8)}` : ""),...group,series});
+  }
+  const selection = accountOptions.find(option => option.value === selectedAccount) ?? accountOptions[0];
+  const accountFilter = selection.account_type ?? "all";
+  const brokerFilter = selection.broker ?? "all";
+  const visiblePerformance = performance.filter(row => (brokerFilter === "all" || row.broker === brokerFilter) && (accountFilter === "all" || row.account_type === accountFilter));
+  const computed = (() => {
     // 모든 합산은 원화(KRW) 기준. 해외 종목은 해당 환율로 환산한다.
     const toKrw = (amount: number, currency: "KRW" | "USD" | "JPY"): number | null => {
       if (currency === "USD") return usdKrw ? amount * usdKrw : null;
@@ -614,7 +654,7 @@ export function PortfolioPanel() {
 
     return { rows, totalCost, totalValue, totalPl, totalPlRatio, weights, charts, hasQuotes: priced.length > 0,
       pricedCount: priced.length, costedCount: costed.length, totalCount: realRows.length };
-  }, [holdings, quotes, usdKrw, jpyKrw, accountFilter, brokerFilter]);
+  })();
 
   // ---------- 렌더 ----------
   if (checking) {
@@ -630,7 +670,7 @@ export function PortfolioPanel() {
       <section className="pf-card" aria-labelledby="pf-auth-title">
         <h2 id="pf-auth-title">로그인</h2>
         <p className="pf-muted">
-          보유 종목을 등록하면 실시간 수익률과 비중을 볼 수 있습니다.
+          보유 종목을 등록하면 마지막 조회 시세 기준 수익률과 비중을 볼 수 있습니다.
         </p>
         <form className="pf-auth-form" onSubmit={(event) => handleAuth(event, "login")}>
           <input
@@ -731,10 +771,10 @@ export function PortfolioPanel() {
         </div>
       </section>
 
-      <section className="pf-card" aria-labelledby="pf-integration-title">
-        <h2 id="pf-integration-title">Stock-Trading 자동 연동</h2>
+      <details className="pf-card pf-fold" open={integrationOpen || !!plainToken} onToggle={event => setIntegrationOpen(event.currentTarget.open)}>
+        <summary><h2 id="pf-integration-title">Stock-Trading 자동 연동</h2><span className="pf-muted">{tokenStatus.active ? "토큰 활성 · 설정 펼치기" : "연동 설정 펼치기"}</span></summary>
         <p className="pf-muted">
-          로컬 Stock-Trading이 이 계정의 보유종목 전체 스냅샷만 동기화합니다.
+          로컬 Stock-Trading이 보유종목·매매 성과·계좌 자산 이력을 동기화합니다. 이 웹에서 증권 주문을 보내지 않습니다.
           증권사 API 키·비밀번호는 보내지 마세요.
         </p>
         <div className="pf-token-actions">
@@ -773,10 +813,10 @@ export function PortfolioPanel() {
           </div>
         )}
         {tokenMessage && <p className="pf-notice">{tokenMessage}</p>}
-      </section>
+      </details>
 
-      <section className="pf-card" aria-labelledby="pf-add-title">
-        <h2 id="pf-add-title">종목 등록</h2>
+      <details className="pf-card pf-fold" open={registrationOpen || !!formError} onToggle={event => setRegistrationOpen(event.currentTarget.open)}>
+        <summary><h2 id="pf-add-title">종목 등록</h2><span className="pf-muted">직접 보유종목 잔고 보정 · 펼치기</span></summary>
         <form className="pf-add-form" onSubmit={handleAdd}>
           <div className="pf-field">
             <label htmlFor="pf-stock">종목</label>
@@ -958,11 +998,24 @@ export function PortfolioPanel() {
           이 양식은 현재 잔고 보정용이며 거래 이력을 생성하지 않습니다. 매수·매도는 아래 ‘직접 투자 · 매매 이력’에 기록해 주세요. 직접 등록과 자동매매 행은 구분하며 같은 증권사 실계좌의 비중은 함께 계산합니다.
         </p>
         {formError && <p className="pf-error">{formError}</p>}
+      </details>
+
+      <section className="pf-card" aria-labelledby="pf-equity-title">
+        <div className="pf-list-head"><h2 id="pf-equity-title">연동 계좌 자산</h2>
+          <button type="button" className="pf-ghost" disabled={equityBusy} onClick={() => setEquityRefresh(n => n + 1)}>{equityBusy ? "자산 조회 중…" : "자산 이력 새로고침"}</button>
+        </div>
+        <div className="pf-filters"><label>계좌 선택<select aria-label="계좌 선택" value={selection.value} onChange={e => setSelectedAccount(e.target.value)}>
+          {accountOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select></label></div>
+        <p className="pf-muted">선택은 아래 보유종목·계좌별 비중·자동매매 성과에도 적용됩니다. 자산 이력 조회는 Stock-Trading의 새 수집을 실행하지 않습니다.</p>
+        {equityState.owner === memberEmail && equityState.error && <p className="pf-error" role="alert">계좌 목록을 갱신하지 못했습니다. 이전 확인값이 있다면 유지합니다. 다시 조회해 주세요.</p>}
+        {selection.series ? <AccountEquityPanel key={`${equityKey(selection.series)}:${selection.series.received_at}`} latest={selection.series} refresh={equityRefresh} />
+          : <p className="pf-muted pf-equity-empty" role="status">{equityBusy ? "계좌 자산 수신 기록을 확인하고 있습니다." : equityState.error ? "수신 기록을 확인하지 못했습니다. 계좌 목록을 다시 조회해 주세요." : selection.broker && !equitySeries.some(row => row.broker === selection.broker && (!selection.account_type || row.account_type === selection.account_type)) ? "이 계좌의 자산은 아직 미수집입니다. 첫 수집 이후부터 표시됩니다." : "총자산·수익률을 보려면 개별 계좌를 선택해 주세요. 서로 다른 통화·평가 범위의 계좌는 합산하지 않습니다."}</p>}
       </section>
 
       <section className="pf-card" aria-labelledby="pf-list-title">
         <div className="pf-list-head">
-          <h2 id="pf-list-title">내 포트폴리오</h2>
+          <h2 id="pf-list-title">등록 보유종목 평가</h2>
           <div className="pf-list-tools">
             <label className="pf-mail-toggle">
               <input
@@ -992,15 +1045,8 @@ export function PortfolioPanel() {
 
         {listError && <p className="pf-error">{listError}</p>}
         {quotesError && <p className="pf-error" role="status">{quotesError}</p>}
-        <div className="pf-filters">
-          <label>계좌 유형<select aria-label="계좌 유형" value={accountFilter} onChange={(event) => setAccountFilter(event.target.value)}>
-            <option value="all">전체</option><option value="live">실계좌</option><option value="paper">모의계좌</option>
-          </select></label>
-          <label>증권사 필터<select aria-label="증권사 필터" value={brokerFilter} onChange={(event) => setBrokerFilter(event.target.value)}>
-            <option value="all">모든 증권사</option>
-            {[...new Set(holdings.map((holding) => holding.broker))].map((broker) => <option key={broker} value={broker}>{brokerLabel(broker)}</option>)}
-          </select></label>
-        </div>
+        <p className="pf-muted">{selection.label} · 등록 주식만 평가하며 현금은 제외합니다. 같은 증권사의 직접 등록·자동 실계좌 비중은 함께 계산하지만, 위 연동 계좌 총자산에 직접 등록 금액을 더하지 않습니다.</p>
+        {selection.series && <p className="pf-muted">보유종목·매매 성과는 증권사와 실계좌/모의 구분 기준입니다. 같은 증권사에 실제 계좌가 여러 개면 선택한 자산 계좌와 범위가 다를 수 있습니다.</p>}
         {pendingDelete && <div className="pf-notice" role="status">
           {pendingDelete.stock_name} · {deleting ? "삭제 처리 중입니다." : "8초 뒤 잔고에서 삭제됩니다. 매도 이력은 생성하지 않습니다."}
           <button type="button" className="pf-ghost" disabled={deleting} onClick={() => setPendingDelete(null)}>삭제 취소</button>
@@ -1128,7 +1174,7 @@ export function PortfolioPanel() {
         <div className="pf-performance" aria-labelledby="pf-performance-title">
           <h3 id="pf-performance-title">자동매매 누적 성과</h3>
           <p className="pf-muted pf-hint">최종청산 완료 기준 · 수수료·세금 제외</p>
-          {performance.length > 0 && (
+          {visiblePerformance.length > 0 && (
             <label className="pf-mail-toggle">
               <input
                 type="checkbox"
@@ -1139,11 +1185,11 @@ export function PortfolioPanel() {
               외화 손익 원화로 보기{usdKrw ? ` · 현재 환율 ${formatKrw(usdKrw)}원/$` : " · 환율 대기"}
             </label>
           )}
-          {performance.length === 0 ? (
-            <p className="pf-muted">아직 동기화된 자동매매 성과가 없습니다.</p>
+          {visiblePerformance.length === 0 ? (
+            <p className="pf-muted">선택한 조건의 자동매매 성과가 없습니다.</p>
           ) : (
             <div className="pf-performance-grid">
-              {[...performance]
+              {[...visiblePerformance]
                 .sort((left, right) =>
                   accountRank(`${left.broker}:${left.account_type}`)
                   - accountRank(`${right.broker}:${right.account_type}`))
