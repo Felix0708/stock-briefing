@@ -62,8 +62,8 @@ main 브랜치 보호 규칙에는 `quality / qa`를 필수 상태 검사로 등
 
 `GEMINI_API_KEY`, `SUPABASE_SECRET_KEY`, `UPSTASH_REDIS_REST_TOKEN`,
 `RATE_LIMIT_IP_HASH_KEY`에 `NEXT_PUBLIC_` 접두사를 붙이지 않는다.
-Gemini 확정 운영값은 답변 모델 8 RPM·16 RPD, 임베딩 모델 80 RPM·800 RPD다. 답변 모델의
-16 RPD는 재시도를 포함한 전 사용자 합산 상한이며, 실사용 유입 시 무료 티어 병목이 된다.
+Gemini 모델별 호출 예산은 배포자가 자신의 활성 쿼터와 예상 사용량에 맞게 정한다.
+예시 파일의 수치는 공통 보장 한도가 아니다. 일일 예산은 재시도를 포함한 전 사용자 합산 상한이다.
 Vercel CLI의 `.vercel/`과 로컬 `.env*`는 Git ignore 대상이다.
 
 ## 배포 전 게이트
@@ -94,7 +94,7 @@ scripts/qa.sh --base-url http://localhost:3000
 - 운영 Supabase에 최신 `db/schema.sql`이 적용됨
 - 운영 Supabase에 `db/schema_phase5.sql` 적용 후 `db/verify_schema.sql` PASS
 - Upstash Redis가 연결되고 정상·초과·장애 시나리오가 각각 검증됨
-- 확정값 `RATE_LIMIT_GLOBAL_RPM=8`, 답변 `8/16`, 임베딩 `80/800`을 Vercel에 등록함
+- 자신의 프로젝트 쿼터 이내에서 글로벌·모델별 호출 예산을 정해 Vercel에 등록함
 - Vercel WAF가 `POST /api/ask`에 정책 문서의 보조 제한으로 설정됨
 
 키 노출이 의심되면 커밋 삭제만으로 끝내지 않고 해당 공급자에서 즉시 폐기·재발급한다.
@@ -113,10 +113,10 @@ scripts/qa.sh --base-url http://localhost:3000
 
 ## 공시 복구·과거 거래 정정·백업 업데이트
 
-운영 적용 순서는 `20260907072405_briefing_recovery.sql` → `20260907072434_portfolio_revisions.sql` → `20260907072444_portfolio_backup.sql` → `20260907073219_recovery_verification_hardening.sql`이다 (`supabase/migrations/`). 운영에는 2026-09-07 적용했고, 파일명도 실제 마이그레이션 이력과 맞췄다. 적용된 파일을 다시 실행하지 않는다.
+운영 적용 순서는 `20260907072405_briefing_recovery.sql` → `20260907072434_portfolio_revisions.sql` → `20260907072444_portfolio_backup.sql` → `20260907073219_recovery_verification_hardening.sql`이다 (`supabase/migrations/`). 대상 환경의 마이그레이션 이력을 확인하고 적용된 파일을 다시 실행하지 않는다.
 
-새 환경은 기존 수동 거래가 있는 상태에서 초기 잔고를 임의 추정하지 않는다. 해당 마이그레이션은 그 경우 중단하므로 기존 장부의 시작 잔고를 먼저 대조해야 한다. 최초 운영 적용 시 거래 0건과 직접 잔고 3행을 확인했다.
+새 환경은 기존 수동 거래가 있는 상태에서 초기 잔고를 임의 추정하지 않는다. 해당 마이그레이션은 그 경우 중단하므로 기존 장부의 시작 잔고를 먼저 대조해야 한다. 개인 잔고·거래 건수는 공개 문서에 기록하지 않는다.
 
 배포 전 `scripts/qa.sh --build`, `npm run test:browser --prefix web`를 실행한다. 자동 백업 키를 처음 구성할 때만 `node scripts/backup.mjs init-key`를 사용한다. 키는 출력하지 않으며 로컬 비공개 파일과 GitHub Secret에 저장한다. [복구 운영 문서](RECOVERY_WORK.md)의 백업 범위·보관기간·복원 검증 절차를 따른다.
 
-2026-09-07 사용자 승인 후 `portfolio-backup` 워크플로를 활성화했다. 매일 KST 09:17 실행하며 공개 저장소의 Actions artifact에는 암호문만 30일 보관한다. 암호문은 다른 사람이 내려받을 수 있으므로 키·평문은 절대 포함하지 않는다. 첫 자동 백업의 격리 복원과 원격 파일을 다시 내려받아 복원하는 검사 모두 통과했다.
+`portfolio-backup`의 실행 주기는 `.github/workflows/portfolio-backup.yml`에서 배포자가 확인·조정한다. 제공된 워크플로는 Actions artifact에 암호문만 30일 보관한다. 공개 저장소의 암호문은 다른 사람이 내려받을 수 있으므로 활성화 전에 이 공개 범위를 검토하고 키·평문은 절대 포함하지 않는다. 구성 후 격리 복원과 원격 파일을 다시 내려받아 복원하는 검사를 수행한다.

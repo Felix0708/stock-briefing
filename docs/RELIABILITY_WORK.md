@@ -20,7 +20,7 @@
 - Stock-Trading의 `PUT /api/sync/holdings`와 공개 `important_sections` 계약은 그대로다. 직접 투자 이력은 자동매매 성과에 섞지 않는다.
 - 최초 구현 `b51c7f9`는 운영 Vercel 배포와 [GitHub quality](https://github.com/Felix0708/stock-briefing/actions/runs/34089375066)를 통과했다. 비로그인 API 접근 401, 페이지 200, 보유종목 없는 USD 환율 조회를 운영에서 확인했다.
 - 사용자 승인 후 `scripts/verify-live-portfolio.mjs`로 운영 로그인 → 시작 잔고 → 매수/매도 → 동일 요청 재전송 → 초과 매도 차단 → 이력/집계 → 조건부 삭제를 검증했다. 임시 비구독 계정과 테스트 데이터는 즉시 삭제했으며 실제 회원 잔고·주문·메일은 건드리지 않았다.
-- 메일 없는 [수집 실행](https://github.com/Felix0708/stock-briefing/actions/runs/34089525671)에서 4종목 조회 성공/공시 0건과 SE 매핑 실패를 구분해 기록했다. SE는 기본 `company_tickers.json`과 거래소 목록에서 누락됐지만 [SEC 공식 보조 목록](https://www.sec.gov/include/ticker.txt)에 매핑이 있어 누락 시에만 보조 조회하도록 보완했다. 수정 후 SE 공식 제출 목록 조회가 성공하고 최근 1일 대상 공시 0건임을 확인했다.
+- 메일 없는 [수집 실행](https://github.com/Felix0708/stock-briefing/actions/runs/34089525671)에서 공시 없음과 종목 매핑 실패를 구분해 기록했다. 기본 `company_tickers.json`과 거래소 목록에 없는 종목은 [SEC 공식 보조 목록](https://www.sec.gov/include/ticker.txt)을 조회하도록 보완하고 제출 목록 조회를 검증했다. 특정 보유종목이나 수집 대상 수는 공개하지 않는다.
 - 실제 SEC Form 4의 `xslF345X..` 경로는 HTML, 해당 경로를 제외한 원문은 XML임을 확인했다. 분석은 원문 XML로 수행하고 HTML을 거래 없음으로 오인하지 않게 했다.
 - Supabase 보안 Advisor는 이번 변경으로 추가된 경고가 없다. 기존 유출 비밀번호 보호 비활성화 권고는 별개로 남아 있다.
-- 보완 후 [운영 재수집](https://github.com/Felix0708/stock-briefing/actions/runs/34090569194)에서 5개 대상 모두 조회 성공·기간 내 공시 0건으로 저장됐고 전체 수집 상태가 `success`로 전환됐다. 임시 QA 계정 잔존 수는 0이다. 발송을 생략한 실행은 회원의 수신 토글이 꺼진 것으로 오해하지 않도록 별도 문구로 표시한다.
+- 보완 후 [운영 재수집](https://github.com/Felix0708/stock-briefing/actions/runs/34090569194)에서 전체 수집 상태가 `success`로 전환됐다. 임시 QA 계정 제거도 확인했다. 발송을 생략한 실행은 회원의 수신 토글이 꺼진 것으로 오해하지 않도록 별도 문구로 표시한다.

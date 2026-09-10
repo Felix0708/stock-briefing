@@ -16,11 +16,10 @@
 
 현재 잔고를 보존한다. 과거 체결내역을 만들어 넣지 않는다. 잘못된 정정은 전체 트랜잭션을 롤백한다. 사용자 데이터와 백업 평문·키는 공개 저장소·로그에 넣지 않는다. 사용자 승인을 받은 암호문만 Actions artifact에 보관한다. 운영 사용자 잔고로 복원 실험하지 않는다. 기존 동기화 API 계약은 유지한다.
 
-## 사전 확인
+## 적용 전 확인
 
-- 시작 커밋: `6bf32bc`, 작업 트리 깨끗함.
-- 운영 DB의 기존 수동 매매 기록은 0건이다. 기존 직접 등록 잔고는 3행이며 초기 잔고로 보존한다.
-- 현재 개발 환경에는 PostgreSQL 클라이언트가 PATH에 없으므로 DB 검증은 기존 Supabase 연결의 롤백 트랜잭션 또는 사용 가능한 별도 로컬 런타임으로 수행한다.
+- 대상 환경의 기존 잔고와 매매 기록을 비공개로 대조하고 초기 잔고를 보존한다.
+- DB 검증은 격리 PostgreSQL 또는 임시 데이터만 사용하는 롤백 트랜잭션으로 수행한다.
 
 ## 구현과 데이터 경계
 
@@ -38,7 +37,7 @@
 
 웹 화면에서 JSON 다운로드 → 같은 계정으로 파일 선택 → 복원 미리보기 → 현재 데이터 교체 확인 → 복원을 누른다. 처리 중 다른 잔고 변경이 있으면 다시 확인해야 한다. 잘못된 파일이나 장부/잔고 불일치는 전체 롤백한다. 복원 직전 상태는 서버의 비공개 복원점으로 남으며 화면에서 다시 내려받을 수 있다. 웹 복원 파일은 전송 플랫폼 한도를 고려해 2 MB까지 허용한다. CSV는 열람용이며 정정 이력 전체를 담는 복원 파일이 아니다.
 
-자동 작업 `portfolio-backup`은 매일 UTC 00:17(KST 09:17)에 실행하도록 **활성화했다.** 공개 GitHub 저장소의 암호문 보관은 처음에는 안전 검토에 따라 중단했으며, 2026-09-07 사용자의 명시적 승인 후 활성화·실행했다.
+자동 작업 `portfolio-backup`의 실행 일정은 `.github/workflows/portfolio-backup.yml`에 정의되어 있다. 배포자가 자신의 백업 주기와 공개 저장소의 암호문 보관에 동의하는지 확인한 뒤 사용한다.
 
 Node 기본 AES-256-GCM으로 암호화한 **암호문 파일만** Actions artifact에 30일 보관한다. 공개 저장소이므로 암호문 자체는 다른 사람이 내려받을 수 있으며, 평문 또는 키 업로드는 금지한다. 암호화 키는 GitHub Secret `PORTFOLIO_BACKUP_KEY`와 로컬 Git 제외 경로 `.backups/encryption.key`에 별도 보관한다. 키는 복구 시 필요하므로 잃지 않도록 별도 안전한 저장소에도 보관해야 한다.
 
@@ -55,15 +54,15 @@ node scripts/backup.mjs verify .backups/대상파일.sbbackup
 
 - Python 회귀 25개, 웹 API/DB 63개, 데스크톱·iPhone 브라우저 14개 통과.
 - 실제 Gmail 연결: 임의 앱 전용 Message-ID 검색 성공. 다른 메일의 제목·본문은 가져오지 않았다.
-- 실제 SEC SE 6-K: 표지와 EX-99.1 실적자료 수집 성공.
-- 운영 마이그레이션 전후 보유 7행 전체 체크섬 동일. 기존 수동 3행은 초기 잔고로 보존했다.
+- SEC 6-K: 표지와 EX-99.1 실적자료 수집 성공.
+- 운영 마이그레이션 전후 잔고 체크섬 동일. 기존 수동 잔고는 초기 잔고로 보존했다.
 - 운영 `verify_schema.sql`, `verify_portfolio_reliability.sql` PASS. 후자의 가짜 데이터는 전체 롤백됐다.
 - 운영 DB + 로컬 웹 서버: 비구독 임시 QA 계정으로 로그인, 매수/매도, 과거 정정, 취소, 이력, 백업/복원, 조건부 삭제 검증 후 계정과 테스트 데이터 삭제 완료.
-- [운영 웹](https://web-mu-inky-93.vercel.app)에서도 동일한 전체 QA 통과. 검증 후 보유 7행 유지, 남은 임시 QA 계정 0개를 확인했다.
-- 운영 2계정의 실제 암호화 백업을 격리 DB에 복원하고 대조했다. 운영 계정 잔고에는 쓰지 않았다.
+- [운영 웹](https://web-mu-inky-93.vercel.app)에서도 동일한 전체 QA 통과. 검증 후 기존 잔고 유지와 임시 QA 계정 제거를 확인했다.
+- 암호화 백업을 격리 DB에 복원하고 대조했다. 운영 계정 잔고에는 쓰지 않았다.
 - 구현 커밋 [be944f8](https://github.com/Felix0708/stock-briefing/commit/be944f800bec44d3634a4541fb7333656a996363)의 Vercel 운영 배포 READY 확인. [quality 검사](https://github.com/Felix0708/stock-briefing/actions/runs/34096708902), [Pages 배포](https://github.com/Felix0708/stock-briefing/actions/runs/34096708887) 성공.
-- [메일 없는 운영 수집 검증](https://github.com/Felix0708/stock-briefing/actions/runs/34096881969) 성공. 5개 대상 모두 조회 성공·해당 기간 공시 0건이었으며 DB 실행 상태도 `success`다. 이는 새 공시 발송 성공을 의미하지 않는다.
+- [메일 없는 운영 수집 검증](https://github.com/Felix0708/stock-briefing/actions/runs/34096881969) 성공. 수집 상태 저장을 확인했으며 이는 새 공시 발송 성공을 의미하지 않는다.
 - 승인 후 Python 회귀 27개 통과: 이전/새 공시 혼합 발송, 전부 중복인 경우 발송 생략, 검색 실패 시 발송 차단, 검색어 주입 차단, 메일 내용 미조회 검증 포함.
-- [첫 원격 백업](https://github.com/Felix0708/stock-briefing/actions/runs/34115532068) 성공. 2계정 복원 대조 후 암호문 1개를 업로드했고, 원격 파일을 다시 내려받은 뒤 로컬 키로 복원·대조하는 검사도 통과했다. 만료일은 2026-10-07이다.
+- [원격 백업 검증](https://github.com/Felix0708/stock-briefing/actions/runs/34115532068) 성공. 격리 복원 대조 후 암호문을 업로드했고, 원격 파일을 다시 내려받은 뒤 로컬 키로 복원·대조하는 검사도 통과했다.
 
 Supabase Advisor의 `Leaked Password Protection Disabled`는 기존 Auth 설정 경고로 이번 변경에 의해 생긴 것이 아니다. [Supabase 비밀번호 보호 안내](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)를 별도로 확인해야 한다. 신규 서버 전용 테이블은 명시적인 브라우저 차단 정책을 적용했고, 신규 인덱스의 `unused_index` INFO는 실제 사용 전 통계이므로 제거하지 않는다.

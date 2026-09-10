@@ -46,11 +46,11 @@ scripts/qa.sh --build
 | `UPSTASH_REDIS_REST_URL` | 공개 질문 API rate limit용 Redis REST URL | 일반 설정 |
 | `UPSTASH_REDIS_REST_TOKEN` | 공개 질문 API rate limit용 Redis REST token | Secret |
 | `RATE_LIMIT_IP_HASH_KEY` | 원본 IP를 Redis에 남기지 않기 위한 HMAC key | Secret |
-| `RATE_LIMIT_GLOBAL_RPM` | 앱 전체 60초 요청 상한. 확정값 8 | 일반 설정 |
-| `GEMINI_EMBEDDING_RPM_LIMIT` | 재시도를 포함한 임베딩 모델 60초 호출 상한. 확정값 80 | 일반 설정 |
-| `GEMINI_EMBEDDING_DAILY_BUDGET` | 임베딩 모델 24시간 호출 예산. 확정값 800 | 일반 설정 |
-| `GEMINI_ANSWER_RPM_LIMIT` | 재시도를 포함한 답변 모델 60초 호출 상한. 확정값 8 | 일반 설정 |
-| `GEMINI_ANSWER_DAILY_BUDGET` | 답변 모델 24시간 호출 예산. 확정값 16 | 일반 설정 |
+| `RATE_LIMIT_GLOBAL_RPM` | 앱 전체 60초 요청 상한. 코드 기본값 8 | 일반 설정 |
+| `GEMINI_EMBEDDING_RPM_LIMIT` | 재시도를 포함한 임베딩 모델 60초 호출 상한 | 일반 설정 |
+| `GEMINI_EMBEDDING_DAILY_BUDGET` | 임베딩 모델 24시간 호출 예산 | 일반 설정 |
+| `GEMINI_ANSWER_RPM_LIMIT` | 재시도를 포함한 답변 모델 60초 호출 상한 | 일반 설정 |
+| `GEMINI_ANSWER_DAILY_BUDGET` | 답변 모델 24시간 호출 예산 | 일반 설정 |
 | `RAG_MATCH_COUNT` | 검색할 공시 청크 개수 | 일반 설정 |
 | `RAG_MIN_SIMILARITY` | 답변 근거로 사용할 최소 코사인 유사도 | 일반 설정 |
 | `GITHUB_DISPATCH_TOKEN` | 온디맨드 수집 Actions 실행용 fine-grained PAT | Secret |
@@ -61,10 +61,10 @@ scripts/qa.sh --build
 `web/.env.local`과 Vercel 환경변수에만 저장하며, Git에는 `.env.local.example`만
 커밋합니다.
 
-확정 실측 원본값은 답변 모델 RPM 10·RPD 20, 임베딩 모델 RPM 100·RPD 1,000이며 위 값은
-각각 80%입니다. 모델별 RPM·24시간 RPD는 실제 Gemini 전송 직전에 단일 원자 연산으로
-차감되어 재시도도 각 1회로 계산됩니다. 답변 모델 16 RPD는 전 사용자 합산 상한이므로
-실사용 유입 시 무료 티어 병목이 됩니다.
+모델과 호출 예산은 배포자가 자신의 프로젝트 한도에 맞게 선택합니다. `.env.local.example`의
+수치는 설정 형식을 보여주는 예시이며 공급자의 보장 한도나 개인 운영값이 아닙니다.
+모델별 RPM·24시간 RPD는 실제 Gemini 전송 직전에 단일 원자 연산으로 차감되어 재시도도
+각 1회로 계산됩니다. 일일 예산은 전 사용자 합산 상한이므로 예상 사용량도 함께 고려합니다.
 
 Vercel 설정과 배포 전 점검은 [`docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.md)를 따릅니다.
 

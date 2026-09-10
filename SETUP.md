@@ -30,7 +30,7 @@ pip install -r requirements.txt
 cp .env.example .env
 # .env 파일 열어서 위에서 발급한 키 3개 + 메일 주소 입력
 
-# watchlist.yaml에 본인 관심 종목 입력 후:
+# watchlist.yaml에는 공개해도 되는 수집 대상만 입력 (개인 잔고는 웹에 등록):
 python -m pipeline.main --dry-run   # 메일 안 보내고 briefing_preview.html 생성
 open briefing_preview.html          # 결과 미리보기
 
@@ -52,8 +52,11 @@ python -m pipeline.main             # 실제 메일 발송 테스트
 4. 같은 화면의 **Variables**에 선택 설정을 등록:
    - `GEMINI_MODEL` (미등록 시 `gemini-2.5-flash-lite`)
    - `SEND_EMAIL` (미등록 시 `true`, 메일을 끄려면 `false`)
+
+   모델·발송 여부는 배포자의 선택입니다. 예시값을 개인 설정이나 모든 프로젝트에 공통인 한도로 해석하지 마세요.
+
 5. Actions 탭 → daily-briefing → **Run workflow** 로 수동 실행해서 메일 오는지 확인
-6. 이후 매일 아침 07:30(한국/일본 시간)에 자동 발송됨
+6. 제공된 워크플로의 기본 일정은 평일 07:30(한국/일본 시간)입니다. 배포자가 필요에 맞게 실행 일정을 조정합니다.
 
 ## 6. 웹 대시보드 켜기 (GitHub Pages, 2분)
 
