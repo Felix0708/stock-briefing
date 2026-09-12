@@ -79,6 +79,17 @@ test('키움 국내·미국 계열과 보유종목을 분리하고 빈 기간을
   if (info.project.name === 'iphone') await expect(page.locator('.pf-table thead th').first()).toHaveCSS('display','block');
   const layout=await page.evaluate(()=>({width:document.documentElement.scrollWidth,viewport:innerWidth,
     overflow:[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right>innerWidth).map(e=>({tag:e.tagName,class:e.className,right:e.getBoundingClientRect().right})).slice(0,12)}));
+  if(layout.width>layout.viewport) {
+    const diagnosis=await page.evaluate(()=>{
+      const parts=['nextjs-portal','.pf-filters','.pf-table','.pf-equity','.pf-performance','.pf-pie-grid','.pf-list-tools'];
+      const hidden=parts.map(selector=>{const nodes=[...document.querySelectorAll<HTMLElement>(selector)],old=nodes.map(e=>e.style.display);nodes.forEach(e=>e.style.display='none');const width=document.documentElement.scrollWidth;nodes.forEach((e,i)=>e.style.display=old[i]);return {selector,width};});
+      const text:unknown[]=[];const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let node;
+      while((node=walker.nextNode())){const range=document.createRange();range.selectNodeContents(node);const rect=range.getBoundingClientRect();if(rect.right>innerWidth)text.push({parent:node.parentElement?.tagName,class:node.parentElement?.className,value:node.textContent?.slice(0,100),right:rect.right});}
+      return {hidden,text:text.slice(0,12),scrolling:[...document.querySelectorAll<HTMLElement>('body *')].filter(e=>e.scrollWidth>e.clientWidth+20).map(e=>({tag:e.tagName,class:e.className,scroll:e.scrollWidth,client:e.clientWidth,overflow:getComputedStyle(e).overflow})).slice(0,20)};
+    });
+    console.log('layout-diagnosis',JSON.stringify(diagnosis));
+    await page.screenshot({path:info.outputPath('full-layout-failure.png'),fullPage:true});
+  }
   expect(layout.width,JSON.stringify(layout)).toBeLessThanOrEqual(layout.viewport);
   expect(errors).toEqual([]);
 });
