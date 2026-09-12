@@ -1606,6 +1606,8 @@ a.source-item:focus-visible {
     border: 0;
   }
 
+  .pf-table thead th { display: block; }
+
   .pf-table tbody {
     display: grid;
     gap: 10px;
