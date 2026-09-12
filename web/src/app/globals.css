@@ -1200,6 +1200,7 @@ a.source-item:focus-visible {
 .pf-fold[open] > summary { margin-bottom: 14px; }
 .pf-filters label { min-width: 0; max-width: 100%; }
 .pf-equity-summary strong { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.pf-summary.pf-equity-total > div:first-child { grid-column: 1 / -1; }
 .pf-equity-chart { border-top: 1px solid var(--line); margin-top: 24px; padding-top: 12px; }
 .pf-equity-switches, .pf-equity-switches > div { display: flex; flex-wrap: wrap; gap: 6px; }
 .pf-equity-switches { justify-content: space-between; gap: 12px; }
@@ -1217,6 +1218,7 @@ a.source-item:focus-visible {
 @media (max-width: 640px) {
   .pf-summary.pf-equity-summary > div:first-child { grid-column: 1 / -1; }
   .pf-summary.pf-equity-summary > div:last-child { grid-column: auto; }
+  .pf-summary.pf-equity-total > div:last-child { grid-column: 1 / -1; }
 }
 @media (max-width: 360px) {
   .pf-summary.pf-equity-summary { grid-template-columns: minmax(0, 1fr); }

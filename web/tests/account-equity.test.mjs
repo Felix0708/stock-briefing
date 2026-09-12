@@ -16,6 +16,9 @@ const input=(s=series)=>({version:1,series:[s]});
 const flat=()=>parseEquity(input())[0];
 const domestic={...series,broker:'KIWOOM',scope:'domestic',points:[{...point,source:'KIWOOM_KR_EQUITY',equity:'1000000',cash:'200000',stock_value:'800000'}]};
 const overseas={...series,broker:'KIWOOM',currency:'USD',scope:'overseas',points:[{...point,source:'KIWOOM_US_EQUITY',equity:'1000'}]};
+const breakdown={status:'verified',domestic_stock_value_krw:'100000',us_stock_value_usd:'100',us_stock_value_krw:'130000',cash_krw:'20000',usd_krw_rate:'1300',
+  fx_source:'KIWOOM_USD_SELL',observed_at:point.collected_at,source:'KIWOOM_LINKED_V1',cash_scope:'separate-accounts'};
+const linked={...series,account_group_ref:other,broker:'KIWOOM',points:[{...point,source:'KIWOOM_ACCOUNT_EQUITY',equity:'250000',cash:'20000',stock_value:'230000',breakdown}]};
 const originalFetch=globalThis.fetch, originalEnv={...process.env};
 test.afterEach(()=>{globalThis.fetch=originalFetch;process.env={...originalEnv};delete globalThis.__testCookieJar;});
 
@@ -140,4 +143,50 @@ test('Postgres: RLS, idempotence, correction ordering, atomic conflict, omitted 
     await assert.rejects(sync([]),/invalid integration token/);
     assert.equal((await db.query('select count(*)::int n from account_equity_points')).rows[0].n,3);
   } finally {await db.close();}
+});
+
+test('optional v1 detail reconciles exact amounts, sources and times in API and SQL; old rows stay intact',async()=>{
+  const records=parseEquity(input(linked));assert.equal(records.length,1);
+  const row=records[0];assert.equal(row.account_group_ref,other);
+  const db=await createDatabase([owner,other]);
+  try {
+    await db.query('insert into integration_tokens(user_id,token_hash,token_hint) values($1,$2,$3)',[owner,'a'.repeat(64),'aaaaaa']);
+    const sync=async(rows)=>(await db.query('select sync_account_equity($1,$2::jsonb) as n',['a'.repeat(64),JSON.stringify(rows)])).rows[0].n;
+    await sync([flat()]);
+    const before=(await db.query('select * from account_equity_points')).rows;
+    await db.exec('reset role');
+    await db.exec(await readFile(new URL('../../supabase/migrations/20260912081020_account_equity_breakdown.sql',import.meta.url),'utf8'));
+    await db.exec('set role service_role');
+    assert.deepEqual((await db.query('select * from account_equity_points')).rows,before);
+    for(const patch of [{breakdown:null},{breakdown:[]},{account_group_ref:null},{account_group_ref:'account-number'},
+      {equity:null},{equity:'250002.00000001'},{cash:'20003'},{stock_value:'230003'},
+      ...[{status:'unverified'},{usd_krw_rate:'0'},{usd_krw_rate:'1e3'},{cash_krw:null},{cash_krw:20000},{domestic_stock_value_krw:'-1'},
+        {us_stock_value_krw:'130002.00000001'},{usd_krw_rate:'1300.02000001'},
+        {fx_source:'KIS_USD_FIRST'},{source:'KIS_RECONCILED_V1'},{cash_scope:'account'},
+        {observed_at:'2026-09-01T00:57:59Z'},{observed_at:'2026-09-01T01:00:01Z'},{observed_at:'not-a-date'},
+        {secret:'no'}].map(p=>({breakdown:{...breakdown,...p}}))]) {
+      const {account_group_ref,...pointPatch}=patch;
+      const candidate={...linked,...(Object.hasOwn(patch,'account_group_ref')?{account_group_ref}:{}),points:[{...linked.points[0],...pointPatch}]};
+      assert.equal(typeof parseEquity(input(candidate)),'string',JSON.stringify(patch));
+      await assert.rejects(sync([{...row,...patch}]),undefined,JSON.stringify(patch));
+    }
+    assert.equal(await sync(records),1);assert.equal(await sync(records),0);
+    const tolerant={...row,equity:'250002',breakdown:{...breakdown,observed_at:'2026-09-01T00:58:00Z'}};
+    assert.equal(parseEquity(input({...linked,points:[{...linked.points[0],equity:tolerant.equity,breakdown:tolerant.breakdown}]})).length,1);
+    await assert.rejects(sync([tolerant]),/conflicting/);
+    const negative={...linked,account_ref:other,points:[{...linked.points[0],equity:'210000',cash:'-20000',breakdown:{...breakdown,cash_krw:'-20000'}}]};
+    assert.equal(await sync(parseEquity(input(negative))),1);
+    const kis={...linked,broker:'KIS',points:[{...linked.points[0],source:'KIS_ACCOUNT_EQUITY',breakdown:{...breakdown,source:'KIS_RECONCILED_V1',fx_source:'KIS_USD_FIRST',cash_scope:'account'}}]};
+    const kisRows=parseEquity(input(kis));assert.equal(kisRows.length,1);
+    await assert.rejects(sync(kisRows),/conflicting/);
+    kisRows[0].calculated_at='2026-09-01T03:00:00.000Z';assert.equal(await sync(kisRows),1);
+    await db.exec(`reset role;set role authenticated;set request.jwt.claim.sub='${other}'`);
+    assert.deepEqual((await db.query('select account_equity_series() as data')).rows[0].data,[]);
+  } finally {await db.close();}
+  assert.equal(chartValue(row,'domestic'),100000);assert.equal(chartValue(row,'us'),130000);
+  assert.equal(chartValue(flat(),'us'),null);
+  const next={...row,date:'2026-09-02'};
+  assert.equal(canConnect(row,next,'us'),true);
+  for(const patch of [{breakdown:undefined},{date:'2026-09-03'},{account_ref:other},{account_group_ref:owner}]) assert.equal(canConnect(row,{...next,...patch},'us'),false);
+  assert.equal(canConnect(parseEquity(input(domestic))[0],next,'equity'),false);
 });

@@ -9,11 +9,25 @@ export type EquityIdentity = {
   scope: "domestic" | "overseas" | "account-total-assets";
 };
 export type EquityBasis = {
+  account_group_ref?: string;
   date_timezone: "Asia/Seoul";
   return_method: typeof RETURN_METHOD | null;
   return_base_at: string | null;
 };
+export type EquityBreakdown = {
+  status: "verified";
+  domestic_stock_value_krw: string;
+  us_stock_value_usd: string;
+  us_stock_value_krw: string;
+  cash_krw: string;
+  usd_krw_rate: string;
+  fx_source: "KIWOOM_USD_SELL" | "KIS_USD_FIRST";
+  observed_at: string;
+  source: "KIWOOM_LINKED_V1" | "KIS_RECONCILED_V1";
+  cash_scope: "same-account" | "separate-accounts" | "account";
+};
 export type EquityPoint = {
+  breakdown?: EquityBreakdown;
   date: string;
   valued_at: string | null;
   collected_at: string;
@@ -23,7 +37,7 @@ export type EquityPoint = {
   stock_value: string | null;
   return_index: string | null;
   return_status: "verified" | "insufficient_samples" | "cash_flows_unverified" | "scope_unverified" | "invalid_data";
-  source: "KIWOOM_KR_EQUITY" | "KIWOOM_US_EQUITY" | "KIS_ACCOUNT_EQUITY";
+  source: "KIWOOM_KR_EQUITY" | "KIWOOM_US_EQUITY" | "KIWOOM_ACCOUNT_EQUITY" | "KIS_ACCOUNT_EQUITY";
 };
 export type EquityRecord = EquityIdentity & EquityBasis & EquityPoint & { received_at: string };
 export type EquityInput = Omit<EquityRecord, "received_at">;
@@ -32,6 +46,7 @@ export type EquitySeries = EquityIdentity & EquityBasis & { points: EquityPoint[
 export function equitySource(broker: unknown, currency: unknown, scope: unknown): EquityPoint["source"] | null {
   if (broker === "KIWOOM" && currency === "KRW" && scope === "domestic") return "KIWOOM_KR_EQUITY";
   if (broker === "KIWOOM" && currency === "USD" && scope === "overseas") return "KIWOOM_US_EQUITY";
+  if (broker === "KIWOOM" && currency === "KRW" && scope === "account-total-assets") return "KIWOOM_ACCOUNT_EQUITY";
   if (broker === "KIS" && currency === "KRW" && scope === "account-total-assets") return "KIS_ACCOUNT_EQUITY";
   return null;
 }
@@ -58,14 +73,19 @@ export const RETURN_REASONS = {
   invalid_data: "수익률 계산 자료 확인 필요",
 };
 
-export function chartValue(point: EquityRecord, metric: "equity" | "return"): number | null {
+export type EquityMetric = "equity" | "return" | "domestic" | "us";
+export const EQUITY_METRICS = { equity: "총자산", return: "누적 수익률", domestic: "국내주식 평가액", us: "미국주식 평가액" };
+export function chartValue(point: EquityRecord, metric: EquityMetric): number | null {
+  if (metric === "domestic" || metric === "us") return point.breakdown ? Number(metric === "domestic" ? point.breakdown.domestic_stock_value_krw : point.breakdown.us_stock_value_krw) : null;
   if (metric === "equity") return point.equity === null ? null : Number(point.equity);
   return point.return_status === "verified" && point.return_method === RETURN_METHOD && point.return_base_at && point.return_index !== null
     ? (Number(point.return_index) - 1) * 100 : null;
 }
-export function canConnect(left: EquityRecord, right: EquityRecord, metric: "equity" | "return"): boolean {
+export function canConnect(left: EquityRecord, right: EquityRecord, metric: EquityMetric): boolean {
   return Date.parse(right.date) - Date.parse(left.date) === 86_400_000
     && equityKey(left) === equityKey(right)
+    && left.account_group_ref === right.account_group_ref
     && chartValue(left, metric) !== null && chartValue(right, metric) !== null
-    && (metric === "equity" || (left.return_base_at === right.return_base_at && left.return_method === right.return_method));
+    && (metric !== "return" || (left.return_base_at === right.return_base_at && left.return_method === right.return_method))
+    && (!["domestic", "us"].includes(metric) || left.breakdown?.source === right.breakdown?.source);
 }

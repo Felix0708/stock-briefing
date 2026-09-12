@@ -8,7 +8,7 @@ import { loadPortfolioQuotes, type Quote } from "@/lib/client/portfolio-quotes";
 import { ManualTradesPanel } from "@/components/manual-trades-panel";
 import { BriefingStatusPanel } from "@/components/briefing-status-panel";
 import { PortfolioBackupPanel } from "@/components/portfolio-backup-panel";
-import { AccountEquityPanel } from "@/components/account-equity-panel";
+import { AccountEquityEmpty, AccountEquityPanel } from "@/components/account-equity-panel";
 import { equityKey, equityLabel, type EquityRecord } from "@/lib/account-equity";
 import {
   accountGroupKey,
@@ -184,7 +184,7 @@ export function PortfolioPanel() {
   const [jpyKrw, setJpyKrw] = useState<number | null>(null);
   const [showPricesInKrw, setShowPricesInKrw] = useState(false);
   const [showPerformanceInKrw, setShowPerformanceInKrw] = useState(false);
-  const [selectedAccount, setSelectedAccount] = useState("all");
+  const [selectedAccount, setSelectedAccount] = useState("");
   const [equityState, setEquityState] = useState<{owner: string; series: EquityRecord[]; error: boolean}>({owner:"",series:[],error:false});
   const [equityRefresh, setEquityRefresh] = useState(0);
   const [equityBusy, setEquityBusy] = useState(false);
@@ -570,10 +570,15 @@ export function PortfolioPanel() {
   }
   for (const [key, group] of [...groups.entries()].sort(([a],[b]) => accountRank(a) - accountRank(b))) {
     const matched = equitySeries.filter(row => row.broker === group.broker && row.account_type === group.account_type);
-    if (matched.length !== 1) accountOptions.push({value:key,label:`${brokerLabel(group.broker)} ${group.account_type === "paper" ? "모의계좌" : "실계좌"}${matched.length > 1 ? " · 합쳐 보기" : ""}`,...group});
-    for (const series of matched) accountOptions.push({value:`series:${equityKey(series)}`,label:equityLabel(series)+(matched.length > 1 ? ` · 식별 ${series.account_ref.slice(0,8)}` : ""),...group,series});
+    const totals = matched.filter(row => row.scope === "account-total-assets");
+    if (totals.length !== 1) accountOptions.push({value:key,label:`${brokerLabel(group.broker)} ${group.account_type === "paper" ? "모의계좌" : "실계좌"}${totals.length > 1 ? " · 묶음 선택 필요" : " · 총자산 미수집"}`,...group});
+    for (const series of [...totals, ...matched.filter(row => row.scope !== "account-total-assets")]) accountOptions.push({value:`series:${equityKey(series)}`,label:series.scope === "account-total-assets"
+      ? `${brokerLabel(series.broker)} ${series.account_type === "paper" ? "모의" : "실계좌"} · 연결 계좌 묶음 총자산${totals.length > 1 ? ` · 식별 ${(series.account_group_ref ?? series.account_ref).slice(0,8)}` : ""}`
+      : `${equityLabel(series)} · 기존 기록${matched.length > 1 ? ` · 식별 ${series.account_ref.slice(0,8)}` : ""}`,...group,series});
   }
-  const selection = accountOptions.find(option => option.value === selectedAccount) ?? accountOptions[0];
+  const selection = accountOptions.find(option => option.value === selectedAccount)
+    ?? accountOptions.find(option => option.series?.scope === "account-total-assets")
+    ?? accountOptions[0];
   const accountFilter = selection.account_type ?? "all";
   const brokerFilter = selection.broker ?? "all";
   const marketFilter = selection.series?.scope === "domestic" ? "KR" : selection.series?.scope === "overseas" ? "US" : "all";
@@ -1012,7 +1017,7 @@ export function PortfolioPanel() {
         <p className="pf-muted">선택은 아래 보유종목·계좌별 비중·자동매매 성과에도 적용됩니다. 자산 이력 조회는 Stock-Trading의 새 수집을 실행하지 않습니다.</p>
         {equityState.owner === memberEmail && equityState.error && <p className="pf-error" role="alert">계좌 목록을 갱신하지 못했습니다. 이전 확인값이 있다면 유지합니다. 다시 조회해 주세요.</p>}
         {selection.series ? <AccountEquityPanel key={`${equityKey(selection.series)}:${selection.series.received_at}`} latest={selection.series} refresh={equityRefresh} />
-          : <p className="pf-muted pf-equity-empty" role="status">{equityBusy ? "계좌 자산 수신 기록을 확인하고 있습니다." : equityState.error ? "수신 기록을 확인하지 못했습니다. 계좌 목록을 다시 조회해 주세요." : selection.broker && !equitySeries.some(row => row.broker === selection.broker && (!selection.account_type || row.account_type === selection.account_type)) ? "이 계좌의 자산은 아직 미수집입니다. 첫 수집 이후부터 표시됩니다." : "총자산·수익률을 보려면 개별 계좌를 선택해 주세요. 서로 다른 통화·평가 범위의 계좌는 합산하지 않습니다."}</p>}
+          : <AccountEquityEmpty message={equityBusy ? "계좌 자산 수신 기록을 확인하고 있습니다." : equityState.error ? "수신 기록을 확인하지 못했습니다. 계좌 목록을 다시 조회해 주세요." : selection.broker && !equitySeries.some(row => row.broker === selection.broker && row.scope === "account-total-assets" && (!selection.account_type || row.account_type === selection.account_type)) ? "이 연결 계좌 묶음의 총자산은 아직 미수집입니다. Stock-Trading의 수집·전송 상태를 확인해 주세요. 기존 국내·해외 기록은 계좌 선택에서 따로 볼 수 있습니다." : "총자산·상세를 보려면 연결 계좌 묶음을 선택해 주세요. 서로 다른 계좌 묶음을 임의로 합산하지 않습니다."} />}
       </section>
 
       <section className="pf-card" aria-labelledby="pf-list-title">
