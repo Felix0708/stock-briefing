@@ -26,6 +26,7 @@ import {
   hashIntegrationToken,
   isIntegrationToken,
   parseSnapshot,
+  serviceRest,
 } from "../src/lib/server/holdings-integration.ts";
 
 const ORIGINAL_ENV = { ...process.env };
@@ -89,6 +90,41 @@ test("토큰은 충분한 난수 원문을 한 번 만들고 SHA-256 해시만 �
   assert.match(hashIntegrationToken(first), /^[0-9a-f]{64}$/);
   assert.equal(hashIntegrationToken(first), hashIntegrationToken(first));
   assert.doesNotMatch(hashIntegrationToken(first), /sb_sync_/);
+});
+
+test("상위 장애 로그는 오류 코드·소요시간만 남기고 토큰·계좌·본문을 노출하지 않는다", async () => {
+  const logs = [];
+  console.error = (line) => logs.push(JSON.parse(line));
+  const secret = "private-token-account-amount";
+  const requestId = "11111111-2222-4333-8444-555555555555";
+  for (const code of ["PGRST003", "57014", secret]) {
+    globalThis.fetch = async () => Response.json({ code, message: secret, details: secret, hint: secret }, {
+      status: 504, headers: { "proxy-status": `PostgREST; error=${code}`, "sb-request-id": code === secret ? secret : requestId },
+    });
+    await assert.rejects(serviceRest(`rpc/sync_account_equity?token_hash=${secret}`, {
+      method: "POST", body: secret, headers: { Authorization: secret },
+    }), (error) => error.status === 504);
+    assert.deepEqual(logs.at(-1), {
+      event: "integration_upstream_error", operation: "rpc/sync_account_equity", kind: "http", status: 504,
+      duration_ms: logs.at(-1).duration_ms, code: code === secret ? null : code,
+      proxy_code: code === secret ? null : code, upstream_request_id: code === secret ? null : requestId,
+    });
+  }
+  globalThis.fetch = async () => new Response(`<html>${secret}</html>`, { status: 502 });
+  await assert.rejects(serviceRest(secret, { method: "GET" }), (error) => error.status === 502);
+  assert.equal(logs.at(-1).operation, "other");
+  assert.equal(logs.at(-1).code, null);
+  for (const [name, kind] of [["TimeoutError", "timeout"], ["AbortError", "aborted"], ["TypeError", "transport"]]) {
+    globalThis.fetch = async () => { const error = new Error(secret); error.name = name; throw error; };
+    await assert.rejects(serviceRest(`integration_tokens?user_id=${secret}`, { method: "GET" }));
+    assert.equal(logs.at(-1).operation, "integration_tokens");
+    assert.equal(logs.at(-1).kind, kind);
+  }
+  assert.ok(logs.every((log) => Number.isInteger(log.duration_ms) && log.duration_ms >= 0));
+  assert.ok(!JSON.stringify(logs).includes(secret));
+  globalThis.fetch = async () => Response.json(2);
+  assert.equal(await serviceRest("rpc/sync_account_equity", { method: "POST" }), 2);
+  assert.equal(logs.length, 7);
 });
 
 test("발급·재발급은 원문이 아닌 새 해시로 교체하고 폐기는 본인 user_id만 사용한다", async () => {

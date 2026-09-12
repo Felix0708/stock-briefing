@@ -85,7 +85,18 @@ function serviceHeaders(): Record<string, string> {
   return headers;
 }
 
+const REST_OPERATIONS = new Set([
+  "integration_tokens", "integration_sync_status", "rpc/sync_account_equity",
+  "rpc/replace_synced_holdings", "rpc/export_portfolio", "rpc/restore_portfolio",
+  "rpc/record_manual_trade", "rpc/revise_manual_trade",
+]);
+const upstreamCode = (value: unknown): string | null =>
+  typeof value === "string" && /^(?:[A-Z0-9]{5}|PGRST[A-Z0-9]{3})$/.test(value) ? value : null;
+
 export async function serviceRest<T>(path: string, init: RequestInit): Promise<T> {
+  const started = performance.now();
+  const resource = path.split("?")[0];
+  const operation = REST_OPERATIONS.has(resource) ? resource : "other";
   let response: Response;
   try {
     response = await fetch(`${serviceEnv().url}/rest/v1/${path}`, {
@@ -93,11 +104,22 @@ export async function serviceRest<T>(path: string, init: RequestInit): Promise<T
       signal: init.signal ?? AbortSignal.timeout(15_000),
       headers: { ...serviceHeaders(), ...(init.headers ?? {}) },
     });
-  } catch {
+  } catch (error) {
+    const kind = error instanceof Error && error.name === "TimeoutError" ? "timeout"
+      : error instanceof Error && error.name === "AbortError" ? "aborted" : "transport";
+    console.error(JSON.stringify({ event: "integration_upstream_error", operation, kind,
+      duration_ms: Math.round(performance.now() - started) }));
     throw new UpstreamError("Supabase");
   }
   if (!response.ok) {
-    console.error(`[integration] PostgREST ${response.status}`);
+    // Never log URLs/query strings, credentials, request bodies, or upstream error prose.
+    const body: unknown = await response.json().catch(() => null);
+    const code = body && typeof body === "object" && "code" in body ? upstreamCode(body.code) : null;
+    const proxyCode = upstreamCode(/(?:^|;)\s*error="?([A-Z0-9]+)"?(?:;|$)/.exec(response.headers.get("proxy-status") ?? "")?.[1]);
+    const requestId = response.headers.get("sb-request-id");
+    console.error(JSON.stringify({ event: "integration_upstream_error", operation, kind: "http",
+      status: response.status, duration_ms: Math.round(performance.now() - started), code, proxy_code: proxyCode,
+      upstream_request_id: requestId && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(requestId) ? requestId : null }));
     throw new UpstreamError("Supabase", response.status);
   }
   const text = await response.text();
