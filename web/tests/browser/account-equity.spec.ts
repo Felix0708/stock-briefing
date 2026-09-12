@@ -76,22 +76,9 @@ test('키움 국내·미국 계열과 보유종목을 분리하고 빈 기간을
   await expect(page.getByText('선택 기간에 수집된 기록이 없습니다.',{exact:true})).toBeVisible();
   await expect(page.locator('.pf-equity-svg')).toHaveCount(0);
   await expect(page.locator('.pf-equity-summary')).toContainText('1,000,000원');
-  if (info.project.name === 'iphone') await expect(page.locator('.pf-table thead th').first()).toHaveCSS('display','block');
   const layout=await page.evaluate(()=>({width:document.documentElement.scrollWidth,viewport:innerWidth,
     overflow:[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right>innerWidth).map(e=>({tag:e.tagName,class:e.className,right:e.getBoundingClientRect().right})).slice(0,12)}));
   if(layout.width>layout.viewport) {
-    const diagnosis=await page.evaluate(()=>{
-      const viewport={scrollX,innerWidth,body:document.body.scrollWidth,client:document.documentElement.clientWidth,visual:visualViewport?{width:visualViewport.width,scale:visualViewport.scale,left:visualViewport.offsetLeft}:null,active:document.activeElement?.tagName};
-      window.scrollTo(0,scrollY);const resetWidth=document.documentElement.scrollWidth;
-      const variants=[['.pf-filters select','overflow:hidden;text-overflow:ellipsis'],['.pf-filters select','font-size:16px'],['.pf-filters select','min-width:0'],['.pf-filters select','appearance:none'],['.pf-filters label','overflow:hidden'],['.pf-filters label','display:grid']];
-      const treatments=variants.map(([selector,css])=>{const nodes=[...document.querySelectorAll<HTMLElement>(selector)],old=nodes.map(e=>e.style.cssText);nodes.forEach(e=>e.style.cssText+=';'+css);const width=document.documentElement.scrollWidth;nodes.forEach((e,i)=>e.style.cssText=old[i]);return {selector,css,width,restored:document.documentElement.scrollWidth};});
-      const parts=['nextjs-portal','.pf-filters','.pf-table','.pf-equity','.pf-performance','.pf-pie-grid','.pf-list-tools'];
-      const hidden=parts.map(selector=>{const nodes=[...document.querySelectorAll<HTMLElement>(selector)],old=nodes.map(e=>e.style.display);nodes.forEach(e=>e.style.display='none');const width=document.documentElement.scrollWidth;nodes.forEach((e,i)=>e.style.display=old[i]);return {selector,width};});
-      const text:unknown[]=[];const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let node;
-      while((node=walker.nextNode())){const range=document.createRange();range.selectNodeContents(node);const rect=range.getBoundingClientRect();if(rect.right>innerWidth)text.push({parent:node.parentElement?.tagName,class:node.parentElement?.className,value:node.textContent?.slice(0,100),right:rect.right});}
-      return {viewport,resetWidth,treatments,hidden,text:text.slice(0,12),scrolling:[...document.querySelectorAll<HTMLElement>('body *')].filter(e=>e.scrollWidth>e.clientWidth+20).map(e=>({tag:e.tagName,class:e.className,scroll:e.scrollWidth,client:e.clientWidth,overflow:getComputedStyle(e).overflow})).slice(0,20)};
-    });
-    console.log('layout-diagnosis',JSON.stringify(diagnosis));
     await page.screenshot({path:info.outputPath('full-layout-failure.png'),fullPage:true});
   }
   expect(layout.width,JSON.stringify(layout)).toBeLessThanOrEqual(layout.viewport);

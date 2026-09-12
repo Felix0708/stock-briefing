@@ -1198,7 +1198,8 @@ a.source-item:focus-visible {
 .pf-fold > summary h2 { display: inline; margin: 0; }
 .pf-fold > summary > span { display: block; margin-top: 5px; padding-left: 16px; }
 .pf-fold[open] > summary { margin-bottom: 14px; }
-.pf-filters label { min-width: 0; max-width: 100%; }
+.pf-filters label { min-width: 0; max-width: 100%; overflow: hidden; }
+.pf-filters select:focus-visible { outline: 2px solid var(--primary); outline-offset: -3px; }
 .pf-equity-summary strong { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .pf-summary.pf-equity-total > div:first-child { grid-column: 1 / -1; }
 .pf-equity-chart { border-top: 1px solid var(--line); margin-top: 24px; padding-top: 12px; }
@@ -1592,8 +1593,6 @@ a.source-item:focus-visible {
   }
 
   .pf-table thead {
-    /* A table-header-group can leak intrinsic cell widths into WebKit's scroll area. */
-    display: block;
     position: absolute;
     width: 1px;
     height: 1px;
@@ -1601,12 +1600,9 @@ a.source-item:focus-visible {
     margin: -1px;
     overflow: hidden;
     clip: rect(0, 0, 0, 0);
-    clip-path: inset(50%);
     white-space: nowrap;
     border: 0;
   }
-
-  .pf-table thead th { display: block; }
 
   .pf-table tbody {
     display: grid;
