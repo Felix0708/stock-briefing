@@ -10,6 +10,7 @@ JPY 자산 이력은 이번 계약에 포함하지 않는다. 기존 일본 보�
 
 1. Stock-Briefing Supabase 프로젝트인지 확인한다.
 2. [추가 전용 마이그레이션](../supabase/migrations/20260910145025_account_equity_history.sql)을 적용한다. 기존 잔고와 과거 기록을 삭제하지 않는다.
+   이어서 [국내 자산 범위 확장](../supabase/migrations/20260912074043_account_equity_domestic.sql)을 적용한다. 국내 계열 송신은 수신 DB와 웹 배포가 모두 완료된 뒤 켠다.
 3. RLS 및 함수 실행권을 확인한다. `authenticated`는 자신의 이력 SELECT만, `service_role`은 수신 함수 실행과 이력 쓰기만 허용한다. `anon` 접근은 금지한다.
 4. 해당 커밋의 웹 배포가 READY인지 확인한다. 기존 `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, 공개 Auth 키를 재사용하며 새 비밀값은 없다.
 5. 비로그인 GET, 잘못된 Bearer PUT의 401 및 격리 QA 계정의 한 점/null 분해값/재전송/409/소유자 분리를 검증한다.
@@ -27,7 +28,7 @@ JPY 자산 이력은 이번 계약에 포함하지 않는다. 기존 일본 보�
 | --- | --- |
 | account_ref | 실제 계좌의 로컬 매핑에 보존하는 무작위 UUID. 계좌번호나 키 지문이 아님 |
 | broker / account_type | KIWOOM 또는 KIS / paper 또는 live |
-| currency / scope | KRW 또는 USD / overseas 또는 account-total-assets |
+| currency / scope | 아래 출처별 조합만 허용: domestic, overseas, account-total-assets |
 | date_timezone | Asia/Seoul |
 | return_method | daily-sampled-linked-modified-dietz 또는 null |
 | return_base_at | 원래 수익률 기준 관측 시각 또는 null |
@@ -41,7 +42,9 @@ JPY 자산 이력은 이번 계약에 포함하지 않는다. 기존 일본 보�
 - 미확인 현금·주식 금액은 null이다. 총자산에서 역산하거나 0으로 채우지 않는다.
 - `return_status`: verified / insufficient_samples / cash_flows_unverified / scope_unverified / invalid_data.
 - verified만 지수를 가지며 총자산과 method/base가 필수다. 나머지는 지수 null이다. method/base는 함께 null이거나 함께 지정한다. 한 점을 임의의 0% 수익률로 표시하지 않는다.
-- `source`는 KIWOOM_US_EQUITY 또는 KIS_ACCOUNT_EQUITY이며 broker와 일치해야 한다. 키움은 미국주식·USD 결제예정 예수금 포함이며 출금가능금액과 구분한다. 한투 분해값이 확인되지 않으면 총자산만 표시한다.
+- `source`는 다음 조합만 허용한다. `KIWOOM_KR_EQUITY`는 KIWOOM/domestic/KRW, `KIWOOM_US_EQUITY`는 KIWOOM/overseas/USD, `KIS_ACCOUNT_EQUITY`는 KIS/account-total-assets/KRW다. 키움 해외 현금은 USD 결제예정 예수금을 포함하며 출금가능금액과 구분한다. 분해값이 확인되지 않으면 null로 보내고 총자산만 표시한다.
+- 키움 국내 계열은 국내 연결에 대응하는 별도 무작위 `account_ref`를 보존한다. 계좌번호·API 키 자체를 식별자로 보내지 않는다. 기존 해외 계열의 식별자나 과거 관측값을 국내 자산에 재사용하지 않는다. 한투 전체자산에는 국내·해외가 이미 포함되므로 한투 국내 계열을 추가하지 않는다.
+- 키움 국내 총자산은 추정예탁자산이며, 현금은 D+2 추정예수금이다. 송신자는 대출·조회 페이지 완전성을 확인하고 현금+주식 평가액과 보고 총액의 차이가 2원 이내인 경우에만 현금을 숫자로 보낸다. 불일치·미확인은 null이며 즉시 출금가능금액으로 표시하지 않는다.
 - 요청당 1MiB, 시리즈 20개, 전체 관측값 500개 이하. 같은 계좌·범위·통화·날짜 중복은 거부한다.
 
 응답은 `{ "ok": true, "synced": 변경한_관측값_수 }`다. 오류는 400 형식, 401 토큰, 409 동일 관측·계산 시각의 내용 충돌, 413 용량, 502 저장 실패다.
@@ -61,7 +64,7 @@ JPY 자산 이력은 이번 계약에 포함하지 않는다. 기존 일본 보�
 
 자산 그래프는 일별 마지막 수집값이며 종가가 아니다. 날짜 공백, 미확인 수익률, 기준일/산식 변경은 선으로 잇지 않는다. 기간 필터는 표시 기간만 바꾸며 수익률을 새로 0%로 만들지 않는다. 서로 다른 통화·평가 범위를 합산하거나 오늘 환율로 과거 자산을 재평가하지 않는다.
 
-계좌 선택은 등록 보유종목·비중·자동매매 성과의 증권사 및 실/모의 필터에도 적용된다. 기존 보유종목에는 실제 계좌 UUID가 없으므로 같은 증권사의 여러 실계좌까지 구분할 수는 없다. 직접 등록 금액을 연동 총자산에 더하지 않는다.
+계좌 선택은 등록 보유종목·비중·자동매매 성과의 증권사 및 실/모의 필터에도 적용된다. 키움 국내/해외 계열을 선택하면 보유종목·비중은 각각 국내/미국 시장으로 제한한다. 매매 성과는 기존 계약상 전체 시장 집계이므로 별도 안내하며 임의 분할하지 않는다. 기존 보유종목에는 실제 계좌 UUID가 없으므로 같은 증권사의 여러 실계좌까지 구분할 수는 없다. 직접 등록 금액을 연동 총자산에 더하지 않는다.
 
 기존 포트폴리오 JSON/CSV 및 암호화 백업 범위는 변경하지 않았다. 새 자산 이력은 해당 백업의 복원/교체 대상이 아니다. Stock-Trading의 계좌 식별자 포함 관측 원본을 보존하고 이 API로 재전송하여 복구한다. 식별자 없는 기존 과거 자료는 현재 계좌에 임의로 붙이지 않는다.
 

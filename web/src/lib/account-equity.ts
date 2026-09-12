@@ -6,7 +6,7 @@ export type EquityIdentity = {
   broker: "KIWOOM" | "KIS";
   account_type: "paper" | "live";
   currency: "KRW" | "USD";
-  scope: "overseas" | "account-total-assets";
+  scope: "domestic" | "overseas" | "account-total-assets";
 };
 export type EquityBasis = {
   date_timezone: "Asia/Seoul";
@@ -23,17 +23,24 @@ export type EquityPoint = {
   stock_value: string | null;
   return_index: string | null;
   return_status: "verified" | "insufficient_samples" | "cash_flows_unverified" | "scope_unverified" | "invalid_data";
-  source: "KIWOOM_US_EQUITY" | "KIS_ACCOUNT_EQUITY";
+  source: "KIWOOM_KR_EQUITY" | "KIWOOM_US_EQUITY" | "KIS_ACCOUNT_EQUITY";
 };
 export type EquityRecord = EquityIdentity & EquityBasis & EquityPoint & { received_at: string };
 export type EquityInput = Omit<EquityRecord, "received_at">;
 export type EquitySeries = EquityIdentity & EquityBasis & { points: EquityPoint[] };
 
+export function equitySource(broker: unknown, currency: unknown, scope: unknown): EquityPoint["source"] | null {
+  if (broker === "KIWOOM" && currency === "KRW" && scope === "domestic") return "KIWOOM_KR_EQUITY";
+  if (broker === "KIWOOM" && currency === "USD" && scope === "overseas") return "KIWOOM_US_EQUITY";
+  if (broker === "KIS" && currency === "KRW" && scope === "account-total-assets") return "KIS_ACCOUNT_EQUITY";
+  return null;
+}
+
 export function equityKey(value: EquityIdentity): string {
   return [value.account_ref, value.broker, value.account_type, value.currency, value.scope].join(":");
 }
 export function equityLabel(value: EquityIdentity): string {
-  return `${brokerLabel(value.broker)} ${value.account_type === "paper" ? "모의" : "실계좌"} · ${value.scope === "overseas" ? "해외자산" : "계좌 전체"} ${value.currency}`;
+  return `${brokerLabel(value.broker)} ${value.account_type === "paper" ? "모의" : "실계좌"} · ${value.scope === "domestic" ? "국내자산" : value.scope === "overseas" ? "해외자산" : "계좌 전체"} ${value.currency}`;
 }
 export function equityMoney(value: string | null, currency: "KRW" | "USD"): string {
   if (value === null) return "미확인";

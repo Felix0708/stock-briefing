@@ -5,7 +5,8 @@ export const migrations=['db/schema_phase3.sql','db/schema_phase4.sql','db/schem
   'supabase/migrations/20260903032539_manual_broker_accounts.sql','supabase/migrations/20260907054535_portfolio_reliability.sql',
   'supabase/migrations/20260907072405_briefing_recovery.sql','supabase/migrations/20260907072434_portfolio_revisions.sql',
   'supabase/migrations/20260907072444_portfolio_backup.sql','supabase/migrations/20260907073219_recovery_verification_hardening.sql',
-  'supabase/migrations/20260910145025_account_equity_history.sql'];
+  'supabase/migrations/20260910145025_account_equity_history.sql',
+  'supabase/migrations/20260912074043_account_equity_domestic.sql'];
 
 export async function createDatabase(users, baselineSql='') {
   const db=await PGlite.create();

@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFile } from 'node:fs/promises';
 import { NextRequest } from 'next/server';
 import { parseEquity, readEquityBody, MAX_EQUITY_BYTES } from '../src/lib/server/account-equity.ts';
-import { canConnect, chartValue, equityMoney, RETURN_METHOD } from '../src/lib/account-equity.ts';
+import { canConnect, chartValue, equityKey, equityLabel, equityMoney, RETURN_METHOD } from '../src/lib/account-equity.ts';
 import { PUT } from '../src/app/api/sync/account-equity/route.ts';
 import { GET } from '../src/app/api/account-equity/route.ts';
 import { createDatabase } from './db-fixture.mjs';
@@ -13,6 +14,8 @@ const point={date:'2026-09-01',valued_at:null,collected_at:'2026-09-01T01:00:00.
 const series={account_ref:owner,broker:'KIS',account_type:'paper',currency:'KRW',scope:'account-total-assets',date_timezone:'Asia/Seoul',return_method:null,return_base_at:null,points:[point]};
 const input=(s=series)=>({version:1,series:[s]});
 const flat=()=>parseEquity(input())[0];
+const domestic={...series,broker:'KIWOOM',scope:'domestic',points:[{...point,source:'KIWOOM_KR_EQUITY',equity:'1000000',cash:'200000',stock_value:'800000'}]};
+const overseas={...series,broker:'KIWOOM',currency:'USD',scope:'overseas',points:[{...point,source:'KIWOOM_US_EQUITY',equity:'1000'}]};
 const originalFetch=globalThis.fetch, originalEnv={...process.env};
 test.afterEach(()=>{globalThis.fetch=originalFetch;process.env={...originalEnv};delete globalThis.__testCookieJar;});
 
@@ -67,6 +70,43 @@ test('Bearer PUT and member GET: bounded, private, no owner injection, error map
   const params=new URLSearchParams(Object.fromEntries(['account_ref','broker','account_type','currency','scope'].map(k=>[k,series[k]])));
   assert.equal((await (await GET(new NextRequest(`http://localhost/api/account-equity?${params}`))).json()).points.length,1);
   assert.equal((await GET(new NextRequest(`http://localhost/api/account-equity?${params}&user_id=${other}`))).status,400);
+  params.set('broker','KIWOOM');params.set('scope','domestic');
+  assert.equal((await GET(new NextRequest(`http://localhost/api/account-equity?${params}`))).status,200);
+  params.set('currency','USD');
+  assert.equal((await GET(new NextRequest(`http://localhost/api/account-equity?${params}`))).status,400);
+});
+
+test('domestic KRW stays separate from overseas USD and KIS total in API, DB and charts',async()=>{
+  const records=parseEquity({version:1,series:[domestic,overseas,series]});
+  assert.equal(records.length,3);
+  assert.equal(new Set(records.map(equityKey)).size,3);
+  assert.match(equityLabel(records[0]),/국내자산 KRW/);
+  assert.equal(canConnect(records[0],{...records[1],date:'2026-09-02'},'equity'),false);
+  for(const patch of [{broker:'KIS'},{currency:'USD'},{scope:'overseas'},{scope:'account-total-assets'}]) {
+    assert.equal(typeof parseEquity(input({...domestic,...patch})),'string');
+  }
+  assert.equal(typeof parseEquity(input({...domestic,points:[{...domestic.points[0],source:'KIWOOM_US_EQUITY'}]})),'string');
+  const db=await createDatabase([owner,other]);
+  try {
+    await db.query('insert into integration_tokens(user_id,token_hash,token_hint) values($1,$2,$3)',[owner,'a'.repeat(64),'aaaaaa']);
+    const sync=async(rows)=>(await db.query('select sync_account_equity($1,$2::jsonb) as n',['a'.repeat(64),JSON.stringify(rows)])).rows[0].n;
+    assert.equal(await sync(records.slice(1)),2);
+    const before=(await db.query('select * from account_equity_points order by broker')).rows;
+    await db.exec('reset role');
+    await db.exec(await readFile(new URL('../../supabase/migrations/20260912074043_account_equity_domestic.sql',import.meta.url),'utf8'));
+    await db.exec('set role service_role');
+    assert.deepEqual((await db.query('select * from account_equity_points order by broker')).rows,before);
+    assert.equal(await sync([records[0]]),1);
+    assert.equal(await sync(records),0);
+    assert.equal(await sync([]),0);
+    for(const patch of [{broker:'KIS'},{currency:'USD'},{scope:'overseas'},{source:'KIWOOM_US_EQUITY'}]) {
+      await assert.rejects(sync([{...records[0],...patch}]),/invalid account observation/);
+    }
+    await db.exec(`reset role;set role authenticated;set request.jwt.claim.sub='${owner}'`);
+    assert.equal((await db.query('select account_equity_series() as data')).rows[0].data.length,3);
+    await db.exec(`set request.jwt.claim.sub='${other}'`);
+    assert.deepEqual((await db.query('select account_equity_series() as data')).rows[0].data,[]);
+  } finally {await db.close();}
 });
 
 test('Postgres: RLS, idempotence, correction ordering, atomic conflict, omitted history and token revocation',async()=>{

@@ -1,5 +1,5 @@
 import "server-only";
-import { RETURN_METHOD, type EquityInput, type EquitySeries } from "../account-equity";
+import { equitySource, RETURN_METHOD, type EquityInput, type EquitySeries } from "../account-equity";
 
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const DECIMAL = /^-?(?:0|[1-9]\d{0,15})(?:\.\d{1,8})?$/;
@@ -37,7 +37,7 @@ export function parseEquity(body: unknown, now = Date.now()): EquityInput[] | st
   for (const series of body.series) {
     if (!exact(series, SERIES_KEYS) || typeof series.account_ref !== "string" || !UUID.test(series.account_ref)
       || !oneOf(series.broker, ["KIWOOM", "KIS"]) || !oneOf(series.account_type, ["paper", "live"])
-      || !oneOf(series.currency, ["KRW", "USD"]) || !oneOf(series.scope, ["overseas", "account-total-assets"])
+      || !equitySource(series.broker, series.currency, series.scope)
       || series.date_timezone !== "Asia/Seoul" || !Array.isArray(series.points)
       || !((series.return_method === null && series.return_base_at === null)
         || (series.return_method === RETURN_METHOD && isIso(series.return_base_at)))) return "자산 시리즈 형식·통화·범위를 확인해 주세요.";
@@ -47,7 +47,7 @@ export function parseEquity(body: unknown, now = Date.now()): EquityInput[] | st
         || (point.valued_at !== null && !isIso(point.valued_at))
         || !decimal(point.equity) || !decimal(point.cash, true) || !decimal(point.stock_value) || !decimal(point.return_index)
         || !oneOf(point.return_status, STATUSES)
-        || point.source !== (meta.broker === "KIWOOM" ? "KIWOOM_US_EQUITY" : "KIS_ACCOUNT_EQUITY")) return "자산 관측값의 형식·출처를 확인해 주세요.";
+        || point.source !== equitySource(meta.broker, meta.currency, meta.scope)) return "자산 관측값의 형식·출처를 확인해 주세요.";
       const collected = Date.parse(point.collected_at);
       const calculated = Date.parse(point.calculated_at);
       if (collected > now + 300_000 || calculated > now + 300_000 || calculated < collected

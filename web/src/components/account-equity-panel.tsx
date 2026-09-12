@@ -51,10 +51,10 @@ export function AccountEquityPanel({ latest, refresh }: { latest: EquityRecord; 
   const display = (point: EquityRecord) => metric === "equity" ? equityMoney(point.equity, currency)
     : chartValue(point, "return") === null ? "미확인" : `${chartValue(point, "return")!.toFixed(2)}%`;
   return <div className="pf-equity" aria-label="선택 계좌 자산">
-    <p className="pf-muted">{scope === "overseas" ? "해외자산" : "계좌 전체 자산"} · {currency} 원통화 기준 · 모든 날짜는 한국시간</p>
+    <p className="pf-muted">{scope === "domestic" ? "국내자산" : scope === "overseas" ? "해외자산 (미국)" : "계좌 전체 자산 (국내·해외 포함)"} · {currency} 원통화 기준 · 모든 날짜는 한국시간</p>
     <div className="pf-summary pf-equity-summary">
-      <div><span className="pf-muted">{scope === "overseas" ? "해외 총자산" : "계좌 총자산"} · 현금 포함</span><strong>{equityMoney(latest.equity, currency)}</strong></div>
-      <div><span className="pf-muted">현금</span><strong>{equityMoney(latest.cash, currency)}</strong></div>
+      <div><span className="pf-muted">{scope === "domestic" ? "국내 총자산" : scope === "overseas" ? "해외 총자산" : "계좌 총자산"} · 현금 포함</span><strong>{equityMoney(latest.equity, currency)}</strong></div>
+      <div><span className="pf-muted">{broker === "KIWOOM" ? "현금 (결제예정 반영)" : "현금"}</span><strong>{equityMoney(latest.cash, currency)}</strong></div>
       <div><span className="pf-muted">보유주식 평가액</span><strong>{equityMoney(latest.stock_value, currency)}</strong></div>
     </div>
     <p className="pf-muted">마지막 수집 {stamp(latest.collected_at)}</p>
@@ -62,6 +62,8 @@ export function AccountEquityPanel({ latest, refresh }: { latest: EquityRecord; 
       <p className="pf-muted">서버 수신 {stamp(latest.received_at)} · 계산 {stamp(latest.calculated_at)}<br />
         {latest.valued_at ? `증권사 평가 시각 ${stamp(latest.valued_at)}` : "증권사 평가 시각 미제공 · 수집 시각과 같다고 가정하지 않습니다."}</p>
       {latest.source === "KIWOOM_US_EQUITY" && currency === "USD" && scope === "overseas" && <p className="pf-muted">미국주식·USD · 결제예정 반영. 현금은 결제예정 예수금을 포함하며 출금가능금액과 다릅니다.</p>}
+      {latest.source === "KIWOOM_KR_EQUITY" && <p className="pf-muted">국내주식·KRW 추정예탁자산입니다. 현금은 D+2 추정예수금으로, 주식 평가액과의 합계가 보고 총자산에 맞는 경우만 표시합니다. 즉시 출금가능금액이 아닙니다. 해외 USD 자산과 합산하거나 해외 이력에 연결하지 않습니다.</p>}
+      {latest.source === "KIS_ACCOUNT_EQUITY" && <p className="pf-muted">국내·해외를 포함한 증권사 계좌 전체 평가값입니다. 국내 자산을 별도로 더하지 않습니다.</p>}
       {(latest.cash === null || latest.stock_value === null) && <p className="pf-muted">미확인 항목은 0원이 아닙니다. 총자산에서 역산하지 않습니다.</p>}
     </details>
     {now - Date.parse(latest.collected_at) > 48 * 3600_000 && <p className="pf-notice">48시간 이상 지난 마지막 확인값입니다. 휴장·컴퓨터 종료·수집 일정 등을 확인해 주세요.</p>}

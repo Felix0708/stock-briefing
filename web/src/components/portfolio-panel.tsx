@@ -576,6 +576,7 @@ export function PortfolioPanel() {
   const selection = accountOptions.find(option => option.value === selectedAccount) ?? accountOptions[0];
   const accountFilter = selection.account_type ?? "all";
   const brokerFilter = selection.broker ?? "all";
+  const marketFilter = selection.series?.scope === "domestic" ? "KR" : selection.series?.scope === "overseas" ? "US" : "all";
   const visiblePerformance = performance.filter(row => (brokerFilter === "all" || row.broker === brokerFilter) && (accountFilter === "all" || row.account_type === accountFilter));
   const computed = (() => {
     // 모든 합산은 원화(KRW) 기준. 해외 종목은 해당 환율로 환산한다.
@@ -586,7 +587,8 @@ export function PortfolioPanel() {
     };
 
     const visible = holdings.filter((holding) => (brokerFilter === "all" || holding.broker === brokerFilter)
-      && (accountFilter === "all" || (accountFilter === "live") === isRealAccount(holding)));
+      && (accountFilter === "all" || (accountFilter === "live") === isRealAccount(holding))
+      && (marketFilter === "all" || holding.market === marketFilter));
     const rows = visible.map((holding) => {
       const currency = currencyOf(holding.market);
       const quote = quotes[quoteKey(holding)] ?? null;
@@ -1046,7 +1048,7 @@ export function PortfolioPanel() {
         {listError && <p className="pf-error">{listError}</p>}
         {quotesError && <p className="pf-error" role="status">{quotesError}</p>}
         <p className="pf-muted">{selection.label} · 등록 주식만 평가하며 현금은 제외합니다. 같은 증권사의 직접 등록·자동 실계좌 비중은 함께 계산하지만, 위 연동 계좌 총자산에 직접 등록 금액을 더하지 않습니다.</p>
-        {selection.series && <p className="pf-muted">보유종목·매매 성과는 증권사와 실계좌/모의 구분 기준입니다. 같은 증권사에 실제 계좌가 여러 개면 선택한 자산 계좌와 범위가 다를 수 있습니다.</p>}
+        {selection.series && <p className="pf-muted">보유종목은 선택한 증권사·실계좌/모의{marketFilter === "KR" ? "·국내 시장" : marketFilter === "US" ? "·미국 시장" : "·전체 시장"} 기준입니다. 같은 증권사에 실제 계좌가 여러 개면 선택한 자산 계좌와 범위가 다를 수 있습니다.</p>}
         {pendingDelete && <div className="pf-notice" role="status">
           {pendingDelete.stock_name} · {deleting ? "삭제 처리 중입니다." : "8초 뒤 잔고에서 삭제됩니다. 매도 이력은 생성하지 않습니다."}
           <button type="button" className="pf-ghost" disabled={deleting} onClick={() => setPendingDelete(null)}>삭제 취소</button>
@@ -1174,6 +1176,7 @@ export function PortfolioPanel() {
         <div className="pf-performance" aria-labelledby="pf-performance-title">
           <h3 id="pf-performance-title">자동매매 누적 성과</h3>
           <p className="pf-muted pf-hint">최종청산 완료 기준 · 수수료·세금 제외</p>
+          {marketFilter !== "all" && <p className="pf-muted">매매 성과는 선택한 증권사·실계좌/모의의 전체 시장 집계입니다. 국내·미국별 자산 그래프와 범위가 다릅니다.</p>}
           {visiblePerformance.length > 0 && (
             <label className="pf-mail-toggle">
               <input

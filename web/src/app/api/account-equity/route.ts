@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { applySessionCookies, fetchUser, getSession, supabaseUrl, userHeaders } from "@/lib/server/auth";
 import { requestJson } from "@/lib/server/http";
 import { isDate, UUID } from "@/lib/server/account-equity";
-import type { EquityInput, EquityRecord } from "@/lib/account-equity";
+import { equitySource, type EquityInput, type EquityRecord } from "@/lib/account-equity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       if ([...params.keys()].some(key => ![...keys, "from", "before"].includes(key) || params.getAll(key).length !== 1)
         || !UUID.test(params.get("account_ref") ?? "") || !["KIWOOM", "KIS"].includes(params.get("broker") ?? "")
         || !["paper", "live"].includes(params.get("account_type") ?? "") || !["KRW", "USD"].includes(params.get("currency") ?? "")
-        || !["overseas", "account-total-assets"].includes(params.get("scope") ?? "")
+        || !equitySource(params.get("broker"), params.get("currency"), params.get("scope"))
         || ["from", "before"].some(key => params.has(key) && !isDate(params.get(key)))) return response({ error: "계좌·기간 조건을 확인해 주세요." }, 400);
       const query = new URLSearchParams({ select: "payload,received_at", order: "date.desc", limit: "501" });
       for (const key of keys) query.set(key, `eq.${params.get(key)}`);

@@ -4,13 +4,14 @@ import { RETURN_METHOD, equityKey, type EquityRecord } from '../../src/lib/accou
 const one:EquityRecord={account_ref:'11111111-1111-4111-8111-111111111111',broker:'KIS',account_type:'paper',currency:'KRW',scope:'account-total-assets',date_timezone:'Asia/Seoul',
   date:'2026-09-01',collected_at:'2026-09-01T01:00:00.000Z',calculated_at:'2026-09-01T02:00:00.000Z',received_at:'2026-09-01T03:00:00.000Z',valued_at:null,
   equity:'1000000.12345678',cash:null,stock_value:null,return_index:null,return_status:'insufficient_samples',return_method:null,return_base_at:null,source:'KIS_ACCOUNT_EQUITY'};
-async function prepare(page:Page, points:EquityRecord[]=[one], second?:EquityRecord) {
+async function prepare(page:Page, points:EquityRecord[]=[one], second?:EquityRecord, holdings:unknown[] = []) {
   const latest=points.at(-1)!;
   await page.route('**/api/**', async route=>{
     const url=new URL(route.request().url());
     let result:unknown={ok:true};
     if(url.pathname==='/api/auth/me')result={user:{email:'qa@example.com'}};
-    if(url.pathname==='/api/holdings')result={holdings:[],performance:[]};
+    if(url.pathname==='/api/holdings')result={holdings,performance:[]};
+    if(url.pathname==='/api/quotes')result={quotes:{},usdKrw:null,jpyKrw:null,asOf:new Date().toISOString()};
     if(url.pathname==='/api/integration-token')result={active:false};
     if(url.pathname==='/api/manual-trades')result={trades:[],summary:[],next:null};
     if(url.pathname==='/api/briefing-status')result={collections:[],delivery:null,run:null,emailEnabled:false};
@@ -19,7 +20,7 @@ async function prepare(page:Page, points:EquityRecord[]=[one], second?:EquityRec
   });
   await page.goto('/portfolio');
   await expect(page.getByRole('heading',{name:'연동 계좌 자산',exact:true})).toBeVisible();
-  await expect(page.getByLabel('계좌 선택').locator('option')).toHaveCount(second?5:4);
+  await expect(page.getByLabel('계좌 선택').locator('option')).toHaveCount(second?(second.broker===latest.broker?6:5):4);
   await page.getByLabel('계좌 선택').selectOption(`series:${equityKey(latest)}`);
   await page.getByRole('button',{name:'전체 기간',exact:true}).click();
   await expect(page.locator('.pf-equity-svg')).toBeVisible();
@@ -42,6 +43,38 @@ test('현금 분해 없는 한 점·미확인 수익률·모바일 레이아웃�
   await page.getByRole('button',{name:'누적 수익률',exact:true}).click();
   await expect(page.locator('.pf-equity-svg')).toHaveCount(0);
   await expect(page.locator('.pf-equity')).not.toContainText('0.00%');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('키움 국내·미국 계열과 보유종목을 분리하고 빈 기간을 0원으로 만들지 않는다',async({page},info)=>{
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  const domestic:EquityRecord={...one,broker:'KIWOOM',scope:'domestic',source:'KIWOOM_KR_EQUITY',equity:'1000000',cash:'200000',stock_value:'800000'};
+  const overseas:EquityRecord={...one,account_ref:'22222222-2222-4222-8222-222222222222',broker:'KIWOOM',currency:'USD',scope:'overseas',source:'KIWOOM_US_EQUITY',equity:'1500',cash:'500',stock_value:'1000'};
+  const base={broker:'KIWOOM',source:'stock_trading',account_type:'paper',quantity:1,avg_price:100};
+  await prepare(page,[domestic],overseas,[{...base,stock_code:'005930',stock_name:'국내 예시 종목',market:'KR'},{...base,stock_code:'AAPL',stock_name:'미국 예시 종목',market:'US'}]);
+  await expect(page.getByLabel('계좌 선택').locator('option:checked')).toContainText('국내자산 KRW');
+  await expect(page.locator('.pf-equity-summary')).toContainText('국내 총자산');
+  await expect(page.locator('.pf-equity-summary')).toContainText('1,000,000원');
+  await expect(page.locator('.pf-equity-summary')).not.toContainText('$');
+  await expect(page.locator('.pf-equity')).toContainText('마지막 수집');
+  await expect(page.locator('.pf-table tbody tr')).toHaveCount(1);
+  await expect(page.locator('.pf-table')).toContainText('국내 예시 종목');
+  await expect(page.locator('.pf-performance')).toContainText('전체 시장 집계');
+  await page.locator('section[aria-labelledby="pf-equity-title"]').screenshot({path:info.outputPath('kiwoom-domestic.png')});
+  await page.getByLabel('계좌 선택').selectOption(`series:${equityKey(overseas)}`);
+  await expect(page.locator('.pf-equity-summary')).toContainText('$1,500');
+  await expect(page.locator('.pf-equity-summary')).not.toContainText('1,000,000');
+  await expect(page.locator('.pf-table tbody tr')).toHaveCount(1);
+  await expect(page.locator('.pf-table')).toContainText('미국 예시 종목');
+  await page.getByLabel('계좌 선택').selectOption('KIWOOM:paper');
+  await expect(page.locator('.pf-equity-summary')).toHaveCount(0);
+  await expect(page.locator('.pf-table tbody tr')).toHaveCount(2);
+  await page.route('**/api/account-equity?**',route=>route.fulfill({json:{points:[],next:null}}));
+  await page.getByLabel('계좌 선택').selectOption(`series:${equityKey(domestic)}`);
+  await expect(page.getByText('선택 기간에 수집된 기록이 없습니다.',{exact:true})).toBeVisible();
+  await expect(page.locator('.pf-equity-svg')).toHaveCount(0);
+  await expect(page.locator('.pf-equity-summary')).toContainText('1,000,000원');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   expect(errors).toEqual([]);
 });
