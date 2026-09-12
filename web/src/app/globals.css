@@ -1164,8 +1164,7 @@ a.source-item:focus-visible {
 .pf-list-tools { display: flex; align-items: center; gap: 10px; }
 .pf-filters { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
 .pf-filters label { display: flex; flex-direction: column; gap: 5px; font-size: 0.85rem; }
-.pf-filters select { height: 46px; min-width: 0; max-width: 100%; width: 100%; }
-.pf-filters .pf-account-select { width: min(100%, 480px); }
+.pf-filters select { height: 46px; max-width: 100%; width: 100%; }
 .pf-legend-label { min-width: 0; overflow-wrap: anywhere; }
 .pf-notice .pf-ghost { margin: 8px; }
 .pf-trade-form { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,200px),1fr)); gap: 12px; margin-top: 16px; align-items: end; }
@@ -1593,6 +1592,8 @@ a.source-item:focus-visible {
   }
 
   .pf-table thead {
+    /* A table-header-group can leak intrinsic cell widths into WebKit's scroll area. */
+    display: block;
     position: absolute;
     width: 1px;
     height: 1px;
@@ -1600,6 +1601,7 @@ a.source-item:focus-visible {
     margin: -1px;
     overflow: hidden;
     clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
     white-space: nowrap;
     border: 0;
   }

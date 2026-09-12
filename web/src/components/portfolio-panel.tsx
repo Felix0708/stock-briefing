@@ -1011,7 +1011,7 @@ export function PortfolioPanel() {
         <div className="pf-list-head"><h2 id="pf-equity-title">연동 계좌 자산</h2>
           <button type="button" className="pf-ghost" disabled={equityBusy} onClick={() => setEquityRefresh(n => n + 1)}>{equityBusy ? "자산 조회 중…" : "자산 이력 새로고침"}</button>
         </div>
-        <div className="pf-filters"><label className="pf-account-select">계좌 선택<select aria-label="계좌 선택" value={selection.value} onChange={e => setSelectedAccount(e.target.value)}>
+        <div className="pf-filters"><label>계좌 선택<select aria-label="계좌 선택" value={selection.value} onChange={e => setSelectedAccount(e.target.value)}>
           {accountOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select></label></div>
         <p className="pf-muted">선택은 아래 보유종목·계좌별 비중·자동매매 성과에도 적용됩니다. 자산 이력 조회는 Stock-Trading의 새 수집을 실행하지 않습니다.</p>
