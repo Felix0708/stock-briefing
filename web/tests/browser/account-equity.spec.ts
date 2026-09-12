@@ -76,7 +76,9 @@ test('키움 국내·미국 계열과 보유종목을 분리하고 빈 기간을
   await expect(page.getByText('선택 기간에 수집된 기록이 없습니다.',{exact:true})).toBeVisible();
   await expect(page.locator('.pf-equity-svg')).toHaveCount(0);
   await expect(page.locator('.pf-equity-summary')).toContainText('1,000,000원');
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  const layout=await page.evaluate(()=>({width:document.documentElement.scrollWidth,viewport:innerWidth,
+    overflow:[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right>innerWidth).map(e=>({tag:e.tagName,class:e.className,right:e.getBoundingClientRect().right})).slice(0,12)}));
+  expect(layout.width,JSON.stringify(layout)).toBeLessThanOrEqual(layout.viewport);
   expect(errors).toEqual([]);
 });
 
