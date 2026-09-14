@@ -145,6 +145,63 @@ test('Postgres: RLS, idempotence, correction ordering, atomic conflict, omitted 
   } finally {await db.close();}
 });
 
+test('upstream malformed JSON, broken response bodies and invalid acknowledgements are never client errors or success',async()=>{
+  process.env.SUPABASE_URL='https://example.supabase.co';process.env.SUPABASE_SECRET_KEY='sb_secret_test';
+  const req=()=>new NextRequest('http://localhost/api/sync/account-equity',{
+    method:'PUT',headers:{Authorization:'Bearer sb_sync_'+'a'.repeat(43)},body:JSON.stringify(input())});
+  const logs=[],originalError=console.error;
+  console.error=line=>logs.push(JSON.parse(line));
+  try {
+    globalThis.fetch=async()=>new Response('private upstream prose',{status:200});
+    assert.equal((await PUT(req())).status,502);
+    assert.equal(logs.at(-1).kind,'invalid_response');
+    for(const name of ['TimeoutError','AbortError','TypeError']) {
+      globalThis.fetch=async()=>{const res=Response.json(1);res.text=async()=>{const error=new Error('private upstream prose');error.name=name;throw error;};return res;};
+      assert.equal((await PUT(req())).status,502);
+      assert.equal(logs.at(-1).stage,'response_body');
+    }
+    for(const value of [null,{},'1',-1,0.5,2]) {
+      globalThis.fetch=async()=>Response.json(value);
+      assert.equal((await PUT(req())).status,502);
+    }
+    globalThis.fetch=async()=>new Response('',{status:200});
+    assert.equal((await PUT(req())).status,502);
+    for(const value of [0,1]) {
+      globalThis.fetch=async()=>Response.json(value);
+      assert.deepEqual(await (await PUT(req())).json(),{ok:true,synced:value});
+    }
+    const invalid=new NextRequest('http://localhost/api/sync/account-equity',{
+      method:'PUT',headers:{Authorization:'Bearer sb_sync_'+'a'.repeat(43)},body:'invalid json'});
+    assert.equal((await PUT(invalid)).status,400);
+    assert.ok(!JSON.stringify(logs).includes('private upstream prose'));
+  } finally {console.error=originalError;}
+});
+
+test('maximum 500-point batches remain idempotent and preserve daily history',async(t)=>{
+  const points=Array.from({length:500},(_,i)=>{
+    const collected_at=new Date(Date.UTC(2024,0,1+i,1)).toISOString();
+    return {...point,date:collected_at.slice(0,10),collected_at,calculated_at:collected_at,equity:'100'};
+  });
+  const started=performance.now(),records=parseEquity(input({...series,points}));
+  const timings={parse_ms:Math.round(performance.now()-started)};
+  assert.equal(records.length,500);
+  assert.equal(typeof parseEquity(input({...series,points:[...points,{...point}]})),'string');
+  const db=await createDatabase([owner]);
+  try {
+    await db.query('insert into integration_tokens(user_id,token_hash,token_hint) values($1,$2,$3)',[owner,'a'.repeat(64),'aaaaaa']);
+    const sync=async(rows)=>(await db.query('select sync_account_equity($1,$2::jsonb) as n',['a'.repeat(64),JSON.stringify(rows)])).rows[0].n;
+    for(const [name,rows,expected] of [['first_3_ms',records.slice(0,3),3],['batch_500_ms',records,497],['replay_500_ms',records,0]]) {
+      const start=performance.now();assert.equal(await sync(rows),expected);timings[name]=Math.round(performance.now()-start);
+    }
+    assert.equal((await db.query('select count(*)::int n from account_equity_points')).rows[0].n,500);
+    await assert.rejects(sync([...records,records[0]]),/too large/);
+    await db.exec(`reset role;set role authenticated;set request.jwt.claim.sub='${owner}'`);
+    const latest=(await db.query('select account_equity_series() as data')).rows[0].data;
+    assert.equal(latest.length,1);assert.equal(latest[0].date,points.at(-1).date);
+    t.diagnostic(`Local PGlite timings, not production latency or a concurrency test: ${JSON.stringify(timings)}`);
+  } finally {await db.close();}
+});
+
 test('optional v1 detail reconciles exact amounts, sources and times in API and SQL; old rows stay intact',async()=>{
   const records=parseEquity(input(linked));assert.equal(records.length,1);
   const row=records[0];assert.equal(row.account_group_ref,other);

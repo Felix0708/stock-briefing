@@ -16,6 +16,10 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
     const synced = await serviceRest<number>("rpc/sync_account_equity", {
       method: "POST", body: JSON.stringify({ token_hash: hashIntegrationToken(token), records }),
     });
+    if (!Number.isInteger(synced) || synced < 0 || synced > records.length) {
+      console.error(JSON.stringify({ event: "integration_upstream_error", operation: "rpc/sync_account_equity", kind: "invalid_ack" }));
+      throw new UpstreamError("Supabase");
+    }
     return response({ ok: true, synced }, 200);
   } catch (error) {
     if (error instanceof RangeError) return response({ error: "요청은 1MiB 이하여야 합니다." }, 413);

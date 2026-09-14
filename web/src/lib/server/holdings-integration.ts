@@ -122,8 +122,18 @@ export async function serviceRest<T>(path: string, init: RequestInit): Promise<T
       upstream_request_id: requestId && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(requestId) ? requestId : null }));
     throw new UpstreamError("Supabase", response.status);
   }
-  const text = await response.text();
-  return (text ? JSON.parse(text) : undefined) as T;
+  try {
+    const text = await response.text();
+    return (text ? JSON.parse(text) : undefined) as T;
+  } catch (error) {
+    const kind = error instanceof SyntaxError ? "invalid_response"
+      : error instanceof Error && error.name === "TimeoutError" ? "timeout"
+      : error instanceof Error && error.name === "AbortError" ? "aborted" : "transport";
+    console.error(JSON.stringify({ event: "integration_upstream_error", operation, kind,
+      stage: "response_body", status: response.status, duration_ms: Math.round(performance.now() - started) }));
+    // An upstream JSON/body failure is not a malformed caller request (HTTP 400).
+    throw new UpstreamError("Supabase");
+  }
 }
 
 export function createIntegrationToken(): string {
