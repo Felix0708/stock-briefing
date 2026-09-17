@@ -1,0 +1,205 @@
+{
+  "date": "2026-09-17",
+  "generated_at": "2026-09-17T09:49:36+09:00",
+  "sections": [
+    {
+      "company": "씨 ADR",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>씨 ADR 내부자 매도 (Form 4)</b>: 씨 ADR의 CCO 겸 GC인 Wang Yanjun이 2026년 9월 11일과 14일에 걸쳐 총 3,027주의 Class A 보통주를 매도했습니다. 매도 가격은 주당 $104.73에서 $110.07 사이이며, 이는 2026년 3월 26일에 채택된 Rule 10b5-1 거래 계획에 따라 이루어졌습니다. 이는 내부자의 보유 주식 감소를 의미하며, 향후 주가에 영향을 줄 수 있습니다.</li>\n</ul><ul>\n<li><b>씨 ADR 내부자 매도 (Form 4)</b>: 씨 ADR의 CPO인 Chen Jingye가 2026년 9월 11일과 14일에 걸쳐 총 46,900주의 Class A 보통주를 매도했습니다. 매도 가격은 주당 $105.27에서 $109.97 사이였으며, 이는 10b5-1 거래 계획에 따라 이루어졌습니다. 내부자의 매도는 투자자에게 회사의 미래 전망에 대한 신호로 해석될 수 있습니다.</li>\n</ul><ul>\n<li><b>씨 ADR (Sea Ltd) 내부자 매도 (Form 4)</b>: 씨 ADR의 COO인 Ye Gang이 2026년 9월 11일과 14일에 걸쳐 총 27,200주의 Class A 보통주를 매도했습니다. 매도 가격은 주당 $105.32에서 $110.10 사이이며, 이는 2026년 5월 21일에 채택된 Rule 10b5-1 거래 계획에 따라 이루어졌습니다. 내부자의 대규모 매도는 투자자들에게 단기적인 매도 압력으로 인식될 수 있습니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001193125-26-391234",
+          "rcept_dt": "20260915",
+          "flr_nm": "SE",
+          "url": "https://www.sec.gov/Archives/edgar/data/1703399/000119312526391234/xslF345X06/ownership.xml"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001193125-26-391231",
+          "rcept_dt": "20260915",
+          "flr_nm": "SE",
+          "url": "https://www.sec.gov/Archives/edgar/data/1703399/000119312526391231/xslF345X06/ownership.xml"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001193125-26-391225",
+          "rcept_dt": "20260915",
+          "flr_nm": "SE",
+          "url": "https://www.sec.gov/Archives/edgar/data/1703399/000119312526391225/xslF345X06/ownership.xml"
+        }
+      ]
+    },
+    {
+      "company": "델 테크놀로지스",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>내부자 매도 (Form 4)</b>: Silver Lake Technology Investors V, L.P. 등 관련 법인들이 2026년 9월 14일에 델 테크놀로지스 Class C 보통주 총 1,395,650주를 매도했습니다. 이는 주요 주주 및 이사의 지분 변동으로, 향후 주가에 영향을 줄 수 있는 요인입니다.</li>\n</ul><ul>\n<li><b>내부자 매도 (Form 4)</b>: Silver Lake Partners IV, L.P. 등 내부자가 2026년 9월 14일에 총 13,999,000주 이상의 Dell Technologies Class C 보통주를 다양한 가격에 매도했습니다. 이는 주요 주주 중 하나의 지분 변동으로, 향후 주가에 영향을 줄 수 있습니다.</li>\n</ul><ul>\n<li><b>델 테크놀로지스 내부자 매도 (Form 4)</b>: Silver Lake Partners V DE (AIV), L.P. 등 내부자가 2026년 9월 14일에 총 17,199주(약 919만 달러 상당)의 Class C 보통주를 주당 530.67달러에서 543.04달러에 매도했습니다. 이는 델 테크놀로지스 지분 10% 이상을 보유한 주요 투자자의 매도라는 점에서 주목할 만합니다.</li>\n</ul><ul>\n<li><b>내부자 매도 (Form 4)</b>: 델 테크놀로지스의 주요 주주인 SL SPV-2, L.P. 및 관련 계열사들이 2026년 9월 14일에 총 19,324주의 Class C 보통주를 평균 약 535.14달러에 매도했습니다. 이는 내부자의 지분 변동으로, 향후 주가에 영향을 줄 수 있습니다.</li>\n</ul><ul>\n<li><b>내부자 매도 (Form 4)</b>: Silver Lake Technology Investors IV, L.P. 등 관련 법인들이 2026년 9월 14일에 델 테크놀로지스 Class C 보통주 총 1,395,650주를 매도했습니다. 이는 주요 투자 주체의 지분 변동으로, 향후 주가에 영향을 줄 수 있는 요인입니다.</li>\n</ul><ul>\n<li><b>내부자 매도 (Form 4)</b>: Silver Lake Technology Investors V, L.P.는 2026년 9월 11일에 델 테크놀로지스 Class C 보통주 총 1,403,750주를 다양한 가격에 매도했습니다. 이는 주요 투자 기관의 지분 변동으로, 향후 주가에 영향을 줄 수 있는 요인입니다.</li>\n</ul><ul>\n<li><b>내부자 매도 (Form 4)</b>: 델 테크놀로지스의 주요 주주인 SL SPV-2, L.P. 등 Silver Lake 관련 법인들이 2026년 9월 11일에 총 140만 주 이상의 Class C 보통주를 매도했습니다. 이는 대규모 내부자 매도로, 주가에 영향을 줄 수 있는 중요한 정보입니다.</li>\n</ul><ul>\n<li><b>내부자 매도 (Form 4)</b>: Silver Lake Partners IV, L.P.가 2026년 9월 11일에 델 테크놀로지스 Class C 보통주 약 14만 주를 주당 547.73달러에서 567.45달러 사이의 가격으로 매도했습니다. 이는 10% 이상 주주이자 이사인 Silver Lake의 지분 변동으로, 투자자들은 주요 주주의 매도 움직임을 주시할 필요가 있습니다.</li>\n</ul><ul>\n<li><b>내부자 매도 (Form 4)</b>: Silver Lake Partners V DE (AIV), L.P.가 2026년 9월 11일에 델 테크놀로지스 Class C 보통주 약 33,195,093주를 매도했습니다. 이는 델 테크놀로지스 지분 10% 이상을 보유한 주요 주주의 매도 거래로, 투자자들에게는 잠재적인 매도 압력 신호로 해석될 수 있습니다.</li>\n</ul><ul>\n<li><b>내부자 매도 (Form 4)</b>: Silver Lake Technology Investors IV, L.P.가 2026년 9월 11일에 델 테크놀로지스 Class C 보통주 총 3,215주를 평균 약 557.77달러에 매도했습니다. 이는 델 테크놀로지스의 주요 주주 중 하나인 Silver Lake의 지분 변동으로, 향후 주가에 영향을 줄 수 있습니다.</li>\n</ul><ul>\n<li><b>수시보고 (8-K) - 2029년 만기 선순위 채권 추가 계약서 제1호</b>: 델 인터내셔널 L.L.C.와 EMC Corporation은 2026년 9월 15일부로 2029년 만기 선순위 채권에 대한 추가 계약을 체결했습니다. 이는 기존 기본 계약에 따라 채권자 동의 없이 채권의 형태나 조건을 설정하기 위한 것입니다.</li>\n<li><b>수시보고 (8-K) - 2031년 만기 선순위 채권 추가 계약서 제1호</b>: 델 인터내셔널 L.L.C.와 EMC Corporation은 2026년 9월 15일부로 2031년 만기 선순위 채권에 대한 추가 계약을 체결했습니다. 이는 기존 기본 계약에 따라 채권자 동의 없이 채권의 형태나 조건을 설정하기 위한 것입니다.</li>\n<li><b>수시보고 (8-K) - 2033년 만기 선순위 채권 추가 계약서 제1호</b>: 델 인터내셔널 L.L.C.와 EMC Corporation은 2026년 9월 15일부로 2033년 만기 선순위 채권에 대한 추가 계약을 체결했습니다. 이는 기존 기본 계약에 따라 채권자 동의 없이 채권의 형태나 조건을 설정하기 위한 것입니다.</li>\n<li><b>수시보고 (8-K) - 2037년 만기 선순위 채권 추가 계약서 제1호</b>: 델 인터내셔널 L.L.C.와 EMC Corporation은 2026년 9월 15일부로 2037년 만기 선순위 채권에 대한 추가 계약을 체결했습니다. 이는 기존 기본 계약에 따라 채권자 동의 없이 채권의 형태나 조건을 설정하기 위한 것입니다.</li>\n<li><b>수시보고 (8-K) - 법률 의견서 (Exhibit 5.1)</b>: Simpson Thacher &amp; Bartlett LLP는 2026년 9월 15일부로 델 인터내셔널 L.L.C., EMC Corporation 및 보증인들이 발행하는 총 12억 5천만 달러 규모의 5.100% 선순위 채권(2029년 만기) 및 12억 5천만 달러 규모의 5.400% 선순위 채권(만기 미기재) 발행과 관련하여 법률 의견을 제시했습니다. 이는 SEC에 제출된 등록 서류(Form S-3)와 관련이 있습니다.</li>\n<li><b>수시보고 (8-K) - 보고서 날짜 및 등록자 정보</b>: 델 테크놀로지스 주식회사(Dell Technologies Inc.)는 2026년 9월 15일을 최초 보고일로 하는 수시보고서(Form 8-K)를 제출했습니다. 보고서에는 회사의 기본 정보와 함께 텍사스주에 본사를 두고 있음을 명시하고 있습니다.</li>\n</ul><ul>\n<li><b>내부자 매도 (Form 4)</b>: 델 테크놀로지스의 Peter Trizzino 사장(글로벌 영업)이 2026년 9월 11일, 보통주 37,735주를 주당 평균 560.16달러에 매도했습니다. 이는 경영진의 주식 매도로, 향후 주가에 영향을 줄 수 있는 요인이 될 수 있습니다.</li>\n</ul><ul>\n<li><b>내부자 매도 (Form 4)</b>: 델 테크놀로지스의 임원인 Richard J. Rothberg가 2026년 9월 11일, 547.555달러에 6,000주의 클래스 C 보통주를 매도했습니다. 이는 총 3,285,330달러 규모의 거래입니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001193125-26-393134",
+          "rcept_dt": "20260916",
+          "flr_nm": "DELL",
+          "url": "https://www.sec.gov/Archives/edgar/data/1571996/000119312526393134/xslF345X06/ownership.xml"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001193125-26-393131",
+          "rcept_dt": "20260916",
+          "flr_nm": "DELL",
+          "url": "https://www.sec.gov/Archives/edgar/data/1571996/000119312526393131/xslF345X06/ownership.xml"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001193125-26-393129",
+          "rcept_dt": "20260916",
+          "flr_nm": "DELL",
+          "url": "https://www.sec.gov/Archives/edgar/data/1571996/000119312526393129/xslF345X06/ownership.xml"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001193125-26-393128",
+          "rcept_dt": "20260916",
+          "flr_nm": "DELL",
+          "url": "https://www.sec.gov/Archives/edgar/data/1571996/000119312526393128/xslF345X06/ownership.xml"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001193125-26-393126",
+          "rcept_dt": "20260916",
+          "flr_nm": "DELL",
+          "url": "https://www.sec.gov/Archives/edgar/data/1571996/000119312526393126/xslF345X06/ownership.xml"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001193125-26-392114",
+          "rcept_dt": "20260915",
+          "flr_nm": "DELL",
+          "url": "https://www.sec.gov/Archives/edgar/data/1571996/000119312526392114/xslF345X06/ownership.xml"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001193125-26-392089",
+          "rcept_dt": "20260915",
+          "flr_nm": "DELL",
+          "url": "https://www.sec.gov/Archives/edgar/data/1571996/000119312526392089/xslF345X06/ownership.xml"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001193125-26-392079",
+          "rcept_dt": "20260915",
+          "flr_nm": "DELL",
+          "url": "https://www.sec.gov/Archives/edgar/data/1571996/000119312526392079/xslF345X06/ownership.xml"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001193125-26-392050",
+          "rcept_dt": "20260915",
+          "flr_nm": "DELL",
+          "url": "https://www.sec.gov/Archives/edgar/data/1571996/000119312526392050/xslF345X06/ownership.xml"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001193125-26-392044",
+          "rcept_dt": "20260915",
+          "flr_nm": "DELL",
+          "url": "https://www.sec.gov/Archives/edgar/data/1571996/000119312526392044/xslF345X06/ownership.xml"
+        },
+        {
+          "report_nm": "수시보고 (8-K)",
+          "rcept_no": "0001193125-26-391976",
+          "rcept_dt": "20260915",
+          "flr_nm": "DELL",
+          "url": "https://www.sec.gov/Archives/edgar/data/1571996/000119312526391976/d172674d8k.htm"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0002110325-26-000008",
+          "rcept_dt": "20260915",
+          "flr_nm": "DELL",
+          "url": "https://www.sec.gov/Archives/edgar/data/1571996/000211032526000008/xslF345X06/wk-form4_1789503027.xml"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001680902-26-000009",
+          "rcept_dt": "20260915",
+          "flr_nm": "DELL",
+          "url": "https://www.sec.gov/Archives/edgar/data/1571996/000168090226000009/xslF345X06/wk-form4_1789502902.xml"
+        }
+      ]
+    },
+    {
+      "company": "코어위브",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>내부자 매도 (Form 4)</b>: 코어위브의 최고재무책임자(CFO)인 Nitin Agrawal이 2026년 9월 14일, 세금 납부를 위해 보유 중이던 Class A 보통주 66,576주를 주당 평균 83.64달러에 매도했습니다. 이는 내부자의 지분 변동으로, 회사의 재무 상태나 경영진의 전망에 대한 신호로 해석될 수 있습니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001769628-26-000426",
+          "rcept_dt": "20260915",
+          "flr_nm": "CRWV",
+          "url": "https://www.sec.gov/Archives/edgar/data/1769628/000176962826000426/xslF345X06/form4.xml"
+        }
+      ]
+    }
+  ],
+  "important_sections": [],
+  "collection_status": [
+    {
+      "company": "씨 ADR",
+      "market": "US",
+      "status": "success",
+      "filing_count": 3,
+      "checked_at": "2026-09-17T00:48:53+00:00"
+    },
+    {
+      "company": "ST 마이크로 일렉트로닉스 ADR",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-09-17T00:48:55+00:00"
+    },
+    {
+      "company": "블룸 에너지",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-09-17T00:48:56+00:00"
+    },
+    {
+      "company": "델 테크놀로지스",
+      "market": "US",
+      "status": "success",
+      "filing_count": 13,
+      "checked_at": "2026-09-17T00:48:57+00:00"
+    },
+    {
+      "company": "제타 글로벌 홀딩스",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-09-17T00:49:33+00:00"
+    },
+    {
+      "company": "애플",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-09-17T00:49:34+00:00"
+    },
+    {
+      "company": "코어위브",
+      "market": "US",
+      "status": "success",
+      "filing_count": 1,
+      "checked_at": "2026-09-17T00:49:34+00:00"
+    },
+    {
+      "company": "아틀라시언",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-09-17T00:49:35+00:00"
+    }
+  ]
+}
