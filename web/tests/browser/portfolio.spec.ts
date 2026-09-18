@@ -37,8 +37,8 @@ test("부분 합계·계좌 필터·원화 설정을 실제 렌더링과 조작�
   await expect(page.getByText(/시세 없는 종목은 현재 환율로/)).toBeVisible();
   await page.getByLabel("계좌 선택",{exact:true}).selectOption("paper");
   await expect(page.locator(".pf-table .pf-holding-row")).toHaveCount(2);
-  await page.getByLabel("계좌 선택",{exact:true}).selectOption("KIWOOM:paper");
-  await expect(page.locator(".pf-table .pf-holding-row")).toHaveCount(1);
+  await page.getByLabel("계좌 선택",{exact:true}).selectOption("live");
+  await expect(page.locator(".pf-table .pf-holding-row")).toHaveCount(2);
   await page.getByLabel("계좌 선택",{exact:true}).selectOption("broker:KIWOOM");
   await expect(page.locator(".pf-table .pf-holding-row")).toHaveCount(3);
   await page.getByLabel("표 금액 원화로 보기",{exact:true}).check();

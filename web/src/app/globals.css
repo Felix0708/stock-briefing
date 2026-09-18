@@ -1229,6 +1229,7 @@ a.source-item:focus-visible {
   .pf-summary.pf-equity-summary { grid-template-columns: minmax(0, 1fr); }
 }
 
+.pf-equity-account + .pf-equity-account { margin-top: 24px; padding-top: 16px; border-top: 2px solid var(--line); }
 .pf-table-wrap { overflow-x: auto; }
 .pf-table {
   width: 100%;
