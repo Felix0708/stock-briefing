@@ -86,7 +86,7 @@ function serviceHeaders(): Record<string, string> {
 }
 
 const REST_OPERATIONS = new Set([
-  "integration_tokens", "integration_sync_status", "rpc/sync_account_equity",
+  "integration_tokens", "integration_sync_status", "rpc/sync_account_equity", "rpc/sync_account_status",
   "rpc/replace_synced_holdings", "rpc/export_portfolio", "rpc/restore_portfolio",
   "rpc/record_manual_trade", "rpc/revise_manual_trade",
 ]);

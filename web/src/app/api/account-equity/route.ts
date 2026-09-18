@@ -3,6 +3,7 @@ import { applySessionCookies, fetchUser, getSession, supabaseUrl, userHeaders } 
 import { requestJson } from "@/lib/server/http";
 import { isDate, UUID } from "@/lib/server/account-equity";
 import { equitySource, type EquityInput, type EquityRecord } from "@/lib/account-equity";
+import { ACCOUNT_STATUS_LABELS, type AccountStatus } from "@/lib/account-status";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +18,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     let result: NextResponse;
     if (params.size === 0) {
       const series = await requestJson<EquityRecord[]>("Supabase", `${supabaseUrl()}/rest/v1/rpc/account_equity_series`, { headers, method: "POST", body: "{}", cache: "no-store" }, { attempts: 1 });
-      result = response({ series });
+      let statuses: AccountStatus[] = [];
+      let statusUnavailable = false;
+      try {
+        const rows = await requestJson<AccountStatus[]>("Supabase", `${supabaseUrl()}/rest/v1/account_collection_status?select=account_ref,broker,account_type,checked_at,code`, {headers,cache:"no-store"}, {attempts:1});
+        if (!Array.isArray(rows) || rows.some(row => !row || !Object.hasOwn(ACCOUNT_STATUS_LABELS,row.code)
+          || !UUID.test(row.account_ref) || !["KIWOOM","KIS"].includes(row.broker) || !["paper","live"].includes(row.account_type)
+          || !Number.isFinite(Date.parse(row.checked_at)))) throw new Error("Invalid collection status");
+        statuses = rows;
+      } catch { statusUnavailable = true; }
+      result = response({ series, statuses, statusUnavailable });
     } else {
       const keys = ["account_ref", "broker", "account_type", "currency", "scope"];
       if ([...params.keys()].some(key => ![...keys, "from", "before"].includes(key) || params.getAll(key).length !== 1)

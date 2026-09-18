@@ -4,6 +4,21 @@ import { RETURN_METHOD, type EquityRecord } from '../../src/lib/account-equity';
 const one:EquityRecord={account_ref:'11111111-1111-4111-8111-111111111111',broker:'KIS',account_type:'paper',currency:'KRW',scope:'account-total-assets',date_timezone:'Asia/Seoul',
   date:'2026-09-01',collected_at:'2026-09-01T01:00:00.000Z',calculated_at:'2026-09-01T02:00:00.000Z',received_at:'2026-09-01T03:00:00.000Z',valued_at:null,
   equity:'1000000.12345678',cash:null,stock_value:null,return_index:null,return_status:'insufficient_samples',return_method:null,return_base_at:null,source:'KIS_ACCOUNT_EQUITY'};
+
+test('수집 보류 진단과 입출금 증빙 안내는 계좌 필터를 따른다',async({page},info)=>{
+  await prepare(page,[{...one,return_status:'cash_flows_unverified'}]);
+  await page.route('**/api/account-equity',route=>route.fulfill({json:{series:[{...one,return_status:'cash_flows_unverified'}],statuses:[{
+    account_ref:'22222222-2222-4222-8222-222222222222',broker:'KIWOOM',account_type:'paper',checked_at:one.collected_at,code:'other_currency_assets',
+  }]}}));
+  await page.getByRole('button',{name:'자산 이력 새로고침',exact:true}).click();
+  await expect(page.getByText(/날짜별 자산만 더 쌓여도 해결되지 않습니다/)).toBeVisible();
+  await expect(page.getByText(/USD 외 통화 잔액/)).toHaveCount(0);
+  await page.getByLabel('계좌 선택').selectOption('broker:KIWOOM');
+  await expect(page.getByText(/USD 외 통화 잔액/)).toBeVisible();
+  await expect(page.getByText(/날짜별 자산만 더 쌓여도 해결되지 않습니다/)).toHaveCount(0);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.locator('section[aria-labelledby="pf-equity-title"]').screenshot({path:info.outputPath('collection-diagnostic.png')});
+});
 async function prepare(page:Page, points:EquityRecord[]=[one], second?:EquityRecord, holdings:unknown[] = []) {
   const latest=points.at(-1)!;
   await page.route('**/api/**', async route=>{
@@ -60,8 +75,11 @@ test('계좌 메뉴는 5개만 유지하고 기존 국내·해외 이력은 삭�
   page.on('request',req=>{if(req.url().includes('/api/'))requests.push({method:req.method(),url:req.url()});});
   await prepare(page,[domestic],overseas,[{...base,stock_code:'005930',stock_name:'국내 예시 종목',market:'KR'},{...base,stock_code:'AAPL',stock_name:'미국 예시 종목',market:'US'}]);
   await expect(page.getByLabel('계좌 선택').locator('option:checked')).toHaveText('키움증권 · 실/모의 전체');
-  await expect(page.locator('.pf-equity-summary')).toContainText('미수집');
+  await expect(page.locator('.pf-equity-summary')).toContainText('연동 총자산 기록 없음');
   await expect(page.locator('.pf-equity-summary')).not.toContainText('1,000,000');
+  await expect(page.getByText(/국내·해외 개별 기록은 수신됐지만/)).toBeVisible();
+  await expect(page.getByText(/국내 KRW 기록 · 마지막 수집/)).toBeVisible();
+  await expect(page.getByText(/해외 USD 기록 · 마지막 수집/)).toBeVisible();
   await expect(page.locator('.pf-equity-svg')).toHaveCount(0);
   await expect(page.locator('.pf-table .pf-holding-row')).toHaveCount(2);
   await expect(page.locator('.pf-table')).toContainText('국내 예시 종목');
@@ -105,7 +123,7 @@ test('일별 공백·기준일 변경을 연결하지 않고 서로 다른 총�
   await expect(page.locator('.pf-equity-account').last()).toContainText('한국투자증권 모의계좌');
   await page.getByLabel('계좌 선택').selectOption('live');
   await expect(page.locator('.pf-equity-account')).toHaveCount(0);
-  await expect(page.locator('.pf-equity-summary')).toContainText('미수집');
+  await expect(page.locator('.pf-equity-summary')).toContainText('연동 총자산 기록 없음');
 });
 
 for (const broker of ['KIWOOM','KIS'] as const) test(`${broker} 원화 총자산·국내·미국 주식 상세와 공백·실패 표시`,async({page},info)=>{

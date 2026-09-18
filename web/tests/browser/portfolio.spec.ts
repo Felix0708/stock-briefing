@@ -31,11 +31,14 @@ async function mock(page:Page, overrides:Record<string,unknown>={}, count=4){
 test("부분 합계·계좌 필터·원화 설정을 실제 렌더링과 조작으로 검증",async({page})=>{
   const errors:string[]=[];page.on("pageerror",error=>errors.push(error.message));
   await mock(page);
-  await expect(page.locator(".pf-summary:not(.pf-equity-summary)")).toContainText("일부 평가");
-  await expect(page.locator(".pf-summary:not(.pf-equity-summary)")).toContainText("1,540,000원");
+  await expect(page.getByLabel("실계좌 등록 주식 합계")).toContainText("일부 평가");
+  await expect(page.getByLabel("실계좌 등록 주식 합계")).toContainText("1,540,000원");
+  await expect(page.getByLabel("모의계좌 등록 주식 합계")).toContainText("1,041,600원");
+  await expect(page.getByText(/직접 등록 보유종목만 있습니다/)).toBeVisible();
   await expect(page.getByText(/평가 2종목 중 1종목 반영/)).toBeVisible();
   await expect(page.getByText(/시세 없는 종목은 현재 환율로/)).toBeVisible();
   await page.getByLabel("계좌 선택",{exact:true}).selectOption("paper");
+  await expect(page.getByLabel("실계좌 등록 주식 합계")).toHaveCount(0);
   await expect(page.locator(".pf-table .pf-holding-row")).toHaveCount(2);
   await page.getByLabel("계좌 선택",{exact:true}).selectOption("live");
   await expect(page.locator(".pf-table .pf-holding-row")).toHaveCount(2);
@@ -102,7 +105,7 @@ test("환율 누락 시 가짜 100% 비중이나 원화 평가액을 만들지 �
   await expect(page.getByText("환율 정보가 없어 비중을 계산할 수 없습니다.",{exact:true})).toHaveCount(3);
   await expect(page.locator(".pf-pie")).toHaveCount(0);
   await expect(page.locator(".pf-table .pf-holding-row").first()).toContainText("환율 대기");
-  await expect(page.locator(".pf-summary:not(.pf-equity-summary)")).not.toContainText("0원");
+  await expect(page.getByLabel("실계좌 등록 주식 합계")).not.toContainText("0원");
 });
 
 test("삭제 취소는 서버에 DELETE 요청을 보내지 않는다",async({page})=>{

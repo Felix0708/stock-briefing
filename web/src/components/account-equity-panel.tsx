@@ -8,7 +8,7 @@ const stamp = (value: string) => new Date(value).toLocaleString("ko-KR", { timeZ
 function TotalSummary({ latest }: { latest?: EquityRecord }) {
   const detail = latest?.breakdown;
   return <div className="pf-summary pf-equity-summary pf-equity-total">
-    <div><span className="pf-muted">연결 계좌 묶음 총자산 · 현금 포함</span><strong>{latest ? equityMoney(latest.equity, "KRW") : "미수집"}</strong></div>
+    <div><span className="pf-muted">연결 계좌 묶음 총자산 · 현금 포함</span><strong>{latest ? equityMoney(latest.equity, "KRW") : "연동 총자산 기록 없음"}</strong></div>
     <div><span className="pf-muted">국내주식 평가액 · 현금 제외</span><strong>{equityMoney(detail?.domestic_stock_value_krw ?? null, "KRW")}</strong></div>
     <div><span className="pf-muted">미국주식 평가액 · 현금 제외</span><strong>{equityMoney(detail?.us_stock_value_krw ?? null, "KRW")}</strong>
       {detail && <span className="pf-muted">{equityMoney(detail.us_stock_value_usd, "USD")}</span>}</div>
@@ -80,6 +80,8 @@ export function AccountEquityPanel({ latest, refresh }: { latest: EquityRecord; 
     </div>}
     {isTotal && !latest.breakdown && <p role="status" className="pf-muted">상세 미확인 · 검증된 국내·미국 분해값이 없습니다. 총자산에서 역산하거나 0으로 채우지 않습니다.</p>}
     <p className="pf-muted">마지막 수집 {stamp(latest.collected_at)}</p>
+    {latest.breakdown && <p className="pf-muted">이 기록의 적용 환율 {equityMoney(latest.breakdown.usd_krw_rate,"KRW")}/USD · 현재 시세 환율과 다를 수 있습니다.</p>}
+    {latest.return_status === "cash_flows_unverified" && <p className="pf-notice">입출금 조정 수익률은 아직 계산할 수 없습니다. 해당 계좌·기간의 입출금 내역(없었다는 확인 포함)이 필요하며, 날짜별 자산만 더 쌓여도 해결되지 않습니다. 아래 자동매매 실현손익과는 다른 지표입니다.</p>}
     <details><summary className="pf-muted">수집·금액 기준</summary>
       <p className="pf-muted">서버 수신 {stamp(latest.received_at)} · 계산 {stamp(latest.calculated_at)}<br />
         {latest.valued_at ? `증권사 평가 시각 ${stamp(latest.valued_at)}` : "증권사 평가 시각 미제공 · 수집 시각과 같다고 가정하지 않습니다."}</p>

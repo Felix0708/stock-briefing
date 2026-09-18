@@ -7,7 +7,8 @@ export const migrations=['db/schema_phase3.sql','db/schema_phase4.sql','db/schem
   'supabase/migrations/20260907072444_portfolio_backup.sql','supabase/migrations/20260907073219_recovery_verification_hardening.sql',
   'supabase/migrations/20260910145025_account_equity_history.sql',
   'supabase/migrations/20260912074043_account_equity_domestic.sql',
-  'supabase/migrations/20260912081020_account_equity_breakdown.sql'];
+  'supabase/migrations/20260912081020_account_equity_breakdown.sql',
+  'supabase/migrations/20260918012641_account_collection_status.sql'];
 
 export async function createDatabase(users, baselineSql='') {
   const db=await PGlite.create();
