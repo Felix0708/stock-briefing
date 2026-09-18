@@ -35,6 +35,21 @@ const units = (value: string) => {
   return (BigInt(whole) * SCALE + BigInt(fraction.padEnd(8, "0"))) * BigInt(value.startsWith("-") ? -1 : 1);
 };
 const within = (difference: bigint, tolerance: bigint) => difference >= -tolerance && difference <= tolerance;
+function validCurrencies(value: unknown, meta: Omit<EquitySeries, "points">, point: Record<string, unknown>): boolean {
+  if (!Array.isArray(value) || value.length !== 3 || meta.scope !== "account-total-assets" || meta.currency !== "KRW"
+    || typeof point.equity !== "string" || typeof point.cash !== "string" || typeof point.stock_value !== "string") return false;
+  let cash = BigInt(0), stocks = BigInt(0);
+  const seen = new Set();
+  for (const row of value) {
+    if (!exact(row,["currency","cash","stock_value","cash_krw","stock_value_krw"]) || !oneOf(row.currency,["KRW","USD","JPY"])
+      || seen.has(row.currency) || !["cash","stock_value","cash_krw","stock_value_krw"].every(k => typeof row[k] === "string" && decimal(row[k],k.startsWith("cash")))) return false;
+    seen.add(row.currency);
+    if (row.currency === "KRW" && (units(row.cash as string) !== units(row.cash_krw as string) || units(row.stock_value as string) !== units(row.stock_value_krw as string))) return false;
+    cash += units(row.cash_krw as string); stocks += units(row.stock_value_krw as string);
+  }
+  return within(cash-units(point.cash),BigInt(2)*SCALE) && within(stocks-units(point.stock_value),BigInt(2)*SCALE)
+    && within(cash+stocks-units(point.equity),BigInt(2)*SCALE);
+}
 function validBreakdown(value: unknown, meta: Omit<EquitySeries, "points">, point: Record<string, unknown>): boolean {
   const amounts = ["domestic_stock_value_krw", "us_stock_value_usd", "us_stock_value_krw", "cash_krw", "usd_krw_rate"];
   if (!exact(value, ["status", ...amounts, "fx_source", "observed_at", "source", "cash_scope"])
@@ -71,12 +86,13 @@ export function parseEquity(body: unknown, now = Date.now()): EquityInput[] | st
         || (series.return_method === RETURN_METHOD && isIso(series.return_base_at)))) return "자산 시리즈 형식·통화·범위를 확인해 주세요.";
     const { points, ...meta } = series as unknown as EquitySeries;
     for (const point of points) {
-      if (!exact(point, POINT_KEYS, ["breakdown"]) || !isDate(point.date) || !isIso(point.collected_at) || !isIso(point.calculated_at)
+      if (!exact(point, POINT_KEYS, ["breakdown", "currency_breakdown"]) || !isDate(point.date) || !isIso(point.collected_at) || !isIso(point.calculated_at)
         || (point.valued_at !== null && !isIso(point.valued_at))
         || !decimal(point.equity) || !decimal(point.cash, true) || !decimal(point.stock_value) || !decimal(point.return_index)
         || !oneOf(point.return_status, STATUSES)
         || point.source !== equitySource(meta.broker, meta.currency, meta.scope)) return "자산 관측값의 형식·출처를 확인해 주세요.";
       if (Object.hasOwn(point, "breakdown") && !validBreakdown(point.breakdown, meta, point)) return "자산 상세의 출처·환율·합계·관측 시각을 확인해 주세요.";
+      if (Object.hasOwn(point, "currency_breakdown") && !validCurrencies(point.currency_breakdown, meta, point)) return "원·달러·엔 상세와 합계가 일치하지 않습니다.";
       const collected = Date.parse(point.collected_at);
       const calculated = Date.parse(point.calculated_at);
       if (collected > now + 300_000 || calculated > now + 300_000 || calculated < collected

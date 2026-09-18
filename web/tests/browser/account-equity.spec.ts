@@ -5,6 +5,23 @@ const one:EquityRecord={account_ref:'11111111-1111-4111-8111-111111111111',broke
   date:'2026-09-01',collected_at:'2026-09-01T01:00:00.000Z',calculated_at:'2026-09-01T02:00:00.000Z',received_at:'2026-09-01T03:00:00.000Z',valued_at:null,
   equity:'1000000.12345678',cash:null,stock_value:null,return_index:null,return_status:'insufficient_samples',return_method:null,return_base_at:null,source:'KIS_ACCOUNT_EQUITY'};
 
+test('원·달러·엔만 합산한 실계좌는 통화별 현금과 평가액을 표시한다',async({page},info)=>{
+  await prepare(page,[{...one,broker:'KIWOOM',account_type:'live',source:'KIWOOM_ACCOUNT_EQUITY',equity:'239000',cash:'207600',stock_value:'31400',
+    currency_breakdown:[{currency:'KRW',cash:'600',stock_value:'400',cash_krw:'600',stock_value_krw:'400'},
+      {currency:'USD',cash:'90',stock_value:'10',cash_krw:'117000',stock_value_krw:'13000'},
+      {currency:'JPY',cash:'10000',stock_value:'2000',cash_krw:'90000',stock_value_krw:'18000'}]}]);
+  const summary=page.locator('.pf-equity-summary');
+  await expect(summary).toContainText('239,000원');
+  await expect(summary).toContainText('현금 $90');
+  await expect(summary).toContainText('주식 평가액 ¥2,000');
+  await expect(summary).toContainText('다른 통화 제외');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await summary.screenshot({path:info.outputPath('selected-currencies.png')});
+  await page.getByLabel('계좌 선택').selectOption('paper');
+  await expect(summary).not.toContainText('239,000원');
+  await expect(summary).toContainText('연동 총자산 기록 없음');
+});
+
 test('수집 보류 진단과 입출금 증빙 안내는 계좌 필터를 따른다',async({page},info)=>{
   await prepare(page,[{...one,return_status:'cash_flows_unverified'}]);
   await page.route('**/api/account-equity',route=>route.fulfill({json:{series:[{...one,return_status:'cash_flows_unverified'}],statuses:[{

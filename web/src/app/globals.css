@@ -851,6 +851,7 @@ a.source-item:focus-visible {
 }
 
 @media (max-width: 640px) {
+  .pf-summary.pf-currency-summary { grid-template-columns: minmax(0, 1fr); }
   .page-shell {
     width: min(100% - 24px, 820px);
     padding-top: 16px;

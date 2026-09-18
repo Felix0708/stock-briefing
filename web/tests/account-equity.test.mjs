@@ -20,6 +20,29 @@ const breakdown={status:'verified',domestic_stock_value_krw:'100000',us_stock_va
   fx_source:'KIWOOM_USD_SELL',observed_at:point.collected_at,source:'KIWOOM_LINKED_V1',cash_scope:'separate-accounts'};
 const linked={...series,account_group_ref:other,broker:'KIWOOM',points:[{...point,source:'KIWOOM_ACCOUNT_EQUITY',equity:'250000',cash:'20000',stock_value:'230000',breakdown}]};
 const originalFetch=globalThis.fetch, originalEnv={...process.env};
+test('three-currency subtotals validate in HTTP and SQL; no duplicate currency or foreign owner',async()=>{
+  const currency_breakdown=[{currency:'KRW',cash:'600',stock_value:'400',cash_krw:'600',stock_value_krw:'400'},
+    {currency:'USD',cash:'90',stock_value:'10',cash_krw:'117000',stock_value_krw:'13000'},
+    {currency:'JPY',cash:'10000',stock_value:'2000',cash_krw:'90000',stock_value_krw:'18000'}];
+  const p={...point,equity:'239000',cash:'207600',stock_value:'31400',source:'KIWOOM_ACCOUNT_EQUITY',currency_breakdown};
+  const payload=input({...linked,points:[p]});
+  const rows=parseEquity(payload);assert.ok(Array.isArray(rows));
+  assert.equal(chartValue(rows[0],'us'),13000);
+  assert.equal(canConnect(rows[0],{...rows[0],date:'2026-09-02',currency_breakdown:undefined},'equity'),false);
+  const db=await createDatabase([owner,other]);
+  try {
+    await db.query('insert into integration_tokens(user_id,token_hash,token_hint) values($1,$2,$3)',[owner,'a'.repeat(64),'aaaaaa']);
+    const sync=rs=>db.query('select sync_account_equity($1,$2::jsonb)', ['a'.repeat(64),JSON.stringify(rs)]);
+    await sync(rows);
+    for(const altered of [[...currency_breakdown.slice(0,2),currency_breakdown[0]],currency_breakdown.map(r=>({...r,currency:r.currency==='JPY'?'CNY':r.currency})),
+      currency_breakdown.map(r=>({...r,cash_krw:'1'})),currency_breakdown.map(r=>({...r,secret:'no'}))]) {
+      assert.equal(typeof parseEquity(input({...linked,points:[{...p,currency_breakdown:altered}]})),'string');
+      await assert.rejects(sync([{...rows[0],currency_breakdown:altered}]));
+    }
+    await db.exec(`reset role;set role authenticated;set request.jwt.claim.sub='${other}'`);
+    assert.equal((await db.query('select * from account_equity_points')).rows.length,0);
+  } finally {await db.close();}
+});
 test.afterEach(()=>{globalThis.fetch=originalFetch;process.env={...originalEnv};delete globalThis.__testCookieJar;});
 
 test('strict contract accepts unknown breakdown and one point; never fabricates returns', async()=>{

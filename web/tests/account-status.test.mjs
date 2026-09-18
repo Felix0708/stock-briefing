@@ -66,6 +66,8 @@ test('diagnostic success is not asset receipt; newer assets supersede old failur
     assert.match(accountStatusMessage(verified,[{...total,...patch}]),/수신 확인 필요/);
   }
   assert.match(accountStatusMessage(row,[{...total,collected_at:'2026-09-02T00:00:00Z'}]),/이전 진단 이후/);
+  assert.match(accountStatusMessage(row,[{...total,currency_breakdown:[{currency:'KRW'}]}]),/다른 통화는 합산 대상에서 제외/);
+  assert.match(accountStatusMessage({...row,code:'collection_failed'},[{...total,currency_breakdown:[]}]),/조회 실패/);
 });
 
 test('diagnostic read runs independently and failed diagnostics preserve received assets',async()=>{

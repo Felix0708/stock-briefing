@@ -16,6 +16,11 @@ export type AccountStatus = {
 };
 
 export function accountStatusMessage(status: AccountStatus, series: EquityRecord[]): string {
+  if (status.code === "other_currency_assets" && series.some(row => row.scope === "account-total-assets"
+    && row.broker === status.broker && row.account_type === status.account_type
+    && (row.account_ref === status.account_ref || row.account_group_ref === status.account_ref) && row.currency_breakdown)) {
+    return "원·달러·엔 합계 수신 · 다른 통화는 합산 대상에서 제외";
+  }
   const received = series.filter(row => row.scope === "account-total-assets" && row.broker === status.broker
     && row.account_type === status.account_type && (row.account_ref === status.account_ref || row.account_group_ref === status.account_ref))
     .reduce((latest,row) => Math.max(latest,Date.parse(row.collected_at)),0);

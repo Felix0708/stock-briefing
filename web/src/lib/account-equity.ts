@@ -27,6 +27,7 @@ export type EquityBreakdown = {
   cash_scope: "same-account" | "separate-accounts" | "account";
 };
 export type EquityPoint = {
+  currency_breakdown?: {currency: "KRW" | "USD" | "JPY"; cash: string; stock_value: string; cash_krw: string; stock_value_krw: string}[];
   breakdown?: EquityBreakdown;
   date: string;
   valued_at: string | null;
@@ -57,13 +58,13 @@ export function equityKey(value: EquityIdentity): string {
 export function equityLabel(value: EquityIdentity): string {
   return `${brokerLabel(value.broker)} ${value.account_type === "paper" ? "모의" : "실계좌"} · ${value.scope === "domestic" ? "국내자산" : value.scope === "overseas" ? "해외자산" : "계좌 전체"} ${value.currency}`;
 }
-export function equityMoney(value: string | null, currency: "KRW" | "USD"): string {
+export function equityMoney(value: string | null, currency: "KRW" | "USD" | "JPY"): string {
   if (value === null) return "미확인";
   const [integer, fraction] = value.split(".");
   const digits = BigInt(integer).toLocaleString("ko-KR");
   const decimals = fraction?.replace(/0+$/, "");
   const amount = `${integer.startsWith("-") && BigInt(integer) === BigInt(0) ? "-" : ""}${digits}${decimals ? `.${decimals}` : ""}`;
-  return currency === "USD" ? `$${amount}` : `${amount}원`;
+  return currency === "USD" ? `$${amount}` : currency === "JPY" ? `¥${amount}` : `${amount}원`;
 }
 export const RETURN_REASONS = {
   verified: "입출금 증빙 확인 · 일별 표본 수익률",
@@ -76,6 +77,7 @@ export const RETURN_REASONS = {
 export type EquityMetric = "equity" | "return" | "domestic" | "us";
 export const EQUITY_METRICS = { equity: "총자산", return: "누적 수익률", domestic: "국내주식 평가액", us: "미국주식 평가액" };
 export function chartValue(point: EquityRecord, metric: EquityMetric): number | null {
+  if (point.currency_breakdown && (metric === "domestic" || metric === "us")) return Number(point.currency_breakdown.find(r => r.currency === (metric === "domestic" ? "KRW" : "USD"))!.stock_value_krw);
   if (metric === "domestic" || metric === "us") return point.breakdown ? Number(metric === "domestic" ? point.breakdown.domestic_stock_value_krw : point.breakdown.us_stock_value_krw) : null;
   if (metric === "equity") return point.equity === null ? null : Number(point.equity);
   return point.return_status === "verified" && point.return_method === RETURN_METHOD && point.return_base_at && point.return_index !== null
@@ -86,6 +88,7 @@ export function canConnect(left: EquityRecord, right: EquityRecord, metric: Equi
     && equityKey(left) === equityKey(right)
     && left.account_group_ref === right.account_group_ref
     && chartValue(left, metric) !== null && chartValue(right, metric) !== null
+    && Boolean(left.currency_breakdown) === Boolean(right.currency_breakdown)
     && (metric !== "return" || (left.return_base_at === right.return_base_at && left.return_method === right.return_method))
     && (!["domestic", "us"].includes(metric) || left.breakdown?.source === right.breakdown?.source);
 }
