@@ -191,3 +191,10 @@ npm run typecheck && npm run lint && npm run test:api  # 검증
 
 ---
 *본 프로젝트의 요약·답변은 투자 권유가 아니며, 투자 판단의 책임은 이용자 본인에게 있습니다.*
+# ISA 잔고 연동
+
+Stock-Trading의 읽기 전용 자산 수집기에서 `ISA_BROKER=KIS` 또는 `KIWOOM`을 선택하고 해당 ISA 전용 키를 설정합니다. 증권사 API 이용 등록 및 계좌별 권한은 필요합니다. 웹 서버에는 증권사 비밀키를 저장하지 않습니다.
+
+`PUT /api/sync/account-equity` v1 시리즈의 선택 필드 `account_kind: "isa"`는 `live / KRW / account-total-assets`에서만 허용합니다. 이 경우 각 point에는 `isa_holdings: [{code, name, quantity, value}]`가 필수이며 수량·평가금액은 문자열입니다. 최대 200종목, 6자리 종목코드, 중복 없음, 보유종목 합계 및 현금 포함 총자산을 검증합니다. 통화별 상세·기존 breakdown과 혼용하지 않습니다.
+
+`supabase/migrations/20260918052709_isa_account_equity.sql` 적용 후 웹을 배포하고 수집기를 갱신합니다. 실계좌 화면에서 증권사별 ISA 카드와 보유종목을 표시합니다. 등록 보유종목과의 중복 합산, 일반 해외주식 양도세 산정, 주문 실행은 하지 않습니다. 기존 계좌 자산 API·데이터는 그대로 호환됩니다.

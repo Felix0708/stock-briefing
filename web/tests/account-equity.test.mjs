@@ -20,6 +20,30 @@ const breakdown={status:'verified',domestic_stock_value_krw:'100000',us_stock_va
   fx_source:'KIWOOM_USD_SELL',observed_at:point.collected_at,source:'KIWOOM_LINKED_V1',cash_scope:'separate-accounts'};
 const linked={...series,account_group_ref:other,broker:'KIWOOM',points:[{...point,source:'KIWOOM_ACCOUNT_EQUITY',equity:'250000',cash:'20000',stock_value:'230000',breakdown}]};
 const originalFetch=globalThis.fetch, originalEnv={...process.env};
+test('ISA is live KRW only with reconciled holdings, both brokers, and private SQL ownership',async()=>{
+  const db=await createDatabase([owner,other]);
+  try {
+    await db.query('insert into integration_tokens(user_id,token_hash,token_hint) values($1,$2,$3)',[owner,'a'.repeat(64),'aaaaaa']);
+    const sync=rs=>db.query('select sync_account_equity($1,$2::jsonb)', ['a'.repeat(64),JSON.stringify(rs)]);
+    for (const broker of ['KIS','KIWOOM']) {
+      const p={...point,equity:'1000',cash:'400',stock_value:'600',source:broker+'_ACCOUNT_EQUITY',isa_holdings:[{code:'005930',name:'삼성전자',quantity:'2',value:'600'}]};
+      const s={...series,account_type:'live',account_kind:'isa',broker,points:[p]};
+      const rows=parseEquity(input(s));assert.ok(Array.isArray(rows));await sync(rows);
+      assert.match(equityLabel(rows[0]),/ISA/);assert.equal(chartValue(rows[0],'domestic'),600);
+      for(const patch of [{account_type:'paper'},{account_kind:null},{currency:'USD'},{scope:'domestic'},
+        {isa_holdings:[...p.isa_holdings,...p.isa_holdings]},{isa_holdings:[{...p.isa_holdings[0],secret:'bad'}]},
+        {isa_holdings:[{...p.isa_holdings[0],quantity:'0'}]},{isa_holdings:[{...p.isa_holdings[0],value:'999'}]},
+        {isa_holdings:null},{cash:null},{stock_value:'900'},{equity:'9999'}]) {
+        const {account_type,account_kind,currency,scope,...points}=patch;
+        const candidate={...s,...Object.fromEntries(Object.entries({account_type,account_kind,currency,scope}).filter(([,v])=>v!==undefined)),points:[{...p,...points}]};
+        assert.equal(typeof parseEquity(input(candidate)),'string');
+        await assert.rejects(sync([{...rows[0],...patch}]));
+      }
+    }
+    await db.exec(`reset role;set role authenticated;set request.jwt.claim.sub='${other}'`);
+    assert.equal((await db.query('select * from account_equity_points')).rows.length,0);
+  } finally {await db.close();}
+});
 test('three-currency subtotals validate in HTTP and SQL; no duplicate currency or foreign owner',async()=>{
   const currency_breakdown=[{currency:'KRW',cash:'600',stock_value:'400',cash_krw:'600',stock_value_krw:'400'},
     {currency:'USD',cash:'90',stock_value:'10',cash_krw:'117000',stock_value_krw:'13000'},

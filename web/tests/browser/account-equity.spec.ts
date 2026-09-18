@@ -5,6 +5,26 @@ const one:EquityRecord={account_ref:'11111111-1111-4111-8111-111111111111',broke
   date:'2026-09-01',collected_at:'2026-09-01T01:00:00.000Z',calculated_at:'2026-09-01T02:00:00.000Z',received_at:'2026-09-01T03:00:00.000Z',valued_at:null,
   equity:'1000000.12345678',cash:null,stock_value:null,return_index:null,return_status:'insufficient_samples',return_method:null,return_base_at:null,source:'KIS_ACCOUNT_EQUITY'};
 
+for (const broker of ['KIS','KIWOOM'] as const) test(`${broker} ISA는 실계좌에서만 별도 잔고와 종목을 표시한다`,async({page},info)=>{
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  const isa:EquityRecord={...one,broker,source:broker==='KIS'?'KIS_ACCOUNT_EQUITY':'KIWOOM_ACCOUNT_EQUITY',account_kind:'isa',equity:'1000',cash:'400',stock_value:'600',isa_holdings:[{code:'005930',name:'삼성전자',quantity:'2',value:'600'}]};
+  await prepare(page,[isa]);
+  await expect(page.locator('.pf-equity-account > h3')).toContainText('ISA');
+  await expect(page.locator('.pf-equity-summary')).toContainText('1,000원');
+  await expect(page.locator('.pf-equity-summary')).toContainText('400원');
+  await expect(page.locator('.pf-isa-holdings')).toContainText('삼성전자 (005930)');
+  await expect(page.locator('.pf-isa-holdings')).toContainText('2주 · 600원');
+  await expect(page.locator('.pf-equity')).not.toContainText('원·달러·엔별 현금 상세가 아직');
+  await expect(page.getByRole('button',{name:'미국주식 평가액',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'국내주식 평가액',exact:true}).click();
+  await expect(page.locator('.pf-equity-inspect')).toContainText('600원');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.locator('section[aria-labelledby="pf-equity-title"]').screenshot({path:info.outputPath('isa-account.png')});
+  await page.getByRole('link',{name:'모의매매',exact:true}).click();
+  await expect(page.locator('.pf-isa-holdings')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
 test('모의 화면은 통합 총액만 표시하고 실계좌·세금·상세 조회와 섞이지 않는다',async({page},info)=>{
   const requests:{url:string;method:string}[]=[];
   page.on('request',req=>{if(req.url().includes('/api/'))requests.push({url:req.url(),method:req.method()});});

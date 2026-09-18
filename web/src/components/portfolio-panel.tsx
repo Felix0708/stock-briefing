@@ -1047,12 +1047,12 @@ export function PortfolioPanel() {
         </select></label></div>
         <p className="pf-muted">선택은 아래 보유종목·계좌별 비중·자동매매 성과에도 적용됩니다. 자산 이력 조회는 Stock-Trading의 새 수집을 실행하지 않습니다.</p>
         <p className="pf-muted">이곳은 현금 포함·수집 당시 환율 기준입니다. 아래 등록 주식 평가는 현금 제외·현재 조회 시세와 환율 기준이므로 금액이 다를 수 있습니다.</p>
-        {!isPaper && <p className="pf-muted">연결된 실계좌만 표시합니다. 일반·ISA 구분 정보는 아직 연동되지 않아 계좌 종류를 추정하지 않습니다.</p>}
+        {!isPaper && <p className="pf-muted">연결된 실계좌만 표시합니다. ISA 전용 연결은 증권사별 일반계좌와 분리해 표시하며, 직접 등록 잔고를 총자산에 중복 합산하지 않습니다.</p>}
         {equityState.owner === memberEmail && equityState.error && <p className="pf-error" role="alert">계좌 목록을 갱신하지 못했습니다. 이전 확인값이 있다면 유지합니다. 다시 조회해 주세요.</p>}
         {equityState.owner === memberEmail && equityState.statusUnavailable && !equityState.error && <p className="pf-muted" role="status">수집 진단 상태를 확인하지 못했습니다. 아래 자산 기록과 별도로 다시 조회해 주세요.</p>}
         <div className="pf-equity-results">
         {!isPaper && visibleStatuses.map(row => <p className="pf-notice" key={`${row.account_ref}:${row.broker}:${row.account_type}`}>
-          {brokerLabel(row.broker)} {row.account_type === "live" ? "실계좌" : "모의계좌"} · {accountStatusMessage(row,equitySeries)}<br />
+          {brokerLabel(row.broker)} {equitySeries.some(s => s.account_kind === "isa" && (s.account_ref === row.account_ref || s.account_group_ref === row.account_ref)) ? "ISA 실계좌" : row.account_type === "live" ? "실계좌" : "모의계좌"} · {accountStatusMessage(row,equitySeries)}<br />
           확인 {new Date(row.checked_at).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})} (한국시간)
         </p>)}
         {!equityBusy && !equityState.error && missingTotals.map(group => {
@@ -1065,9 +1065,9 @@ export function PortfolioPanel() {
           </div>;
         })}
         {visibleEquity.length > 0 ? visibleEquity.map(series => {
-          const peers = visibleEquity.filter(row => row.broker === series.broker && row.account_type === series.account_type);
+          const peers = visibleEquity.filter(row => row.broker === series.broker && row.account_type === series.account_type && row.account_kind === series.account_kind);
           return <div className="pf-equity-account" key={equityKey(series)}>
-            <h3>{accountGroupLabel({ ...series, source: "stock_trading" })}{peers.length > 1 ? ` · 연결 묶음 ${peers.indexOf(series) + 1}` : ""}</h3>
+            <h3>{accountGroupLabel({ ...series, source: "stock_trading" })}{series.account_kind === "isa" ? " · ISA" : ""}{peers.length > 1 ? ` · 연결 묶음 ${peers.indexOf(series) + 1}` : ""}</h3>
             {isPaper ? <>
               <div className="pf-summary pf-equity-summary pf-equity-total"><div>
                 <span className="pf-muted">모의 통합 총자산 · 현금 포함{series.currency_breakdown ? " · KRW·USD·JPY 합산" : ""}</span>

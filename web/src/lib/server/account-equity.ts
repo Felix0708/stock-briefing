@@ -70,6 +70,23 @@ function validBreakdown(value: unknown, meta: Omit<EquitySeries, "points">, poin
     && (point.stock_value === null || within(kr + us - units(point.stock_value as string), BigInt(2) * SCALE));
 }
 
+function validIsa(point: Record<string, unknown>): boolean {
+  if (!Array.isArray(point.isa_holdings) || point.isa_holdings.length > 200
+    || !["equity", "cash", "stock_value"].every(k => typeof point[k] === "string")
+    || Object.hasOwn(point,"breakdown") || Object.hasOwn(point,"currency_breakdown")) return false;
+  const seen = new Set();
+  let total = BigInt(0);
+  for (const row of point.isa_holdings) {
+    if (!exact(row,["code","name","quantity","value"]) || typeof row.code !== "string" || !/^\d{6}$/.test(row.code) || seen.has(row.code)
+      || typeof row.name !== "string" || !row.name.trim() || row.name.length > 100
+      || typeof row.quantity !== "string" || !/^[1-9]\d{0,14}$/.test(row.quantity)
+      || typeof row.value !== "string" || !decimal(row.value)) return false;
+    seen.add(row.code); total += units(row.value);
+  }
+  return within(total-units(point.stock_value as string),BigInt(2)*SCALE)
+    && within(units(point.cash as string)+total-units(point.equity as string),BigInt(2)*SCALE);
+}
+
 export function parseEquity(body: unknown, now = Date.now()): EquityInput[] | string {
   if (!exact(body, ["version", "series"]) || body.version !== 1 || !Array.isArray(body.series) || body.series.length > 20) {
     return "version=1과 최대 20개 series 배열이 필요합니다.";
@@ -77,7 +94,8 @@ export function parseEquity(body: unknown, now = Date.now()): EquityInput[] | st
   const records: EquityInput[] = [];
   const seen = new Set<string>();
   for (const series of body.series) {
-    if (!exact(series, SERIES_KEYS, ["account_group_ref"]) || typeof series.account_ref !== "string" || !UUID.test(series.account_ref)
+    if (!exact(series, SERIES_KEYS, ["account_group_ref", "account_kind"]) || typeof series.account_ref !== "string" || !UUID.test(series.account_ref)
+      || (Object.hasOwn(series,"account_kind") && (series.account_kind !== "isa" || series.account_type !== "live" || series.currency !== "KRW" || series.scope !== "account-total-assets"))
       || (Object.hasOwn(series, "account_group_ref") && (typeof series.account_group_ref !== "string" || !UUID.test(series.account_group_ref)))
       || !oneOf(series.broker, ["KIWOOM", "KIS"]) || !oneOf(series.account_type, ["paper", "live"])
       || !equitySource(series.broker, series.currency, series.scope)
@@ -86,11 +104,12 @@ export function parseEquity(body: unknown, now = Date.now()): EquityInput[] | st
         || (series.return_method === RETURN_METHOD && isIso(series.return_base_at)))) return "자산 시리즈 형식·통화·범위를 확인해 주세요.";
     const { points, ...meta } = series as unknown as EquitySeries;
     for (const point of points) {
-      if (!exact(point, POINT_KEYS, ["breakdown", "currency_breakdown"]) || !isDate(point.date) || !isIso(point.collected_at) || !isIso(point.calculated_at)
+      if (!exact(point, POINT_KEYS, ["breakdown", "currency_breakdown", "isa_holdings"]) || !isDate(point.date) || !isIso(point.collected_at) || !isIso(point.calculated_at)
         || (point.valued_at !== null && !isIso(point.valued_at))
         || !decimal(point.equity) || !decimal(point.cash, true) || !decimal(point.stock_value) || !decimal(point.return_index)
         || !oneOf(point.return_status, STATUSES)
         || point.source !== equitySource(meta.broker, meta.currency, meta.scope)) return "자산 관측값의 형식·출처를 확인해 주세요.";
+      if (meta.account_kind === "isa" ? !validIsa(point) : Object.hasOwn(point,"isa_holdings")) return "ISA 실계좌 잔고·합계를 확인해 주세요.";
       if (Object.hasOwn(point, "breakdown") && !validBreakdown(point.breakdown, meta, point)) return "자산 상세의 출처·환율·합계·관측 시각을 확인해 주세요.";
       if (Object.hasOwn(point, "currency_breakdown") && !validCurrencies(point.currency_breakdown, meta, point)) return "원·달러·엔 상세와 합계가 일치하지 않습니다.";
       const collected = Date.parse(point.collected_at);

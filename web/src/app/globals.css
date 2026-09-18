@@ -851,6 +851,7 @@ a.source-item:focus-visible {
 }
 
 @media (max-width: 640px) {
+  .pf-summary.pf-isa-summary { grid-template-columns: minmax(0, 1fr); }
   .pf-summary.pf-currency-summary { grid-template-columns: minmax(0, 1fr); }
   .page-shell {
     width: min(100% - 24px, 820px);
@@ -1207,6 +1208,11 @@ a.source-item:focus-visible {
 .pf-filters label { min-width: 0; max-width: 100%; overflow: hidden; }
 .pf-filters select:focus-visible { outline: 2px solid var(--primary); outline-offset: -3px; }
 .pf-equity-summary strong { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.pf-isa-holdings { margin-block: 20px; }
+.pf-isa-holdings ul { list-style: none; margin: 0; padding: 0; }
+.pf-isa-holdings li { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.pf-isa-holdings li span { min-width: 0; overflow-wrap: anywhere; }
+.pf-isa-holdings li span:last-child { font-variant-numeric: tabular-nums; }
 .pf-summary.pf-equity-total > div:first-child { grid-column: 1 / -1; }
 .pf-equity-chart { border-top: 1px solid var(--line); margin-top: 24px; padding-top: 12px; }
 .pf-equity-switches, .pf-equity-switches > div { display: flex; flex-wrap: wrap; gap: 6px; }
