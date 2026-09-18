@@ -7,7 +7,7 @@ export function proxy(request: NextRequest): NextResponse {
   // These APIs do not use browser cookies: public Q&A and bearer-token sync.
   if (
     (method === "POST" && nextUrl.pathname === "/api/ask") ||
-    (method === "PUT" && ["/api/sync/holdings", "/api/sync/account-equity", "/api/sync/account-status"].includes(nextUrl.pathname))
+    (method === "PUT" && ["/api/sync/holdings", "/api/sync/account-equity", "/api/sync/account-status", "/api/sync/tax-estimate"].includes(nextUrl.pathname))
   ) return NextResponse.next();
 
   const site = headers.get("sec-fetch-site");

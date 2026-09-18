@@ -261,9 +261,10 @@ export function PortfolioPanel() {
   const [nickInput, setNickInput] = useState("");
   const [nickBusy, setNickBusy] = useState(false);
 
-  const loadQuotes = useCallback(async (rows: Holding[], needsUsd: boolean) => {
+  const loadQuotes = useCallback(async (rows: Holding[]) => {
     try {
-      const data = await loadPortfolioQuotes(rows.map(quoteKey), needsUsd);
+      // Sold-out US/JP holdings still need FX for recorded annual realized gains.
+      const data = await loadPortfolioQuotes(rows.map(quoteKey), true, true);
       setQuotes(data.quotes);
       setUsdKrw(data.usdKrw ?? null);
       setJpyKrw(data.jpyKrw ?? null);
@@ -281,7 +282,7 @@ export function PortfolioPanel() {
       const data = await api<{ holdings: Holding[]; performance: TradingPerformance[] }>("/api/holdings");
       setHoldings(data.holdings);
       setPerformance(data.performance);
-      await loadQuotes(data.holdings, data.performance.some((item) => item.realized_usd_count > 0));
+      await loadQuotes(data.holdings);
     } catch (error) {
       setListError(error instanceof Error ? error.message : "목록을 불러오지 못했습니다.");
     } finally {
@@ -1037,6 +1038,7 @@ export function PortfolioPanel() {
         <p className="pf-muted">이곳은 현금 포함·수집 당시 환율 기준입니다. 아래 등록 주식 평가는 현금 제외·현재 조회 시세와 환율 기준이므로 금액이 다를 수 있습니다.</p>
         {equityState.owner === memberEmail && equityState.error && <p className="pf-error" role="alert">계좌 목록을 갱신하지 못했습니다. 이전 확인값이 있다면 유지합니다. 다시 조회해 주세요.</p>}
         {equityState.owner === memberEmail && equityState.statusUnavailable && !equityState.error && <p className="pf-muted" role="status">수집 진단 상태를 확인하지 못했습니다. 아래 자산 기록과 별도로 다시 조회해 주세요.</p>}
+        <div className="pf-equity-results">
         {visibleStatuses.map(row => <p className="pf-notice" key={`${row.account_ref}:${row.broker}:${row.account_type}`}>
           {brokerLabel(row.broker)} {row.account_type === "live" ? "실계좌" : "모의계좌"} · {accountStatusMessage(row,equitySeries)}<br />
           확인 {new Date(row.checked_at).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})} (한국시간)
@@ -1057,6 +1059,7 @@ export function PortfolioPanel() {
             <AccountEquityPanel key={`${equityKey(series)}:${series.received_at}`} latest={series} refresh={equityRefresh} />
           </div>;
         }) : <AccountEquityEmpty message={equityBusy ? "계좌 자산 수신 기록을 확인하고 있습니다." : equityState.error ? "수신 기록을 확인하지 못했습니다. 계좌 목록을 다시 조회해 주세요." : "선택한 조건의 검증된 연동 총자산 기록이 없습니다. 보유종목과 기존 이력은 보존되어 있습니다."} />}
+        </div>
       </section>
 
       <section className="pf-card" aria-labelledby="pf-list-title">
@@ -1309,9 +1312,12 @@ export function PortfolioPanel() {
       </section>
       <p className="pf-muted">아래 직접 투자 매매 이력·브리핑 상태는 전체 포트폴리오 기준이며 위 계좌 선택과 별개입니다.</p>
       <ForeignTaxPanel key={user.email} asOf={quotesAsOf} available={!listBusy && !listError && !quotesError && !pendingDelete}
+        usdKrw={usdKrw} jpyKrw={jpyKrw}
+        liveBrokers={[...new Set([...holdings.filter(h=>h.source==="stock_trading"&&h.account_type==="live").map(h=>h.broker),
+          ...performance.filter(p=>p.account_type==="live").map(p=>p.broker),...(tokenStatus?.sync?.accounts??[]).filter(a=>a.account_type==="live").map(a=>a.broker)])]}
         values={holdings.filter(h=>isRealAccount(h) && h.market!=="KR").map(h=>{
           const quote=quotes[quoteKey(h)], rate=h.market==="US" ? usdKrw : jpyKrw;
-          return {market:h.market as "US" | "JP",value:quote && rate ? h.quantity*quote.price*rate : null};
+          return {market:h.market as "US" | "JP",value:quote && rate ? h.quantity*quote.price*rate : null,cost:rate?h.quantity*h.avg_price*rate:null};
         })} />
       <ManualTradesPanel holdings={holdings.filter((holding) => holding.source === "manual")} onChanged={loadHoldings} disabled={pendingDelete !== null} />
       <BriefingStatusPanel holdings={holdings} />

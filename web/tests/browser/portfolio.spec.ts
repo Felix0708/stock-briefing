@@ -16,6 +16,7 @@ async function mock(page:Page, overrides:Record<string,unknown>={}, count=4){
       "/api/holdings":{holdings,performance:[]},
       "/api/integration-token":{active:false},
       "/api/account-equity":{series:[]},
+      "/api/tax-estimate":{year:2026,rows:[]},
       "/api/quotes":{quotes:{"US:SE":{code:"SE",name:"씨 ADR",currency:"USD",price:110,changeRatio:1},"US:ZETA":{code:"ZETA",name:"제타 글로벌 홀딩스",currency:"USD",price:31,changeRatio:1}},usdKrw:1400,jpyKrw:null,asOf:new Date().toISOString()},
       "/api/manual-trades":req.method()!=="GET"?{ok:true,trade:{id:1,quantity_after:11,realized_profit_loss:null}}:{trades:[],summary:[],next:null},
       "/api/briefing-status":{collections:[],delivery:null,run:null,emailEnabled:true},
@@ -27,6 +28,26 @@ async function mock(page:Page, overrides:Record<string,unknown>={}, count=4){
   await expect(page.locator(".pf-table .pf-holding-row")).toHaveCount(count);
   return calls;
 }
+
+test("계좌 안내와 총자산·세금 입력 블록의 간격은 동일하다",async({page},info)=>{
+  await mock(page,{"/api/holdings":{holdings:[...holdings,{...holdings[0],broker:"KIS"}],performance:[]}},5);
+  await page.getByLabel("계좌 선택",{exact:true}).selectOption("live");
+  const results=page.locator(".pf-equity-results");
+  await expect(results.locator(":scope > .pf-notice")).toHaveCount(2);
+  const boxes=await results.locator(":scope > *").evaluateAll(els=>els.map(el=>({top:el.getBoundingClientRect().top,bottom:el.getBoundingClientRect().bottom})));
+  for(let i=1;i<boxes.length;i++) expect(boxes[i].top-boxes[i-1].bottom).toBeCloseTo(14,0);
+  const tax=page.getByRole("region",{name:"미국·일본 주식 예상 세금 · 2026년"});
+  await expect(tax).toContainText("실계좌 매매 기록 자동 계산");
+  await expect(tax.getByLabel("연간 예상 세금 결과")).toBeVisible();
+  await expect(tax.getByLabel("미국 연간 실현손익 (원)")).toHaveCount(0);
+  expect(await results.locator(".pf-summary").evaluate(el=>getComputedStyle(el).gap)).toBe("14px");
+  expect(await tax.locator(".pf-summary").evaluate(el=>getComputedStyle(el).gap)).toBe("14px");
+  const taxBoxes=await tax.locator(":scope > *").evaluateAll(els=>els.map(el=>({top:el.getBoundingClientRect().top,bottom:el.getBoundingClientRect().bottom})));
+  for(let i=1;i<taxBoxes.length;i++) expect(taxBoxes[i].top-taxBoxes[i-1].bottom).toBeCloseTo(14,0);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await results.screenshot({path:info.outputPath("equity-spacing.png")});
+  await tax.screenshot({path:info.outputPath("tax-spacing.png")});
+});
 
 test("원화 합계와 USD·JPY 원금액, 연간 세금과 가정 매도는 모의·계좌 필터와 분리된다",async({page},info)=>{
   const calls=await mock(page,{
@@ -40,6 +61,8 @@ test("원화 합계와 USD·JPY 원금액, 연간 세금과 가정 매도는 모
   await page.getByLabel("표 금액 원화로 보기",{exact:true}).check();
   await expect(summary).toContainText("USD $1,210");
   const tax=page.getByRole("region",{name:"미국·일본 주식 예상 세금 · 2026년"});
+  await tax.getByText("증권사 자료로 직접 보정하기 (선택)",{exact:true}).click();
+  await tax.getByLabel("자동 추정 대신 직접 입력 사용").check();
   await expect(tax.getByLabel("연간 예상 세금 결과")).toHaveCount(0);
   await tax.getByLabel("미국 연간 실현손익 (원)").fill("10000000");
   await tax.getByLabel("일본 연간 실현손익 (원)").fill("-2000000");
@@ -59,6 +82,27 @@ test("원화 합계와 USD·JPY 원금액, 연간 세금과 가정 매도는 모
   await expect(tax.getByLabel("연간 예상 세금 결과")).toHaveCount(0);
   expect(calls.filter(call=>call.method!=="GET")).toEqual([]);
   expect(await tax.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+});
+
+test("실계좌 기록만 자동 계산하고 계좌 필터·가정 매도와 조회 실패를 구분한다",async({page},info)=>{
+  const row={source:"manual",broker:"KIWOOM",market:"US",sell_count:2,missing_count:0,profit_loss:5000,updated_at:"2026-09-18T00:00:00Z"};
+  const calls=await mock(page,{"/api/tax-estimate":{year:2026,rows:[row,{...row,source:"stock_trading",broker:"KIS",profit_loss:-1000}]}});
+  const tax=page.getByRole("region",{name:"미국·일본 주식 예상 세금 · 2026년"});
+  await expect(tax.getByLabel("연간 예상 세금 결과")).toContainText("682,000원");
+  await expect(tax.getByLabel("연간 예상 세금 결과")).toContainText("4,918,000원");
+  await expect(tax.getByLabel("미국 연간 실현손익 (원)")).toHaveCount(0);
+  await page.getByLabel("계좌 선택",{exact:true}).selectOption("paper");
+  await expect(tax.getByLabel("연간 예상 세금 결과")).toContainText("682,000원");
+  await tax.screenshot({path:info.outputPath("automatic-tax.png")});
+  await page.route("**/api/tax-estimate",r=>r.fulfill({status:502,json:{error:"unavailable"}}));
+  await page.getByRole("button",{name:"시세 새로고침",exact:true}).click();
+  await expect(tax.getByRole("alert")).toContainText("0원으로 계산하지 않습니다");
+  await expect(tax.getByLabel("연간 예상 세금 결과")).toHaveCount(0);
+  await page.route("**/api/tax-estimate",r=>r.fulfill({json:{year:2026,rows:[{...row,missing_count:1}]}}));
+  await tax.getByRole("button",{name:"매도 기록 다시 조회"}).click();
+  await expect(tax).toContainText("미확인 1건으로 계산 보류");
+  await expect(tax.getByLabel("연간 예상 세금 결과")).toHaveCount(0);
+  expect(calls.filter(c=>c.method!=="GET")).toEqual([]);
 });
 
 test("외화 환율 누락도 원금액은 보존하고 가정 세후 손익은 만들지 않는다",async({page})=>{

@@ -31,6 +31,8 @@ test("잔고가 없어도 USD 성과의 환율을 단독 조회한다",async()=>
   const result=await loadPortfolioQuotes([],true);
   assert.match(requested,/fx=USD/);
   assert.equal(result.usdKrw,1400);
+  await loadPortfolioQuotes([],true,true);
+  assert.equal(new URL(requested,"http://localhost").searchParams.get("fx"),"USD,JPY");
 });
 
 test("환율 단독 API가 실제 조회하며 지원하지 않는 통화는 거부한다",async()=>{

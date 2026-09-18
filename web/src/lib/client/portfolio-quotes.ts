@@ -14,10 +14,10 @@ type QuoteResult = {
   asOf: string;
 };
 
-export async function loadPortfolioQuotes(codes: string[], needsUsd: boolean): Promise<QuoteResult> {
+export async function loadPortfolioQuotes(codes: string[], needsUsd: boolean, needsJpy = false): Promise<QuoteResult> {
   const unique = [...new Set(codes)];
   const fx = [needsUsd || unique.some((code) => code.startsWith("US:")) ? "USD" : "",
-    unique.some((code) => code.startsWith("JP:")) ? "JPY" : ""].filter(Boolean).join(",");
+    needsJpy || unique.some((code) => code.startsWith("JP:")) ? "JPY" : ""].filter(Boolean).join(",");
   const batches = [];
   for (let index = 0; index < unique.length; index += 30) batches.push(unique.slice(index, index + 30));
   if (!batches.length && fx) batches.push([]);

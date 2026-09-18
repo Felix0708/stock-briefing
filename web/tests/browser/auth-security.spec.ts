@@ -28,6 +28,8 @@ test("real proxy blocks forged requests while browser-origin validation reaches 
   const equity = await request.put("/api/sync/account-equity", { data: { version: 1, series: [] } });
   expect(equity.status()).toBe(401);
   expect(equity.headers()["set-cookie"]).toBeUndefined();
+  expect((await request.put("/api/sync/tax-estimate",{data:{version:1,records:[]}})).status()).toBe(401);
+  expect((await request.get("/api/tax-estimate")).status()).toBe(401);
   expect((await request.get("/api/account-equity")).status()).toBe(401);
   expect(errors).toEqual([]);
   await page.goto("/");

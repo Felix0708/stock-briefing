@@ -1231,6 +1231,13 @@ a.source-item:focus-visible {
 }
 
 .pf-equity-account + .pf-equity-account { margin-top: 24px; padding-top: 16px; border-top: 2px solid var(--line); }
+.pf-equity-results { display: grid; gap: 14px; }
+.pf-equity-results > * { margin-block: 0; min-width: 0; }
+.pf-equity-results > .pf-equity-account + .pf-equity-account { margin-top: 0; }
+.pf-tax { display: flex; flex-direction: column; gap: 14px; }
+.pf-card.pf-tax > *, .pf-tax > details > * { margin-block: 0; }
+.pf-tax > details > * + * { margin-top: 14px; }
+.pf-equity-results .pf-summary, .pf-tax .pf-summary { gap: 14px; }
 .pf-table-wrap { overflow-x: auto; }
 .pf-table {
   width: 100%;
