@@ -9,7 +9,7 @@ import { ManualTradesPanel } from "@/components/manual-trades-panel";
 import { BriefingStatusPanel } from "@/components/briefing-status-panel";
 import { PortfolioBackupPanel } from "@/components/portfolio-backup-panel";
 import { AccountEquityEmpty, AccountEquityPanel } from "@/components/account-equity-panel";
-import { ACCOUNT_STATUS_LABELS, type AccountStatus } from "@/lib/account-status";
+import { accountStatusMessage, type AccountStatus } from "@/lib/account-status";
 import { equityKey, equityMoney, type EquityRecord } from "@/lib/account-equity";
 import {
   accountGroupKey,
@@ -1028,7 +1028,7 @@ export function PortfolioPanel() {
         {equityState.owner === memberEmail && equityState.error && <p className="pf-error" role="alert">계좌 목록을 갱신하지 못했습니다. 이전 확인값이 있다면 유지합니다. 다시 조회해 주세요.</p>}
         {equityState.owner === memberEmail && equityState.statusUnavailable && !equityState.error && <p className="pf-muted" role="status">수집 진단 상태를 확인하지 못했습니다. 아래 자산 기록과 별도로 다시 조회해 주세요.</p>}
         {visibleStatuses.map(row => <p className="pf-notice" key={`${row.account_ref}:${row.broker}:${row.account_type}`}>
-          {brokerLabel(row.broker)} {row.account_type === "live" ? "실계좌" : "모의계좌"} · {ACCOUNT_STATUS_LABELS[row.code]}<br />
+          {brokerLabel(row.broker)} {row.account_type === "live" ? "실계좌" : "모의계좌"} · {accountStatusMessage(row,equitySeries)}<br />
           확인 {new Date(row.checked_at).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})} (한국시간)
         </p>)}
         {!equityBusy && !equityState.error && missingTotals.map(group => {

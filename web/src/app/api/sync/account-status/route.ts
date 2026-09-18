@@ -32,7 +32,7 @@ export async function PUT(req: NextRequest) {
   } catch(error) {
     if(error instanceof RangeError) return respond({error:"요청이 너무 큽니다."},413);
     if(error instanceof SyntaxError) return respond({error:"JSON 형식을 확인해 주세요."},400);
-    if(error instanceof UpstreamError && [400,401].includes(error.status ?? 0)) return respond({error:"수집 상태 또는 연동 토큰을 확인해 주세요."},error.status!);
+    if(error instanceof UpstreamError && [400,401,409].includes(error.status ?? 0)) return respond({error:error.status === 409 ? "같은 확인 시각에 서로 다른 수집 상태가 있습니다. 송신 기록을 확인해 주세요." : "수집 상태 또는 연동 토큰을 확인해 주세요."},error.status!);
     return respond({error:"수집 상태를 저장하지 못했습니다."},502);
   }
 }
