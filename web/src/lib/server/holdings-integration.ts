@@ -4,6 +4,7 @@ import { createHash, randomBytes } from "node:crypto";
 
 import { ConfigurationError } from "./config";
 import { UpstreamError } from "./http";
+import { validEvaluation, type PerformanceEvaluation } from "../performance-evaluation";
 
 export type SyncedHolding = {
   market: "KR" | "US" | "JP";
@@ -30,6 +31,7 @@ export type RealizedPerformance = {
 };
 
 export type SyncedPerformance = {
+  evaluation?: PerformanceEvaluation;
   broker: "KIWOOM" | "KIS";
   account_type: "paper" | "live";
   all: PerformanceStats;
@@ -244,7 +246,8 @@ function parsePerformance(values: unknown[]): SyncedPerformance[] | string {
   const result: SyncedPerformance[] = [];
   const seen = new Set<string>();
   for (const value of values) {
-    if (!isRecord(value) || !hasExactKeys(value, PERFORMANCE_KEYS)) return "자동매매 성과 형식이 올바르지 않습니다.";
+    if (!isRecord(value) || !hasExactKeys(value, Object.hasOwn(value,"evaluation") ? new Set([...PERFORMANCE_KEYS,"evaluation"]) : PERFORMANCE_KEYS)) return "자동매매 성과 형식이 올바르지 않습니다.";
+    if (Object.hasOwn(value,"evaluation") && (value.account_type!=="paper" || !validEvaluation(value.evaluation))) return "전략 비교용 평가자료 형식이 올바르지 않습니다.";
     const broker = value.broker;
     const accountType = value.account_type;
     if (broker !== "KIWOOM" && broker !== "KIS") return "성과 broker는 KIWOOM 또는 KIS여야 합니다.";
@@ -257,6 +260,7 @@ function parsePerformance(values: unknown[]): SyncedPerformance[] | string {
     const month = parseStats(value.month);
     const realized = value.realized;
     if (typeof all === "string") return all;
+    if (validEvaluation(value.evaluation) && value.evaluation.total_count!==all.count) return "평가 대상 건수는 전체 최종청산 건수와 같아야 합니다.";
     if (typeof month === "string") return month;
     if (!isRecord(realized) || !hasExactKeys(realized, new Set(["KRW", "USD"]))) {
       return "실현손익에는 KRW와 USD 집계가 모두 필요합니다.";
@@ -279,6 +283,7 @@ function parsePerformance(values: unknown[]): SyncedPerformance[] | string {
       realized: { KRW: krw, USD: usd },
       excluded_full_exits: Number(value.excluded_full_exits),
       updated_at: new Date(value.updated_at).toISOString(),
+      ...(value.evaluation === undefined ? {} : {evaluation:value.evaluation as PerformanceEvaluation}),
     });
   }
   return result;

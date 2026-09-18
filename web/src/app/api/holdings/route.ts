@@ -15,6 +15,7 @@ import {
   type HoldingBroker,
 } from "@/lib/holding-brokers";
 import { effectiveHoldings, type BrokerSnapshot } from "@/lib/broker-holdings";
+import type { PerformanceEvaluation } from "@/lib/performance-evaluation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,6 +36,7 @@ export type Holding = {
 };
 
 export type TradingPerformance = {
+  evaluation?: PerformanceEvaluation | null;
   broker: "KIWOOM" | "KIS";
   account_type: "paper" | "live";
   all_count: number;
@@ -161,7 +163,7 @@ export async function GET(): Promise<NextResponse> {
       ),
       restFetch<TradingPerformance[]>(
         session,
-        "trading_performance?select=broker,account_type,all_count,all_wins,all_losses,all_draws,all_win_rate,month_count,month_wins,month_losses,month_draws,month_win_rate,realized_krw_count,realized_krw_profit_loss,realized_krw_return_rate,realized_usd_count,realized_usd_profit_loss,realized_usd_return_rate,excluded_full_exits,updated_at&order=broker.asc,account_type.asc",
+        "trading_performance?select=broker,account_type,all_count,all_wins,all_losses,all_draws,all_win_rate,month_count,month_wins,month_losses,month_draws,month_win_rate,realized_krw_count,realized_krw_profit_loss,realized_krw_return_rate,realized_usd_count,realized_usd_profit_loss,realized_usd_return_rate,excluded_full_exits,updated_at,evaluation&order=broker.asc,account_type.asc",
         { method: "GET" },
       ),
       restFetch<BrokerSnapshot[]>(session,"broker_holdings?select=broker,account_kind,market,collected_at,holdings",{method:"GET"}),

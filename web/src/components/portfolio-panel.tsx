@@ -27,10 +27,12 @@ import {
   type ManualBroker,
 } from "@/lib/holding-brokers";
 import { holdingOwnership, type PortfolioHolding, type BrokerSnapshot } from "@/lib/broker-holdings";
+import { EVALUATION_REASONS, validEvaluation, type PerformanceEvaluation } from "@/lib/performance-evaluation";
 
 type Holding = PortfolioHolding;
 
 type TradingPerformance = {
+  evaluation?: PerformanceEvaluation | null;
   broker: "KIWOOM" | "KIS";
   account_type: "paper" | "live";
   all_count: number;
@@ -1295,6 +1297,7 @@ export function PortfolioPanel() {
                 .map((item) => (
                 <article className="pf-performance-card" key={`${item.broker}:${item.account_type}`}>
                   <h4>{accountGroupLabel({ ...item, source: "stock_trading" })}</h4>
+                  {isPaper && <p className="pf-muted">전체 실제 체결 성과 · 비교용 제외 거래도 포함</p>}
                   <dl>
                     <div>
                       <dt>역대</dt>
@@ -1331,6 +1334,30 @@ export function PortfolioPanel() {
                       <dd>{item.excluded_full_exits.toLocaleString("ko-KR")}건</dd>
                     </div>
                   </dl>
+                  {isPaper && <section aria-label="전략 비교용 표본">
+                    <h4>전략 비교용 표본</h4>
+                    {!validEvaluation(item.evaluation) ? <p className="pf-muted">평가자료 미수신 · 0건을 뜻하지 않습니다.</p> : <>
+                      <p>분류 대상 {item.evaluation.total_count.toLocaleString("ko-KR")}건 · 비교 가능 {item.evaluation.eligible_count.toLocaleString("ko-KR")}건 · 제외 {item.evaluation.excluded_count.toLocaleString("ko-KR")}건</p>
+                      <p className="pf-muted">정책·통화별 실제 체결 표본입니다. 서로 다른 정책의 승률은 합산하지 않으며 가상 성과가 아닙니다. 승률은 무승부 제외입니다.</p>
+                      {Object.entries(item.evaluation.reason_counts).filter(([,n])=>n>0).length>0 && <>
+                        <p className="pf-muted">제외 사유 · 한 거래에 여러 사유가 있을 수 있습니다.</p>
+                        <ul>{Object.entries(item.evaluation.reason_counts).filter(([,n])=>n>0).map(([code,n])=><li key={code}>{EVALUATION_REASONS[code as keyof typeof EVALUATION_REASONS]} {n}건</li>)}</ul>
+                      </>}
+                      {item.evaluation.cohorts.length===0 && <p className="pf-muted">비교 가능한 표본이 없습니다.</p>}
+                      {item.evaluation.cohorts.map(c=>{
+                        const convert=showPerformanceInKrw && c.currency==="USD" && usdKrw;
+                        const money=(n:number)=>formatSignedMoney(convert ? n*usdKrw! : n,convert ? "KRW" : c.currency);
+                        return <div key={`${c.policy_hash}:${c.currency}`}>
+                          <h5 title={c.policy_hash}>정책 {c.policy_hash.slice(0,12)} · {c.currency}{convert ? " (원화 환산)" : ""}</h5>
+                          <dl>
+                            <div><dt>표본</dt><dd>{c.count}건 · {c.wins}승 {c.losses}패 {c.draws}무<strong>승률 {formatRate(c.win_rate)}</strong></dd></div>
+                            <div><dt>비용 전 손익</dt><dd>{money(c.profit_loss)}</dd></div>
+                            <div><dt>비용 반영 손익</dt><dd>{c.net_profit_loss===null ? "미확인" : money(c.net_profit_loss)}<strong>비용 미확인 {c.unknown_costs}건</strong></dd></div>
+                          </dl>
+                        </div>;
+                      })}
+                    </>}
+                  </section>}
                   <p className="pf-muted pf-performance-time">
                     {new Date(item.updated_at).toLocaleString("ko-KR")} 기준
                   </p>

@@ -213,3 +213,13 @@ Stock-Trading의 읽기 전용 자산 수집기에서 `ISA_BROKER=KIS` 또는 `K
 적용 순서는 DB 마이그레이션 → 웹 배포 → Stock-Trading 읽기 전용 수집기 재시작 → 수신 시각·수량 대조입니다. Git 푸시만으로 로컬 수집기는 갱신되지 않습니다. 웹의 새로고침도 증권사 API 재수집을 요청하지 않습니다. 잔고 연동 때문에 실주문 잠금을 해제할 필요는 없습니다.
 
 ‘증권사 조회’는 수집 방식, ‘직접/자동’은 매수 주체입니다. 자동 조회된 직접투자도 직접으로 표시합니다. 이 경로의 개별 종목 조회는 국내·미국 및 ISA 국내 범위이며, JPY 자산 합산이 일본 개별 종목 자동 조회를 뜻하지 않습니다. 잔고만으로 과거 매매·세금용 취득원가를 복원하지 않습니다. 변경 배경과 검증 범위는 [개발 기록](DEVLOG.md#2026-09-18--실계좌-잔고와-매수-주체-분리)에 정리했습니다.
+
+### 전략 비교용 성과
+
+모의계좌의 기존 전체 체결 성과는 유지하고, 선택 필드 `performance[].evaluation`으로 전략 비교용 표본을 함께 수신합니다. 적용 순서는 운영 승인 후 `20260918150648_performance_evaluation.sql` → 웹 배포 → 송신기 활성화입니다. 운영 적용 여부는 별도 확인하며, 이 문서가 적용 완료를 뜻하지 않습니다.
+
+- v1 필드: `version`, `total_count`, `eligible_count`, `excluded_count`, `reason_counts`, `cohorts`. `total_count`는 기존 `all.count`와 같고 비교 가능+제외 건수의 합입니다. 과거 자료·필드 생략은 `NULL`로 저장해 ‘평가자료 미수신’으로 표시합니다.
+- 코호트는 64자리 소문자 hex `policy_hash`와 `currency`(KRW/USD)별로 구분하며 최대 100개입니다. `count,wins,losses,draws,win_rate,profit_loss,net_profit_loss,unknown_costs`만 허용합니다. 정책 간 승률을 합산하지 않으며 승률은 무승부 제외입니다.
+- 제외 사유는 `MOCK_SESSION_LIMIT`, `SYSTEM_INCIDENT`, `POLICY_CHANGE`, `DATA_INSUFFICIENT`, `EXECUTION_DELAY_UNATTRIBUTED`, `REVIEW_REQUIRED`만 허용합니다. 한 거래의 사유가 여러 개일 수 있어 사유별 합계와 제외 거래 수가 다를 수 있습니다.
+- 비용 전 손익과 비용 반영 손익을 구분합니다. `unknown_costs>0`이면 비용 반영 손익은 반드시 `null`입니다. 가상 손익이나 미확인 비용을 0으로 채우지 않습니다.
+- 신호·주문·계좌 식별자, 자유 서술 오류, 개인 설정은 받지 않습니다. 기존 RLS 및 원자적 성과 교체·백업 경로를 유지합니다. 롤백 시 송신기 평가자료 전송 중지→이전 웹 복귀 순서를 따르며 추가 nullable 컬럼은 남겨도 기존 경로와 호환됩니다.

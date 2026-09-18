@@ -13,7 +13,8 @@ export const migrations=['db/schema_phase3.sql','db/schema_phase4.sql','db/schem
   'supabase/migrations/20260918031434_recorded_tax_estimates.sql',
   'supabase/migrations/20260918040029_selected_currency_assets.sql',
   'supabase/migrations/20260918052709_isa_account_equity.sql',
-  'supabase/migrations/20260918055337_live_holdings_ownership.sql'];
+  'supabase/migrations/20260918055337_live_holdings_ownership.sql',
+  'supabase/migrations/20260918150648_performance_evaluation.sql'];
 
 export async function createDatabase(users, baselineSql='') {
   const db=await PGlite.create();

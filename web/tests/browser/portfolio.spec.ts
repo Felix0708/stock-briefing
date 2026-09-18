@@ -29,6 +29,31 @@ async function mock(page:Page, overrides:Record<string,unknown>={}, count=2){
   return calls;
 }
 
+test("모의 전체 성과와 정책별 비교 표본·미수신을 구분한다",async({page},info)=>{
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  const p={broker:'KIS',account_type:'paper',all_count:4,all_wins:2,all_losses:2,all_draws:0,all_win_rate:50,
+    month_count:4,month_wins:2,month_losses:2,month_draws:0,month_win_rate:50,
+    realized_krw_count:0,realized_krw_profit_loss:0,realized_krw_return_rate:null,
+    realized_usd_count:4,realized_usd_profit_loss:40,realized_usd_return_rate:4,excluded_full_exits:0,updated_at:'2026-09-01T00:00:00Z'};
+  const c={policy_hash:'a'.repeat(64),currency:'USD',count:1,wins:1,losses:0,draws:0,win_rate:100,profit_loss:20,net_profit_loss:null,unknown_costs:1};
+  await mock(page,{'/api/holdings':{holdings,performance:[{...p,evaluation:{version:1,total_count:4,eligible_count:2,excluded_count:2,
+    reason_counts:{SYSTEM_INCIDENT:2,REVIEW_REQUIRED:1},cohorts:[c,{...c,policy_hash:'b'.repeat(64),wins:0,losses:1,win_rate:0,profit_loss:-10,net_profit_loss:-11,unknown_costs:0}]}},{...p,broker:'KIWOOM'}]}});
+  await page.getByRole('link',{name:'모의매매',exact:true}).click();
+  const panels=page.getByRole('region',{name:'전략 비교용 표본',exact:true});
+  await expect(panels).toHaveCount(2);
+  const received=page.locator('.pf-performance-card').filter({has:page.getByRole('heading',{name:'한국투자증권 모의계좌',exact:true})}).getByRole('region',{name:'전략 비교용 표본',exact:true});
+  await expect(received).toContainText('분류 대상 4건 · 비교 가능 2건 · 제외 2건');
+  await expect(received).toContainText('시스템 장애 2건');
+  await expect(received).toContainText('비용 미확인 1건');
+  await expect(received).toContainText('정책 aaaaaaaaaaaa');
+  await expect(received).toContainText('정책 bbbbbbbbbbbb');
+  await expect(panels.filter({hasText:'평가자료 미수신'})).toContainText('평가자료 미수신 · 0건을 뜻하지 않습니다.');
+  await expect(page.locator('.pf-performance-card').first()).toContainText('4건 · 2승 2패 0무');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+  await page.locator('.pf-performance').screenshot({path:info.outputPath('strategy-evaluation.png')});
+});
+
 test("조회 잔고의 직접·자동 수량과 ISA 필터·등록을 분리한다",async({page},info)=>{
   const at=new Date().toISOString();
   const general={...holdings[0],source:"broker_sync",account_type:"live",automated_quantity:3,collected_at:at};
