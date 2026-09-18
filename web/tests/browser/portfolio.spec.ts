@@ -37,7 +37,10 @@ test("모의 전체 성과와 정책별 비교 표본·미수신을 구분한다
     realized_usd_count:4,realized_usd_profit_loss:40,realized_usd_return_rate:4,excluded_full_exits:0,updated_at:'2026-09-01T00:00:00Z'};
   const c={policy_hash:'a'.repeat(64),currency:'USD',count:1,wins:1,losses:0,draws:0,win_rate:100,profit_loss:20,net_profit_loss:null,unknown_costs:1};
   await mock(page,{'/api/holdings':{holdings,performance:[{...p,evaluation:{version:1,total_count:4,eligible_count:2,excluded_count:2,
-    reason_counts:{SYSTEM_INCIDENT:2,REVIEW_REQUIRED:1},cohorts:[c,{...c,policy_hash:'b'.repeat(64),wins:0,losses:1,win_rate:0,profit_loss:-10,net_profit_loss:-11,unknown_costs:0}]}},{...p,broker:'KIWOOM'}]}});
+    reason_counts:{SYSTEM_INCIDENT:2,REVIEW_REQUIRED:1},cohorts:[c,{...c,policy_hash:'b'.repeat(64),wins:0,losses:1,win_rate:0,profit_loss:-10,net_profit_loss:-11,unknown_costs:0}]}},{...p,broker:'KIWOOM'},{...p,account_type:'live'}]}});
+  await expect(page.locator('.pf-performance-card')).toHaveCount(1);
+  await expect(page.locator('.pf-performance-card')).toContainText('4건 · 2승 2패 0무');
+  await expect(page.getByRole('region',{name:'전략 비교용 표본',exact:true})).toHaveCount(0);
   await page.getByRole('link',{name:'모의매매',exact:true}).click();
   const panels=page.getByRole('region',{name:'전략 비교용 표본',exact:true});
   await expect(panels).toHaveCount(2);
