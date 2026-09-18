@@ -24,7 +24,7 @@ async function mock(page:Page, overrides:Record<string,unknown>={}, count=4){
   });
   await page.goto("/portfolio");
   await expect(page.getByRole("heading",{name:"내 포트폴리오",exact:true}).last()).toBeVisible();
-  await expect(page.locator(".pf-table tbody tr")).toHaveCount(count);
+  await expect(page.locator(".pf-table .pf-holding-row")).toHaveCount(count);
   return calls;
 }
 
@@ -36,11 +36,11 @@ test("부분 합계·계좌 필터·원화 설정을 실제 렌더링과 조작�
   await expect(page.getByText(/평가 2종목 중 1종목 반영/)).toBeVisible();
   await expect(page.getByText(/시세 없는 종목은 현재 환율로/)).toBeVisible();
   await page.getByLabel("계좌 선택",{exact:true}).selectOption("paper");
-  await expect(page.locator(".pf-table tbody tr")).toHaveCount(2);
+  await expect(page.locator(".pf-table .pf-holding-row")).toHaveCount(2);
   await page.getByLabel("계좌 선택",{exact:true}).selectOption("KIWOOM:paper");
-  await expect(page.locator(".pf-table tbody tr")).toHaveCount(1);
+  await expect(page.locator(".pf-table .pf-holding-row")).toHaveCount(1);
   await page.getByLabel("계좌 선택",{exact:true}).selectOption("broker:KIWOOM");
-  await expect(page.locator(".pf-table tbody tr")).toHaveCount(3);
+  await expect(page.locator(".pf-table .pf-holding-row")).toHaveCount(3);
   await page.getByLabel("표 금액 원화로 보기",{exact:true}).check();
   await page.reload();
   await expect(page.getByLabel("표 금액 원화로 보기",{exact:true})).toBeChecked();
@@ -94,14 +94,14 @@ test("긴 배지·범례가 화면 밖으로 넘치지 않고 중앙에 정렬�
   await page.screenshot({path:info.outputPath("portfolio.png"),fullPage:true});
   await page.emulateMedia({colorScheme:"dark"});
   await page.locator(".pf-pie-card").first().screenshot({path:info.outputPath("chart-dark.png")});
-  await page.locator(".pf-table tbody tr").last().screenshot({path:info.outputPath("holding-dark.png")});
+  await page.locator(".pf-table .pf-holding-row").last().screenshot({path:info.outputPath("holding-dark.png")});
 });
 
 test("환율 누락 시 가짜 100% 비중이나 원화 평가액을 만들지 않는다",async({page})=>{
   await mock(page,{"/api/quotes":{quotes:{},usdKrw:null,jpyKrw:null,asOf:new Date().toISOString()}});
   await expect(page.getByText("환율 정보가 없어 비중을 계산할 수 없습니다.",{exact:true})).toHaveCount(3);
   await expect(page.locator(".pf-pie")).toHaveCount(0);
-  await expect(page.locator(".pf-table tbody tr").first()).toContainText("환율 대기");
+  await expect(page.locator(".pf-table .pf-holding-row").first()).toContainText("환율 대기");
   await expect(page.locator(".pf-summary:not(.pf-equity-summary)")).not.toContainText("0원");
 });
 
@@ -113,7 +113,7 @@ test("삭제 취소는 서버에 DELETE 요청을 보내지 않는다",async({pa
   await page.clock.fastForward(9000);
   await expect(page.getByText(/8초 뒤 잔고에서 삭제/)).toHaveCount(0);
   expect(calls.filter(call=>call.method==="DELETE")).toHaveLength(0);
-  await expect(page.locator(".pf-table tbody tr")).toHaveCount(4);
+  await expect(page.locator(".pf-table .pf-holding-row")).toHaveCount(4);
 });
 
 test("수동 매수 입력이 통화·증권사와 함께 API에 전달된다",async({page})=>{
@@ -125,4 +125,44 @@ test("수동 매수 입력이 통화·증권사와 함께 API에 전달된다",a
   await page.getByRole("button",{name:"거래 기록",exact:true}).click();
   await expect(page.getByText(/매수 기록 완료 · 거래 직후 수량 11/)).toBeVisible();
   expect(calls.find(call=>call.url==="/api/manual-trades"&&call.method==="POST")!.body).toMatchObject({market:"US",broker:"KIWOOM",side:"BUY",quantity:1,price:105});
+});
+
+test("증권사별 실계좌·모의 묶음과 직접·자동 배지, 비중·그래프 색상이 일치한다",async({page},info)=>{
+  const mixed=[...holdings,
+    {...holdings[0],source:"stock_trading",account_type:"live"},
+    {stock_code:"017670",stock_name:"SK텔레콤",market:"KR",broker:"KIS",source:"manual",account_type:"manual",quantity:1,avg_price:50000},
+  ];
+  const errors:string[]=[];page.on("pageerror",error=>errors.push(error.message));
+  const calls=await mock(page,{"/api/holdings":{holdings:mixed,performance:[]}},6);
+  const groups=page.locator(".pf-account-group");
+  await expect(groups).toHaveCount(4);
+  expect(await groups.evaluateAll(elements=>elements.map(e=>e.getAttribute("aria-label")))).toEqual([
+    "키움증권 실계좌","한국투자증권 실계좌","키움증권 모의계좌","한국투자증권 모의계좌",
+  ]);
+  await expect(groups.first().locator(".pf-account-count")).toHaveText("3종목 · 직접 2 · 자동 1");
+  await expect(groups.first().locator(".pf-source-badge")).toHaveText(["직접","직접","자동"]);
+  await expect(groups.first().locator('[data-label="계좌 내 비중"]')).toHaveText(["47.8%","4.3%","47.8%"]);
+  await expect(groups.first().locator(".pf-delete")).toHaveCount(2);
+  for(let i=0;i<4;i++){
+    const colors=await groups.nth(i).locator(".pf-dot").evaluateAll(nodes=>nodes.map(n=>getComputedStyle(n).backgroundColor));
+    const legendColors=await page.locator(".pf-pie-card").nth(i).locator(".pf-dot").evaluateAll(nodes=>nodes.map(n=>getComputedStyle(n).backgroundColor));
+    expect(colors).toEqual(legendColors);
+  }
+  await page.emulateMedia({colorScheme:"light"});
+  await page.locator(".pf-table").screenshot({path:info.outputPath("account-groups-light.png")});
+  await page.emulateMedia({colorScheme:"dark"});
+  await page.locator(".pf-table").screenshot({path:info.outputPath("account-groups-dark.png")});
+  const liveColor=await groups.first().locator(".pf-account-heading").evaluate(e=>getComputedStyle(e).backgroundColor);
+  const paperColor=await groups.nth(2).locator(".pf-account-heading").evaluate(e=>getComputedStyle(e).backgroundColor);
+  expect(liveColor).not.toBe(paperColor);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  if(info.project.name==="desktop"){
+    const heights=await page.locator(".pf-holding-row").evaluateAll(rows=>rows.map(row=>row.getBoundingClientRect().height));
+    expect(Math.max(...heights)-Math.min(...heights)).toBeLessThan(1);
+  }
+  await page.getByLabel("계좌 선택",{exact:true}).selectOption("paper");
+  await expect(groups).toHaveCount(2);
+  await expect(page.locator(".pf-account-live")).toHaveCount(0);
+  expect(calls.filter(call=>call.method!=="GET")).toHaveLength(0);
+  expect(errors).toEqual([]);
 });

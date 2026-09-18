@@ -139,5 +139,5 @@ test("포트폴리오 카드·검색 필드·표 행을 일정하게 정렬한�
   assert.match(panel, /className="pf-field pf-code-field"/);
   assert.match(css, /\.pf-table\s*\{[^}]*table-layout: fixed/s);
   assert.match(css, /\.pf-table th:not\(:first-child\),\s*\.pf-table td:not\(:first-child\) \{ text-align: right; \}/);
-  assert.match(css, /\.pf-table tbody tr \{ height: 51px; \}/);
+  assert.match(css, /\.pf-table \.pf-holding-row \{ height: 51px; \}/);
 });

@@ -594,7 +594,7 @@ export function PortfolioPanel() {
     const visible = holdings.filter((holding) => (brokerFilter === "all" || holding.broker === brokerFilter)
       && (accountFilter === "all" || (accountFilter === "live") === isRealAccount(holding))
       && (marketFilter === "all" || holding.market === marketFilter));
-    const rows = visible.map((holding) => {
+    const rows = visible.map((holding, index) => {
       const currency = currencyOf(holding.market);
       const quote = quotes[quoteKey(holding)] ?? null;
       const costNative = holding.quantity * holding.avg_price;
@@ -608,7 +608,7 @@ export function PortfolioPanel() {
         quote && holding.avg_price > 0
           ? ((quote.price - holding.avg_price) / holding.avg_price) * 100
           : null;
-      return { holding, quote, currency, costKrw, valueNative, valueKrw, plNative, pl, plRatio };
+      return { holding, quote, currency, costKrw, valueNative, valueKrw, plNative, pl, plRatio, index };
     });
 
     const realRows = rows.filter((row) => accountFilter === "paper" || isRealAccount(row.holding));
@@ -640,9 +640,11 @@ export function PortfolioPanel() {
       group.push(row);
       accountRows.set(key, group);
     }
-    const charts = [...accountRows.entries()]
+    const holdingGroups = [...accountRows.entries()]
       .sort(([left], [right]) => accountRank(left) - accountRank(right))
-      .map(([key, group]) => {
+      .map(([key, rows]) => ({ key, rows, broker: brokerLabel(rows[0].holding.broker),
+        real: isRealAccount(rows[0].holding), manualCount: rows.filter(row => row.holding.source === "manual").length }));
+    const charts = holdingGroups.map(({ key, rows: group }) => {
         const bases = group.map((row) => row.valueKrw ?? row.costKrw);
         const total = bases.reduce<number>((sum, value) => sum + (value ?? 0), 0);
         const complete = bases.every((value) => value !== null) && total > 0;
@@ -654,12 +656,12 @@ export function PortfolioPanel() {
             key: holdingKey(row.holding),
             label: stockLabel(row.holding, row.quote),
             percent: ((bases[index] ?? 0) / total) * 100,
-            color: PIE_COLORS[index % PIE_COLORS.length],
+            color: PIE_COLORS[row.index % PIE_COLORS.length],
           })),
         };
       });
 
-    return { rows, totalCost, totalValue, totalPl, totalPlRatio, weights, charts, hasQuotes: priced.length > 0,
+    return { rows, holdingGroups, totalCost, totalValue, totalPl, totalPlRatio, weights, charts, hasQuotes: priced.length > 0,
       pricedCount: priced.length, costedCount: costed.length, totalCount: realRows.length };
   })();
 
@@ -1101,20 +1103,32 @@ export function PortfolioPanel() {
                     <th aria-label="삭제" />
                   </tr>
                 </thead>
-                <tbody>
-                  {computed.rows.map((row, index) => (
-                    <tr key={holdingKey(row.holding)}>
+                {computed.holdingGroups.map(group => (
+                <tbody key={group.key} className={`pf-account-group ${group.real ? "pf-account-live" : "pf-account-paper"}`} aria-label={`${group.broker} ${group.real ? "실계좌" : "모의계좌"}`}>
+                  <tr className="pf-account-header">
+                    <th scope="rowgroup" colSpan={9}>
+                      <div className="pf-account-heading">
+                        <span className="pf-account-name">{group.broker}<span className="pf-account-kind">{group.real ? "실계좌" : "모의계좌"}</span></span>
+                        <span className="pf-account-count">{group.rows.length}종목
+                          {group.manualCount > 0 && ` · 직접 ${group.manualCount}`}
+                          {group.rows.length > group.manualCount && ` · 자동 ${group.rows.length - group.manualCount}`}
+                        </span>
+                      </div>
+                    </th>
+                  </tr>
+                  {group.rows.map(row => {
+                    const weight = computed.weights[row.index];
+                    return (
+                    <tr key={holdingKey(row.holding)} className="pf-holding-row">
                       <td data-label="종목">
                         <span
                           className="pf-dot"
-                          style={{ background: PIE_COLORS[index % PIE_COLORS.length] }}
+                          style={{ background: PIE_COLORS[row.index % PIE_COLORS.length] }}
                           aria-hidden="true"
                         />
                         {stockLabel(row.holding, row.quote)}
-                        <span className="pf-source-badge">
-                          {row.holding.source === "manual"
-                            ? `직접 · ${brokerLabel(row.holding.broker)}`
-                            : `자동 · ${brokerLabel(row.holding.broker)} · ${row.holding.account_type === "paper" ? "모의" : "실계좌"}`}
+                        <span className={`pf-source-badge${row.holding.source === "stock_trading" ? " pf-source-auto" : ""}`}>
+                          {row.holding.source === "manual" ? "직접" : "자동"}
                         </span>
                       </td>
                       <td data-label="수량">{row.holding.quantity.toLocaleString("ko-KR")}</td>
@@ -1150,7 +1164,7 @@ export function PortfolioPanel() {
                       <td data-label="수익률" className={row.plRatio !== null ? plClass(row.plRatio) : ""}>
                         {row.plRatio !== null ? formatPercent(row.plRatio) : "—"}
                       </td>
-                      <td data-label="계좌 내 비중">{computed.weights[index] !== null ? `${computed.weights[index].toFixed(1)}%` : "환율 대기"}</td>
+                      <td data-label="계좌 내 비중">{weight !== null ? `${weight.toFixed(1)}%` : "환율 대기"}</td>
                       <td className="pf-table-action">
                         {row.holding.source === "manual" && (
                           <button
@@ -1165,8 +1179,10 @@ export function PortfolioPanel() {
                         )}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
+                ))}
               </table>
             </div>
 

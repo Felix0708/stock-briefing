@@ -8,6 +8,8 @@
   --primary: #2563eb;
   --primary-dark: #1d4ed8;
   --primary-soft: #eef4ff;
+  --paper-accent: #7142d9;
+  --paper-soft: #f3efff;
   --line: #e2e7ef;
   --danger: #dc2626;
   --danger-soft: #fff1f2;
@@ -939,6 +941,8 @@ a.source-item:focus-visible {
     --primary: #78a7ff;
     --primary-dark: #97baff;
     --primary-soft: #1d3154;
+    --paper-accent: #bca3ff;
+    --paper-soft: #2b2546;
     --line: #2b3749;
     --danger: #fb7185;
     --danger-soft: #3b1c27;
@@ -1259,6 +1263,39 @@ a.source-item:focus-visible {
 .pf-table th:last-child { width: 4%; }
 .pf-table th:last-child,
 .pf-table td:last-child { text-align: center; }
+.pf-account-group {
+  --account-accent: var(--primary);
+  --account-soft: var(--primary-soft);
+}
+.pf-account-paper {
+  --account-accent: var(--paper-accent);
+  --account-soft: var(--paper-soft);
+}
+.pf-table .pf-account-header th {
+  width: auto;
+  padding: 0;
+  border: 0;
+  text-align: left;
+  white-space: normal;
+}
+.pf-account-group + .pf-account-group .pf-account-heading { margin-top: 20px; }
+.pf-account-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 13px 16px;
+  border-top: 2px solid var(--account-accent);
+  border-left: 4px solid var(--account-accent);
+  border-radius: 8px 8px 0 0;
+  background: var(--account-soft);
+  color: var(--text);
+}
+.pf-account-name { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 1rem; font-weight: 700; }
+.pf-account-kind { padding: 3px 8px; border: 1px solid var(--account-accent); border-radius: 999px; color: var(--account-accent); font-size: 0.75rem; }
+.pf-account-count { font-size: 0.8rem; color: var(--text-soft); font-weight: 500; }
+.pf-account-group .pf-holding-row { background: color-mix(in srgb, var(--account-soft) 28%, var(--surface)); }
 .pf-ratio { margin-left: 6px; font-size: 0.8rem; }
 .pf-gain { color: #dc2626; }   /* 한국 관례: 상승 = 빨강 */
 .pf-loss { color: #2563eb; }   /* 하락 = 파랑 */
@@ -1459,9 +1496,10 @@ a.source-item:focus-visible {
   color: var(--primary-dark);
   font-size: 0.7rem;
 }
+.pf-source-auto { color: var(--paper-accent); background: var(--paper-soft); }
 
 @media (min-width: 641px) {
-  .pf-table tbody tr { height: 51px; }
+  .pf-table .pf-holding-row { height: 51px; }
 }
 
 @media (max-width: 640px) {
@@ -1616,6 +1654,10 @@ a.source-item:focus-visible {
     border: 1px solid var(--line);
     border-radius: 12px;
   }
+
+  .pf-table .pf-account-header { padding: 0; border: 0; background: none; }
+  .pf-table .pf-account-header th { display: block; width: 100%; }
+  .pf-account-heading { padding: 12px; border-radius: 10px; }
 
   .pf-table td {
     display: flex;

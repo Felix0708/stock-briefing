@@ -77,12 +77,13 @@ test("보유종목 API와 화면이 증권사별 행을 구분한다", () => {
   assert.match(holdingsRoute, /source,account_type,broker/);
   assert.match(holdingsRoute, /account_type,broker&select=/);
   assert.match(portfolioPanel, /holding\.account_type}:\$\{holding\.broker}/);
-  assert.match(portfolioPanel, /자동 · \$\{brokerLabel\(row\.holding\.broker\)} ·/);
+  assert.match(portfolioPanel, /computed\.holdingGroups\.map/);
+  assert.match(portfolioPanel, /scope="rowgroup" colSpan=\{9\}/);
   assert.match(portfolioPanel, /key: holdingKey\(row\.holding\)/);
   assert.match(portfolioPanel, /quote\?\.name\?\.trim\(\) \|\| holding\.stock_name\.trim\(\)/);
   assert.match(portfolioPanel, /label: stockLabel\(row\.holding, row\.quote\)/);
   assert.match(portfolioPanel, /accountGroupKey\(row\.holding\)/);
-  assert.match(portfolioPanel, /직접 · \$\{brokerLabel\(row\.holding\.broker\)}/);
+  assert.match(portfolioPanel, /row\.holding\.source === "manual" \? "직접" : "자동"/);
   assert.match(portfolioPanel, /title: accountGroupLabel\(group\[0\]\.holding\)/);
   assert.match(portfolioPanel, /계좌 내 비중/);
   assert.match(portfolioPanel, /자동매매 누적 성과/);
