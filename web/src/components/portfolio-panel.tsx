@@ -8,6 +8,7 @@ import { loadPortfolioQuotes, type Quote } from "@/lib/client/portfolio-quotes";
 import { ManualTradesPanel } from "@/components/manual-trades-panel";
 import { BriefingStatusPanel } from "@/components/briefing-status-panel";
 import { PortfolioBackupPanel } from "@/components/portfolio-backup-panel";
+import { ForeignTaxPanel } from "@/components/foreign-tax-panel";
 import { AccountEquityEmpty, AccountEquityPanel } from "@/components/account-equity-panel";
 import { accountStatusMessage, type AccountStatus } from "@/lib/account-status";
 import { equityKey, equityMoney, type EquityRecord } from "@/lib/account-equity";
@@ -612,7 +613,7 @@ export function PortfolioPanel() {
         quote && holding.avg_price > 0
           ? ((quote.price - holding.avg_price) / holding.avg_price) * 100
           : null;
-      return { holding, quote, currency, costKrw, valueNative, valueKrw, plNative, pl, plRatio, index };
+      return { holding, quote, currency, costNative, costKrw, valueNative, valueKrw, plNative, pl, plRatio, index };
     });
 
     const summaries = (["live", "paper"] as const).filter(type => accountFilter === "all" || accountFilter === type).map(type => {
@@ -624,8 +625,17 @@ export function PortfolioPanel() {
     const pricedCost = priced.reduce((sum, row) => sum + (row.costKrw ?? 0), 0);
     const totalPl = totalValue - pricedCost;
     const totalPlRatio = pricedCost > 0 ? (totalPl / pricedCost) * 100 : 0;
+    const native = (["KRW", "USD", "JPY"] as const).flatMap(currency => {
+      const group = realRows.filter(row => row.currency === currency);
+      if (!group.length) return [];
+      const valued = group.filter(row => row.valueNative !== null);
+      return [{currency,cost:group.reduce((sum,row)=>sum+row.costNative,0),
+        value:valued.length ? valued.reduce((sum,row)=>sum+row.valueNative!,0) : null,
+        profit:valued.length ? valued.reduce((sum,row)=>sum+row.plNative!,0) : null,
+        partial:valued.length < group.length}];
+    });
     return {type,totalCost,totalValue,totalPl,totalPlRatio,hasQuotes:priced.length>0,
-      pricedCount:priced.length,costedCount:costed.length,totalCount:realRows.length};
+      native,pricedCount:priced.length,costedCount:costed.length,totalCount:realRows.length};
     });
 
     // 비중: 같은 증권사의 직접 등록+자동 실계좌는 합치고, 모의계좌는 별도로 100% 분배
@@ -1098,12 +1108,14 @@ export function PortfolioPanel() {
               <div>
                 <span className="pf-muted">매입가 · 현재 환율 환산</span>
                 <strong>{summary.costedCount > 0 ? `${formatKrw(summary.totalCost)}원` : "—"}</strong>
+                {summary.native.some(row=>row.currency!=="KRW") && <small>통화별 {summary.native.map(row=>`${row.currency} ${formatMoney(row.cost,row.currency)}`).join(" · ")}</small>}
               </div>
               <div>
                 <span className="pf-muted">{summary.pricedCount < summary.totalCount ? "일부 평가" : "총 평가"}</span>
                 <strong>
                   {summary.hasQuotes ? `${formatKrw(summary.totalValue)}원` : summary.totalCount ? "시세 대기" : "보유종목 없음"}
                 </strong>
+                {summary.native.some(row=>row.currency!=="KRW") && <small>통화별 {summary.native.map(row=>`${row.currency} ${row.value===null ? "시세 없음" : formatMoney(row.value,row.currency)}${row.partial ? " (일부)" : ""}`).join(" · ")}</small>}
               </div>
               <div>
                 <span className="pf-muted">평가 손익 · 환율효과 제외</span>
@@ -1112,9 +1124,10 @@ export function PortfolioPanel() {
                     ? `${formatSigned(summary.totalPl)}원 (${formatPercent(summary.totalPlRatio)})`
                     : "—"}
                 </strong>
+                {summary.native.some(row=>row.currency!=="KRW") && <small>통화별 {summary.native.map(row=>`${row.currency} ${row.profit===null ? "시세 없음" : formatSignedMoney(row.profit,row.currency)}${row.partial ? " (일부)" : ""}`).join(" · ")}</small>}
               </div>
             </div>
-            <p className="pf-muted" role="status">평가 {summary.totalCount}종목 중 {summary.pricedCount}종목 반영 · 매입가 {summary.costedCount}종목 환산 가능. 해외 금액은 현재 조회 환율로 환산하며 실제 원화 매입액과 다를 수 있습니다.</p>
+            <p className="pf-muted" role="status">평가 {summary.totalCount}종목 중 {summary.pricedCount}종목 반영 · 매입가 {summary.costedCount}종목 환산 가능. 합계는 원화 환산액과 통화별 원래 금액을 함께 표시합니다. 해외 금액은 현재 조회 환율로 환산하며 실제 원화 매입액과 다를 수 있습니다.</p>
             </div>)}
             {computed.rows.length === 0 && <p className="pf-muted">선택한 조건의 보유 종목이 없습니다.</p>}
 
@@ -1295,6 +1308,11 @@ export function PortfolioPanel() {
         </div>
       </section>
       <p className="pf-muted">아래 직접 투자 매매 이력·브리핑 상태는 전체 포트폴리오 기준이며 위 계좌 선택과 별개입니다.</p>
+      <ForeignTaxPanel key={user.email} asOf={quotesAsOf} available={!listBusy && !listError && !quotesError && !pendingDelete}
+        values={holdings.filter(h=>isRealAccount(h) && h.market!=="KR").map(h=>{
+          const quote=quotes[quoteKey(h)], rate=h.market==="US" ? usdKrw : jpyKrw;
+          return {market:h.market as "US" | "JP",value:quote && rate ? h.quantity*quote.price*rate : null};
+        })} />
       <ManualTradesPanel holdings={holdings.filter((holding) => holding.source === "manual")} onChanged={loadHoldings} disabled={pendingDelete !== null} />
       <BriefingStatusPanel holdings={holdings} />
       <PortfolioBackupPanel onChanged={async()=>{await loadHoldings();window.location.reload();}} />

@@ -28,6 +28,48 @@ async function mock(page:Page, overrides:Record<string,unknown>={}, count=4){
   return calls;
 }
 
+test("원화 합계와 USD·JPY 원금액, 연간 세금과 가정 매도는 모의·계좌 필터와 분리된다",async({page},info)=>{
+  const calls=await mock(page,{
+    "/api/holdings":{holdings:[...holdings,{stock_code:"7203",stock_name:"토요타",market:"JP",broker:"KIS",source:"manual",account_type:"manual",quantity:1,avg_price:10000}],performance:[]},
+    "/api/quotes":{quotes:{"US:SE":{price:110,changeRatio:0},"US:STM":{price:55,changeRatio:0},"US:ZETA":{price:31,changeRatio:0},"JP:7203":{price:11000,changeRatio:0}},usdKrw:1400,jpyKrw:10,asOf:new Date().toISOString()},
+  },5);
+  const summary=page.getByLabel("실계좌 등록 주식 합계");
+  await expect(summary).toContainText("USD $1,210");await expect(summary).toContainText("JPY ¥11,000");
+  await expect(summary).toContainText("1,804,000원");
+  await summary.screenshot({path:info.outputPath("native-totals.png")});
+  await page.getByLabel("표 금액 원화로 보기",{exact:true}).check();
+  await expect(summary).toContainText("USD $1,210");
+  const tax=page.getByRole("region",{name:"미국·일본 주식 예상 세금 · 2026년"});
+  await expect(tax.getByLabel("연간 예상 세금 결과")).toHaveCount(0);
+  await tax.getByLabel("미국 연간 실현손익 (원)").fill("10000000");
+  await tax.getByLabel("일본 연간 실현손익 (원)").fill("-2000000");
+  await tax.getByLabel("미국·일본 모든 실계좌 손익을 포함했고 아래 일반 과세 조건에 해당합니다.").check();
+  await expect(tax.getByLabel("연간 예상 세금 결과")).toContainText("1,210,000원");
+  await expect(tax.getByLabel("연간 예상 세금 결과")).toContainText("6,790,000원");
+  await tax.getByText("등록된 해외주식을 지금 전량 매도한다면?",{exact:true}).click();
+  await expect(tax).toContainText("가정 매도대금: 1,804,000원");
+  await tax.getByLabel("대상 주식 세금용 취득가액·매수비용 합계 (원)").fill("1000000");
+  await tax.getByLabel("예상 매도비용 합계 (원)").fill("4000");
+  await tax.getByLabel("취득가액은 위 대상 수량 전체와 일치하며 중복 등록이 없습니다.").check();
+  await expect(tax.getByLabel("가정 매도 세후 결과")).toContainText("624,000원");
+  await tax.screenshot({path:info.outputPath("foreign-tax.png")});
+  await page.getByLabel("계좌 선택",{exact:true}).selectOption("paper");
+  await expect(tax.getByLabel("가정 매도 세후 결과")).toContainText("624,000원");
+  await tax.getByLabel("일본 연간 실현손익 (원)").fill("");
+  await expect(tax.getByLabel("연간 예상 세금 결과")).toHaveCount(0);
+  expect(calls.filter(call=>call.method!=="GET")).toEqual([]);
+  expect(await tax.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+});
+
+test("외화 환율 누락도 원금액은 보존하고 가정 세후 손익은 만들지 않는다",async({page})=>{
+  await mock(page,{"/api/quotes":{quotes:{"US:SE":{price:110,changeRatio:0}},usdKrw:null,jpyKrw:null,asOf:new Date().toISOString()}});
+  await expect(page.getByLabel("실계좌 등록 주식 합계")).toContainText("USD $1,100 (일부)");
+  const tax=page.getByRole("region",{name:"미국·일본 주식 예상 세금 · 2026년"});
+  await tax.getByText("등록된 해외주식을 지금 전량 매도한다면?",{exact:true}).click();
+  await expect(tax).toContainText("시세·환율 또는 보유종목 미확인 · 계산 보류");
+  await expect(tax.getByLabel("가정 매도 세후 결과")).toHaveCount(0);
+});
+
 test("부분 합계·계좌 필터·원화 설정을 실제 렌더링과 조작으로 검증",async({page})=>{
   const errors:string[]=[];page.on("pageerror",error=>errors.push(error.message));
   await mock(page);
@@ -57,7 +99,7 @@ test("과거 거래 정정·취소는 사유와 버전을 포함하고 확인 �
   await page.getByLabel("체결 단가 (USD)",{exact:true}).fill("160");
   await page.getByLabel("정정 사유",{exact:true}).fill("체결 단가 오입력 수정");
   await page.getByLabel("이 거래 취소 (삭제하지 않고 이력 보존)",{exact:true}).check();
-  await page.locator(".pf-trade-form").screenshot({path:info.outputPath("trade-correction.png")});
+  await page.getByRole("region",{name:"직접 투자 · 매매 이력"}).locator(".pf-trade-form").screenshot({path:info.outputPath("trade-correction.png")});
   await page.getByRole("button",{name:"정정 저장",exact:true}).click();
   expect(calls.find(call=>call.method==="PATCH")!.body).toMatchObject({trade_id:4,expected_revision:2,cancelled:true,reason:"체결 단가 오입력 수정",trade:{price:160}});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

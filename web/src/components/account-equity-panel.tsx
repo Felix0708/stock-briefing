@@ -81,7 +81,13 @@ export function AccountEquityPanel({ latest, refresh }: { latest: EquityRecord; 
     {isTotal && !latest.breakdown && <p role="status" className="pf-muted">상세 미확인 · 검증된 국내·미국 분해값이 없습니다. 총자산에서 역산하거나 0으로 채우지 않습니다.</p>}
     <p className="pf-muted">마지막 수집 {stamp(latest.collected_at)}</p>
     {latest.breakdown && <p className="pf-muted">이 기록의 적용 환율 {equityMoney(latest.breakdown.usd_krw_rate,"KRW")}/USD · 현재 시세 환율과 다를 수 있습니다.</p>}
-    {latest.return_status === "cash_flows_unverified" && <p className="pf-notice">입출금 조정 수익률은 아직 계산할 수 없습니다. 해당 계좌·기간의 입출금 내역(없었다는 확인 포함)이 필요하며, 날짜별 자산만 더 쌓여도 해결되지 않습니다. 아래 자동매매 실현손익과는 다른 지표입니다.</p>}
+    {latest.return_status === "cash_flows_unverified" && <div className="pf-notice"><p>입출금 조정 수익률은 아직 계산할 수 없습니다. 해당 계좌·기간의 입출금 내역(없었다는 확인 포함)이 필요하며, 날짜별 자산만 더 쌓여도 해결되지 않습니다. 아래 자동매매 실현손익과는 다른 지표입니다.</p>
+      <details><summary>입출금 조정 수익률을 계산하려면?</summary>
+        <ol><li>증권사에서 이 계좌의 조회 시작일부터 마지막 자산 기록일까지 입출금 명세서를 받습니다. 날짜·시각·통화·금액과 계좌 구분이 필요합니다.</li>
+          <li>입금·출금과 주식 입출고 등 외부 자금 이동을 확인합니다. 같은 평가 범위 안의 매수·매도·환전은 외부 입출금으로 중복 계산하지 않습니다. 입출금이 없었다면 해당 기간의 빈 명세서도 증빙이 됩니다.</li>
+          <li>Stock-Trading의 기존 명세서 반영 경로에서 계좌·기간·중복을 검증한 뒤 자산 이력을 다시 전송합니다. 웹 새로고침만으로는 명세서가 생기지 않습니다.</li></ol>
+        <p>계산은 입출금 시점을 반영한 일별 표본 Modified Dietz 방식입니다. 현재 자동 조회만으로 전체 입출금의 누락 없음을 확인하지 못해, 명세서 없이 0원으로 가정하지 않습니다.</p>
+      </details></div>}
     <details><summary className="pf-muted">수집·금액 기준</summary>
       <p className="pf-muted">서버 수신 {stamp(latest.received_at)} · 계산 {stamp(latest.calculated_at)}<br />
         {latest.valued_at ? `증권사 평가 시각 ${stamp(latest.valued_at)}` : "증권사 평가 시각 미제공 · 수집 시각과 같다고 가정하지 않습니다."}</p>

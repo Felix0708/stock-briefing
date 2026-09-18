@@ -1198,6 +1198,7 @@ a.source-item:focus-visible {
   gap: 4px;
 }
 .pf-summary strong { font-size: 1.05rem; }
+.pf-summary small { color: var(--text-muted); overflow-wrap: anywhere; line-height: 1.5; }
 
 .pf-fold > summary h2 { display: inline; margin: 0; }
 .pf-fold > summary > span { display: block; margin-top: 5px; padding-left: 16px; }
