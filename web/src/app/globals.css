@@ -1233,6 +1233,12 @@ a.source-item:focus-visible {
 
 .pf-equity-account + .pf-equity-account { margin-top: 24px; padding-top: 16px; border-top: 2px solid var(--line); }
 .pf-equity-results { display: grid; gap: 14px; }
+.pf-mode-nav { display: flex; gap: 8px; }
+.pf-mode-nav a { flex: 1; padding: 12px; text-align: center; border: 1px solid var(--line); border-radius: 10px; color: var(--text-muted); text-decoration: none; font-weight: 700; }
+.pf-mode-nav a[aria-current="page"] { color: var(--primary); background: var(--primary-soft); border-color: currentColor; }
+.pf-mode-paper .pf-mode-nav a[aria-current="page"] { color: var(--paper-accent); background: var(--paper-soft); }
+.pf-mode-nav a:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.pf-mode p { margin-bottom: 0; }
 .pf-equity-results > * { margin-block: 0; min-width: 0; }
 .pf-equity-results > .pf-equity-account + .pf-equity-account { margin-top: 0; }
 .pf-tax { display: flex; flex-direction: column; gap: 14px; }

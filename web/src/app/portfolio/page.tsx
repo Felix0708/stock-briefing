@@ -5,7 +5,7 @@ import { PortfolioPanel } from "@/components/portfolio-panel";
 
 export const metadata: Metadata = {
   title: "내 포트폴리오 | Stock Briefing",
-  description: "보유 종목을 등록하고 실시간 수익률과 비중을 확인하세요.",
+  description: "실제 투자와 모의매매를 나누어 최근 조회 시세 기준 자산과 성과를 확인하세요.",
 };
 
 export default function PortfolioPage() {

@@ -1,9 +1,43 @@
 import { test, expect, type Page } from '@playwright/test';
 import { RETURN_METHOD, type EquityRecord } from '../../src/lib/account-equity';
 
-const one:EquityRecord={account_ref:'11111111-1111-4111-8111-111111111111',broker:'KIS',account_type:'paper',currency:'KRW',scope:'account-total-assets',date_timezone:'Asia/Seoul',
+const one:EquityRecord={account_ref:'11111111-1111-4111-8111-111111111111',broker:'KIS',account_type:'live',currency:'KRW',scope:'account-total-assets',date_timezone:'Asia/Seoul',
   date:'2026-09-01',collected_at:'2026-09-01T01:00:00.000Z',calculated_at:'2026-09-01T02:00:00.000Z',received_at:'2026-09-01T03:00:00.000Z',valued_at:null,
   equity:'1000000.12345678',cash:null,stock_value:null,return_index:null,return_status:'insufficient_samples',return_method:null,return_base_at:null,source:'KIS_ACCOUNT_EQUITY'};
+
+test('모의 화면은 통합 총액만 표시하고 실계좌·세금·상세 조회와 섞이지 않는다',async({page},info)=>{
+  const requests:{url:string;method:string}[]=[];
+  page.on('request',req=>{if(req.url().includes('/api/'))requests.push({url:req.url(),method:req.method()});});
+  const paper:EquityRecord={...one,account_type:'paper',currency_breakdown:[
+    {currency:'KRW',cash:'600',stock_value:'400',cash_krw:'600',stock_value_krw:'400'},
+    {currency:'USD',cash:'90',stock_value:'10',cash_krw:'117000',stock_value_krw:'13000'},
+    {currency:'JPY',cash:'10000',stock_value:'2000',cash_krw:'90000',stock_value_krw:'18000'}],equity:'239000'};
+  const live={...one,equity:'7777777'};
+  await prepare(page,[paper],live);
+  await expect(page.getByRole('link',{name:'모의매매',exact:true})).toHaveAttribute('aria-current','page');
+  await expect(page.locator('.pf-equity-account')).toHaveCount(1);
+  await expect(page.locator('.pf-equity-summary > div')).toHaveCount(1);
+  await expect(page.locator('.pf-equity-summary')).toContainText('239,000원');
+  await expect(page.locator('.pf-equity-results')).not.toContainText('7,777,777');
+  await expect(page.locator('.pf-equity-results')).not.toContainText('현금 $90');
+  await expect(page.getByRole('region',{name:/미국·일본 주식 예상 세금/})).toHaveCount(0);
+  await expect(page.getByRole('region',{name:'직접 투자 · 매매 이력'})).toHaveCount(0);
+  await expect(page.locator('.pf-equity-svg')).toHaveCount(0);
+  expect(requests.some(req=>new URL(req.url).pathname==='/api/account-equity' && new URL(req.url).search)).toBe(false);
+  expect(requests.some(req=>new URL(req.url).pathname==='/api/tax-estimate')).toBe(false);
+  await page.locator('section[aria-labelledby="pf-equity-title"]').screenshot({path:info.outputPath('paper-total-only.png')});
+  await page.route('**/api/account-equity',route=>route.fulfill({status:502,json:{error:'unavailable'}}));
+  await page.getByRole('button',{name:'자산 이력 새로고침',exact:true}).click();
+  await expect(page.locator('#pf-equity-title').locator('..').locator('..').getByRole('alert')).toContainText('이전 확인값');
+  await expect(page.locator('.pf-equity-summary')).toContainText('239,000원');
+  await page.route('**/api/account-equity',route=>route.fulfill({json:{series:[{...paper,equity:'0',currency_breakdown:undefined}],statuses:[]}}));
+  await page.getByRole('button',{name:'자산 이력 새로고침',exact:true}).click();
+  await expect(page.locator('.pf-equity-summary strong')).toHaveText('0원');
+  await page.reload();
+  await expect(page.getByRole('link',{name:'모의매매',exact:true})).toHaveAttribute('aria-current','page');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect(requests.filter(req=>req.method!=='GET')).toHaveLength(0);
+});
 
 test('원·달러·엔만 합산한 실계좌는 통화별 현금과 평가액을 표시한다',async({page},info)=>{
   await prepare(page,[{...one,broker:'KIWOOM',account_type:'live',source:'KIWOOM_ACCOUNT_EQUITY',equity:'239000',cash:'207600',stock_value:'31400',
@@ -17,15 +51,15 @@ test('원·달러·엔만 합산한 실계좌는 통화별 현금과 평가액�
   await expect(summary).toContainText('다른 통화 제외');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await summary.screenshot({path:info.outputPath('selected-currencies.png')});
-  await page.getByLabel('계좌 선택').selectOption('paper');
-  await expect(summary).not.toContainText('239,000원');
-  await expect(summary).toContainText('연동 총자산 기록 없음');
+  await page.getByRole('link',{name:'모의매매',exact:true}).click();
+  await expect(summary).toHaveCount(0);
+  await expect(page.getByText(/연동 총자산 기록 없음/)).toBeVisible();
 });
 
 test('수집 보류 진단과 입출금 증빙 안내는 계좌 필터를 따른다',async({page},info)=>{
   await prepare(page,[{...one,return_status:'cash_flows_unverified'}]);
   await page.route('**/api/account-equity',route=>route.fulfill({json:{series:[{...one,return_status:'cash_flows_unverified'}],statuses:[{
-    account_ref:'22222222-2222-4222-8222-222222222222',broker:'KIWOOM',account_type:'paper',checked_at:one.collected_at,code:'other_currency_assets',
+    account_ref:'22222222-2222-4222-8222-222222222222',broker:'KIWOOM',account_type:'live',checked_at:one.collected_at,code:'other_currency_assets',
   }]}}));
   await page.getByRole('button',{name:'자산 이력 새로고침',exact:true}).click();
   await expect(page.getByText(/날짜별 자산만 더 쌓여도 해결되지 않습니다/)).toBeVisible();
@@ -50,13 +84,13 @@ async function prepare(page:Page, points:EquityRecord[]=[one], second?:EquityRec
     if(url.pathname==='/api/account-equity')result=url.search ? {points:second && url.searchParams.get('account_ref')===second.account_ref ? [second] : points.filter(p=>p.date>=(url.searchParams.get('from')??'')),next:null} : {series:[latest,...(second?[second]:[])]};
     await route.fulfill({json:result});
   });
-  await page.goto('/portfolio');
+  await page.goto(latest.account_type==='paper'?'/portfolio/paper':'/portfolio');
   await expect(page.getByRole('heading',{name:'연동 계좌 자산',exact:true})).toBeVisible();
   await expect(page.getByLabel('계좌 선택').locator('option')).toHaveText([
-    '전체 계좌','전체 실계좌','전체 모의계좌','키움증권 · 실/모의 전체','한국투자증권 · 실/모의 전체',
+    '전체 증권사','키움증권','한국투자증권',
   ]);
   await page.getByLabel('계좌 선택').selectOption(`broker:${latest.broker}`);
-  if(latest.scope==='account-total-assets') {
+  if(latest.scope==='account-total-assets' && latest.account_type==='live') {
     await page.getByRole('button',{name:'전체 기간',exact:true}).click();
     await expect(page.locator('.pf-equity-svg')).toBeVisible();
   }
@@ -83,15 +117,15 @@ test('현금 분해 없는 한 점·미확인 수익률·모바일 레이아웃�
   expect(errors).toEqual([]);
 });
 
-test('계좌 메뉴는 5개만 유지하고 기존 국내·해외 이력은 삭제하거나 합산하지 않는다',async({page},info)=>{
+test('증권사 메뉴는 3개만 유지하고 기존 국내·해외 이력은 삭제하거나 합산하지 않는다',async({page},info)=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   const domestic:EquityRecord={...one,broker:'KIWOOM',scope:'domestic',source:'KIWOOM_KR_EQUITY',equity:'1000000',cash:'200000',stock_value:'800000'};
   const overseas:EquityRecord={...one,account_ref:'22222222-2222-4222-8222-222222222222',broker:'KIWOOM',currency:'USD',scope:'overseas',source:'KIWOOM_US_EQUITY',equity:'1500',cash:'500',stock_value:'1000'};
-  const base={broker:'KIWOOM',source:'stock_trading',account_type:'paper',quantity:1,avg_price:100};
+  const base={broker:'KIWOOM',source:'stock_trading',account_type:'live',quantity:1,avg_price:100};
   const requests:{method:string;url:string}[]=[];
   page.on('request',req=>{if(req.url().includes('/api/'))requests.push({method:req.method(),url:req.url()});});
   await prepare(page,[domestic],overseas,[{...base,stock_code:'005930',stock_name:'국내 예시 종목',market:'KR'},{...base,stock_code:'AAPL',stock_name:'미국 예시 종목',market:'US'}]);
-  await expect(page.getByLabel('계좌 선택').locator('option:checked')).toHaveText('키움증권 · 실/모의 전체');
+  await expect(page.getByLabel('계좌 선택').locator('option:checked')).toHaveText('키움증권');
   await expect(page.locator('.pf-equity-summary')).toContainText('연동 총자산 기록 없음');
   await expect(page.locator('.pf-equity-summary')).not.toContainText('1,000,000');
   await expect(page.getByText(/국내·해외 개별 기록은 수신됐지만/)).toBeVisible();
@@ -101,11 +135,11 @@ test('계좌 메뉴는 5개만 유지하고 기존 국내·해외 이력은 삭�
   await expect(page.locator('.pf-table .pf-holding-row')).toHaveCount(2);
   await expect(page.locator('.pf-table')).toContainText('국내 예시 종목');
   await expect(page.locator('.pf-table')).toContainText('미국 예시 종목');
-  await page.getByLabel('계좌 선택').selectOption('live');
+  await page.getByRole('link',{name:'모의매매',exact:true}).click();
   await expect(page.locator('.pf-table .pf-holding-row')).toHaveCount(0);
-  await page.getByLabel('계좌 선택').selectOption('paper');
+  await page.getByRole('link',{name:'실제 투자',exact:true}).click();
   await expect(page.locator('.pf-table .pf-holding-row')).toHaveCount(2);
-  await page.locator('section[aria-labelledby="pf-equity-title"]').screenshot({path:info.outputPath('five-account-options.png')});
+  await page.locator('section[aria-labelledby="pf-equity-title"]').screenshot({path:info.outputPath('broker-options.png')});
   expect(requests.filter(req=>req.method!=='GET')).toHaveLength(0);
   expect(requests.filter(req=>new URL(req.url).pathname==='/api/account-equity' && new URL(req.url).search)).toHaveLength(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -136,11 +170,11 @@ test('일별 공백·기준일 변경을 연결하지 않고 서로 다른 총�
   await expect(page.locator('.pf-equity-summary')).not.toContainText('1,250,000');
   await page.getByLabel('계좌 선택').selectOption('all');
   await expect(page.locator('.pf-equity-account')).toHaveCount(2);
-  await expect(page.locator('.pf-equity-account').first()).toContainText('키움증권 모의계좌');
-  await expect(page.locator('.pf-equity-account').last()).toContainText('한국투자증권 모의계좌');
-  await page.getByLabel('계좌 선택').selectOption('live');
+  await expect(page.locator('.pf-equity-account').first()).toContainText('키움증권 실계좌');
+  await expect(page.locator('.pf-equity-account').last()).toContainText('한국투자증권 실계좌');
+  await page.getByRole('link',{name:'모의매매',exact:true}).click();
   await expect(page.locator('.pf-equity-account')).toHaveCount(0);
-  await expect(page.locator('.pf-equity-summary')).toContainText('연동 총자산 기록 없음');
+  await expect(page.getByText(/연동 총자산 기록 없음/)).toBeVisible();
 });
 
 for (const broker of ['KIWOOM','KIS'] as const) test(`${broker} 원화 총자산·국내·미국 주식 상세와 공백·실패 표시`,async({page},info)=>{
@@ -155,7 +189,7 @@ for (const broker of ['KIWOOM','KIS'] as const) test(`${broker} 원화 총자산
   await expect(summary.locator(':scope > div')).toHaveCount(4);
   await expect(summary).toContainText('250,000원');await expect(summary).toContainText('$100');
   await expect(summary.locator(':scope > div').last()).toContainText('20,000원');
-  await expect(page.getByLabel('계좌 선택').locator('option:checked')).toContainText('실/모의 전체');
+  await expect(page.getByLabel('계좌 선택').locator('option:checked')).toHaveText(broker==='KIWOOM'?'키움증권':'한국투자증권');
   await page.getByRole('button',{name:'국내주식 평가액',exact:true}).click();
   await expect(page.locator('.pf-equity-svg circle')).toHaveCount(2);
   expect((await page.locator('.pf-equity-svg path').getAttribute('d'))!.match(/M/g)).toHaveLength(2);

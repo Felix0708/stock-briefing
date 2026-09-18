@@ -6,7 +6,7 @@ const holdings = [
   {stock_code:"ZETA",stock_name:"제타 글로벌 홀딩스",market:"US",broker:"KIS",source:"stock_trading",account_type:"paper",quantity:12,avg_price:30},
   {stock_code:"ZETA",stock_name:"제타 글로벌 홀딩스",market:"US",broker:"KIWOOM",source:"stock_trading",account_type:"paper",quantity:12,avg_price:30},
 ];
-async function mock(page:Page, overrides:Record<string,unknown>={}, count=4){
+async function mock(page:Page, overrides:Record<string,unknown>={}, count=2){
   const calls:{url:string;method:string;body:unknown}[]=[];
   await page.route("**/api/**",async route=>{
     const req=route.request();const url=new URL(req.url());
@@ -30,8 +30,7 @@ async function mock(page:Page, overrides:Record<string,unknown>={}, count=4){
 }
 
 test("계좌 안내와 총자산·세금 입력 블록의 간격은 동일하다",async({page},info)=>{
-  await mock(page,{"/api/holdings":{holdings:[...holdings,{...holdings[0],broker:"KIS"}],performance:[]}},5);
-  await page.getByLabel("계좌 선택",{exact:true}).selectOption("live");
+  await mock(page,{"/api/holdings":{holdings:[...holdings,{...holdings[0],broker:"KIS"}],performance:[]}},3);
   const results=page.locator(".pf-equity-results");
   await expect(results.locator(":scope > .pf-notice")).toHaveCount(2);
   const boxes=await results.locator(":scope > *").evaluateAll(els=>els.map(el=>({top:el.getBoundingClientRect().top,bottom:el.getBoundingClientRect().bottom})));
@@ -53,7 +52,7 @@ test("원화 합계와 USD·JPY 원금액, 연간 세금과 가정 매도는 모
   const calls=await mock(page,{
     "/api/holdings":{holdings:[...holdings,{stock_code:"7203",stock_name:"토요타",market:"JP",broker:"KIS",source:"manual",account_type:"manual",quantity:1,avg_price:10000}],performance:[]},
     "/api/quotes":{quotes:{"US:SE":{price:110,changeRatio:0},"US:STM":{price:55,changeRatio:0},"US:ZETA":{price:31,changeRatio:0},"JP:7203":{price:11000,changeRatio:0}},usdKrw:1400,jpyKrw:10,asOf:new Date().toISOString()},
-  },5);
+  },3);
   const summary=page.getByLabel("실계좌 등록 주식 합계");
   await expect(summary).toContainText("USD $1,210");await expect(summary).toContainText("JPY ¥11,000");
   await expect(summary).toContainText("1,804,000원");
@@ -76,7 +75,7 @@ test("원화 합계와 USD·JPY 원금액, 연간 세금과 가정 매도는 모
   await tax.getByLabel("취득가액은 위 대상 수량 전체와 일치하며 중복 등록이 없습니다.").check();
   await expect(tax.getByLabel("가정 매도 세후 결과")).toContainText("624,000원");
   await tax.screenshot({path:info.outputPath("foreign-tax.png")});
-  await page.getByLabel("계좌 선택",{exact:true}).selectOption("paper");
+  await page.getByLabel("계좌 선택",{exact:true}).selectOption("broker:KIS");
   await expect(tax.getByLabel("가정 매도 세후 결과")).toContainText("624,000원");
   await tax.getByLabel("일본 연간 실현손익 (원)").fill("");
   await expect(tax.getByLabel("연간 예상 세금 결과")).toHaveCount(0);
@@ -91,7 +90,7 @@ test("실계좌 기록만 자동 계산하고 계좌 필터·가정 매도와 �
   await expect(tax.getByLabel("연간 예상 세금 결과")).toContainText("682,000원");
   await expect(tax.getByLabel("연간 예상 세금 결과")).toContainText("4,918,000원");
   await expect(tax.getByLabel("미국 연간 실현손익 (원)")).toHaveCount(0);
-  await page.getByLabel("계좌 선택",{exact:true}).selectOption("paper");
+  await page.getByLabel("계좌 선택",{exact:true}).selectOption("broker:KIS");
   await expect(tax.getByLabel("연간 예상 세금 결과")).toContainText("682,000원");
   await tax.screenshot({path:info.outputPath("automatic-tax.png")});
   await page.route("**/api/tax-estimate",r=>r.fulfill({status:502,json:{error:"unavailable"}}));
@@ -119,17 +118,22 @@ test("부분 합계·계좌 필터·원화 설정을 실제 렌더링과 조작�
   await mock(page);
   await expect(page.getByLabel("실계좌 등록 주식 합계")).toContainText("일부 평가");
   await expect(page.getByLabel("실계좌 등록 주식 합계")).toContainText("1,540,000원");
-  await expect(page.getByLabel("모의계좌 등록 주식 합계")).toContainText("1,041,600원");
+  await expect(page.getByLabel("모의계좌 등록 주식 합계")).toHaveCount(0);
   await expect(page.getByText(/직접 등록 보유종목만 있습니다/)).toBeVisible();
   await expect(page.getByText(/평가 2종목 중 1종목 반영/)).toBeVisible();
   await expect(page.getByText(/시세 없는 종목은 현재 환율로/)).toBeVisible();
-  await page.getByLabel("계좌 선택",{exact:true}).selectOption("paper");
+  await page.getByRole("link",{name:"모의매매",exact:true}).click();
+  await expect(page).toHaveURL(/\/portfolio\/paper$/);
+  await expect(page.getByLabel("모의계좌 등록 주식 합계")).toContainText("1,041,600원");
+  await expect(page.getByRole("region",{name:/미국·일본 주식 예상 세금/})).toHaveCount(0);
+  await expect(page.getByRole("heading",{name:"종목 등록",exact:true})).toHaveCount(0);
+  await expect(page.getByRole("region",{name:"직접 투자 · 매매 이력"})).toHaveCount(0);
   await expect(page.getByLabel("실계좌 등록 주식 합계")).toHaveCount(0);
   await expect(page.locator(".pf-table .pf-holding-row")).toHaveCount(2);
-  await page.getByLabel("계좌 선택",{exact:true}).selectOption("live");
+  await page.getByRole("link",{name:"실제 투자",exact:true}).click();
   await expect(page.locator(".pf-table .pf-holding-row")).toHaveCount(2);
   await page.getByLabel("계좌 선택",{exact:true}).selectOption("broker:KIWOOM");
-  await expect(page.locator(".pf-table .pf-holding-row")).toHaveCount(3);
+  await expect(page.locator(".pf-table .pf-holding-row")).toHaveCount(2);
   await page.getByLabel("표 금액 원화로 보기",{exact:true}).check();
   await page.reload();
   await expect(page.getByLabel("표 금액 원화로 보기",{exact:true})).toBeChecked();
@@ -188,7 +192,7 @@ test("긴 배지·범례가 화면 밖으로 넘치지 않고 중앙에 정렬�
 
 test("환율 누락 시 가짜 100% 비중이나 원화 평가액을 만들지 않는다",async({page})=>{
   await mock(page,{"/api/quotes":{quotes:{},usdKrw:null,jpyKrw:null,asOf:new Date().toISOString()}});
-  await expect(page.getByText("환율 정보가 없어 비중을 계산할 수 없습니다.",{exact:true})).toHaveCount(3);
+  await expect(page.getByText("환율 정보가 없어 비중을 계산할 수 없습니다.",{exact:true})).toHaveCount(1);
   await expect(page.locator(".pf-pie")).toHaveCount(0);
   await expect(page.locator(".pf-table .pf-holding-row").first()).toContainText("환율 대기");
   await expect(page.getByLabel("실계좌 등록 주식 합계")).not.toContainText("0원");
@@ -202,7 +206,7 @@ test("삭제 취소는 서버에 DELETE 요청을 보내지 않는다",async({pa
   await page.clock.fastForward(9000);
   await expect(page.getByText(/8초 뒤 잔고에서 삭제/)).toHaveCount(0);
   expect(calls.filter(call=>call.method==="DELETE")).toHaveLength(0);
-  await expect(page.locator(".pf-table .pf-holding-row")).toHaveCount(4);
+  await expect(page.locator(".pf-table .pf-holding-row")).toHaveCount(2);
 });
 
 test("수동 매수 입력이 통화·증권사와 함께 API에 전달된다",async({page})=>{
@@ -222,17 +226,17 @@ test("증권사별 실계좌·모의 묶음과 직접·자동 배지, 비중·�
     {stock_code:"017670",stock_name:"SK텔레콤",market:"KR",broker:"KIS",source:"manual",account_type:"manual",quantity:1,avg_price:50000},
   ];
   const errors:string[]=[];page.on("pageerror",error=>errors.push(error.message));
-  const calls=await mock(page,{"/api/holdings":{holdings:mixed,performance:[]}},6);
+  const calls=await mock(page,{"/api/holdings":{holdings:mixed,performance:[]}},4);
   const groups=page.locator(".pf-account-group");
-  await expect(groups).toHaveCount(4);
+  await expect(groups).toHaveCount(2);
   expect(await groups.evaluateAll(elements=>elements.map(e=>e.getAttribute("aria-label")))).toEqual([
-    "키움증권 실계좌","한국투자증권 실계좌","키움증권 모의계좌","한국투자증권 모의계좌",
+    "키움증권 실계좌","한국투자증권 실계좌",
   ]);
   await expect(groups.first().locator(".pf-account-count")).toHaveText("3종목 · 직접 2 · 자동 1");
   await expect(groups.first().locator(".pf-source-badge")).toHaveText(["직접","직접","자동"]);
   await expect(groups.first().locator('[data-label="계좌 내 비중"]')).toHaveText(["47.8%","4.3%","47.8%"]);
   await expect(groups.first().locator(".pf-delete")).toHaveCount(2);
-  for(let i=0;i<4;i++){
+  for(let i=0;i<2;i++){
     const colors=await groups.nth(i).locator(".pf-dot").evaluateAll(nodes=>nodes.map(n=>getComputedStyle(n).backgroundColor));
     const legendColors=await page.locator(".pf-pie-card").nth(i).locator(".pf-dot").evaluateAll(nodes=>nodes.map(n=>getComputedStyle(n).backgroundColor));
     expect(colors).toEqual(legendColors);
@@ -242,15 +246,25 @@ test("증권사별 실계좌·모의 묶음과 직접·자동 배지, 비중·�
   await page.emulateMedia({colorScheme:"dark"});
   await page.locator(".pf-table").screenshot({path:info.outputPath("account-groups-dark.png")});
   const liveColor=await groups.first().locator(".pf-account-heading").evaluate(e=>getComputedStyle(e).backgroundColor);
-  const paperColor=await groups.nth(2).locator(".pf-account-heading").evaluate(e=>getComputedStyle(e).backgroundColor);
-  expect(liveColor).not.toBe(paperColor);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   if(info.project.name==="desktop"){
     const heights=await page.locator(".pf-holding-row").evaluateAll(rows=>rows.map(row=>row.getBoundingClientRect().height));
     expect(Math.max(...heights)-Math.min(...heights)).toBeLessThan(1);
   }
-  await page.getByLabel("계좌 선택",{exact:true}).selectOption("paper");
+  await page.getByRole("link",{name:"모의매매",exact:true}).click();
   await expect(groups).toHaveCount(2);
+  await expect(groups.first()).toHaveAttribute("aria-label","키움증권 모의계좌");
+  expect(await groups.evaluateAll(elements=>elements.map(e=>e.getAttribute("aria-label")))).toEqual([
+    "키움증권 모의계좌","한국투자증권 모의계좌",
+  ]);
+  const paperColor=await groups.first().locator(".pf-account-heading").evaluate(e=>getComputedStyle(e).backgroundColor);
+  expect(liveColor).not.toBe(paperColor);
+  for(let i=0;i<2;i++){
+    const colors=await groups.nth(i).locator(".pf-dot").evaluateAll(nodes=>nodes.map(n=>getComputedStyle(n).backgroundColor));
+    const legendColors=await page.locator(".pf-pie-card").nth(i).locator(".pf-dot").evaluateAll(nodes=>nodes.map(n=>getComputedStyle(n).backgroundColor));
+    expect(colors).toEqual(legendColors);
+  }
+  await page.screenshot({path:info.outputPath("paper-screen-dark.png"),fullPage:true});
   await expect(page.locator(".pf-account-live")).toHaveCount(0);
   expect(calls.filter(call=>call.method!=="GET")).toHaveLength(0);
   expect(errors).toEqual([]);
