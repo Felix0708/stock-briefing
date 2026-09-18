@@ -1,6 +1,7 @@
 import type { EquityRecord } from "./account-equity";
 
 export const ACCOUNT_STATUS_LABELS = {
+  ip_not_registered: "키움 접속 IP 미등록(8050) · 실계좌 API 앱의 허용 IP를 확인하세요. 이전 정상 잔고는 유지합니다.",
   total_verified: "송신측 총자산 검증 완료",
   other_currency_assets: "USD 외 통화 잔액·자산이 있어 전체 총자산 합산 보류",
   total_unverified: "국내·미국 자산 범위·현금·환율 검증이 완료되지 않아 합산 보류",

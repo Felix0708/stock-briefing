@@ -29,6 +29,32 @@ async function mock(page:Page, overrides:Record<string,unknown>={}, count=2){
   return calls;
 }
 
+test("조회 잔고의 직접·자동 수량과 ISA 필터·등록을 분리한다",async({page},info)=>{
+  const at=new Date().toISOString();
+  const general={...holdings[0],source:"broker_sync",account_type:"live",automated_quantity:3,collected_at:at};
+  const isa={...general,market:"KR",stock_code:"005930",stock_name:"삼성전자",broker:"KIS_ISA",quantity:2,avg_price:50000,automated_quantity:0};
+  const calls=await mock(page,{"/api/holdings":{holdings:[general,isa],manualHoldings:[holdings[0]],performance:[],brokerSnapshots:[
+    {broker:"KIWOOM",account_kind:"general",market:"US",collected_at:at,holdings:[]},
+    {broker:"KIS",account_kind:"isa",market:"KR",collected_at:at,holdings:[]},
+  ]}},2);
+  await expect(page.getByText("자동 3 · 직접 7",{exact:true})).toBeVisible();
+  await expect(page.getByText(/수기 입력 1건은 중복 합산/)).toBeVisible();
+  await expect(page.locator('.pf-holding-row button')).toHaveCount(0);
+  await page.getByLabel("계좌 선택",{exact:true}).selectOption("isa:KIS");
+  await expect(page.locator('.pf-holding-row')).toHaveCount(1);
+  await expect(page.locator('.pf-holding-row')).toContainText("삼성전자");
+  await page.locator('.pf-fold').last().locator('summary').click();
+  await page.getByLabel("증권사",{exact:true}).selectOption("KIS_ISA");
+  await page.getByLabel("종목코드 (6자리)",{exact:true}).fill("005930");
+  await page.getByLabel("종목명",{exact:true}).fill("삼성전자");
+  await page.getByLabel("보유 수량",{exact:true}).fill("2");
+  await page.getByLabel("평균 단가 (원)",{exact:true}).fill("50000");
+  await page.getByRole('button',{name:'등록 / 갱신',exact:true}).click();
+  await expect.poll(()=>calls.find(c=>c.url==="/api/holdings"&&c.method==="POST")?.body).toMatchObject({broker:"KIS_ISA",market:"KR"});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.locator('.pf-table-wrap').screenshot({path:info.outputPath('isa-holdings-owner.png')});
+});
+
 test("계좌 안내와 총자산·세금 입력 블록의 간격은 동일하다",async({page},info)=>{
   await mock(page,{"/api/holdings":{holdings:[...holdings,{...holdings[0],broker:"KIS"}],performance:[]}},3);
   const results=page.locator(".pf-equity-results");

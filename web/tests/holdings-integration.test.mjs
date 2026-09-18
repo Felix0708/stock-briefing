@@ -209,6 +209,7 @@ test("성과 집계만 허용하고 승패 없는 무승부 성과의 null 승�
 
 test("보유종목 조회가 broker를 요청하고 응답에 유지한다", async () => {
   globalThis.fetch = async (url) => {
+    if (String(url).includes("broker_holdings?")) return Response.json([]);
     if (String(url).includes("trading_performance?")) {
       return Response.json([{ ...VALID_PERFORMANCE, all_count: 3 }]);
     }

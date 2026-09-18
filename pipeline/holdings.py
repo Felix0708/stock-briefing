@@ -48,7 +48,7 @@ def fetch_subscribers(settings: Settings) -> list[dict]:
 def fetch_holdings_by_user(settings: Settings) -> dict[str, list[str]]:
     """사용자 ID → 보유 종목명 목록."""
     response = requests.get(
-        f"{settings.supabase_url}/rest/v1/holdings",
+        f"{settings.supabase_url}/rest/v1/briefing_holdings",
         params={"select": "user_id,stock_name"},
         headers=_secret_headers(settings),
         timeout=_TIMEOUT,
@@ -67,7 +67,7 @@ def _fetch_market_rows(settings: Settings) -> list[dict]:
     if not settings.rag_enabled:
         return []
     response = requests.get(
-        f"{settings.supabase_url}/rest/v1/holdings",
+        f"{settings.supabase_url}/rest/v1/briefing_holdings",
         params={"select": "user_id,stock_name,stock_code,market", "order": "created_at.asc"},
         headers=_secret_headers(settings),
         timeout=_TIMEOUT,

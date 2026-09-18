@@ -11,8 +11,10 @@ import { ConfigurationError } from "@/lib/server/config";
 import { UpstreamError } from "@/lib/server/http";
 import {
   isManualBroker,
+  isIsaBroker,
   type HoldingBroker,
 } from "@/lib/holding-brokers";
+import { effectiveHoldings, type BrokerSnapshot } from "@/lib/broker-holdings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -132,6 +134,7 @@ function parseHolding(body: unknown): Holding | string {
   if (!Number.isFinite(quantity) || quantity <= 0) return "보유 수량을 확인해 주세요.";
   if (!Number.isFinite(avgPrice) || avgPrice <= 0) return "평균 단가를 확인해 주세요.";
   if (!isManualBroker(broker)) return "증권사를 선택해 주세요.";
+  if (isIsaBroker(broker) && market !== "KR") return "ISA는 국내 상장 종목만 등록할 수 있습니다.";
 
   return {
     stock_code: stockCode,
@@ -150,7 +153,7 @@ export async function GET(): Promise<NextResponse> {
     const session = await getSession();
     if (!session) return unauthorized();
 
-    const [holdings, performance] = await Promise.all([
+    const [holdings, performance, brokerSnapshots] = await Promise.all([
       restFetch<Holding[]>(
         session,
         "holdings?select=stock_code,stock_name,quantity,avg_price,market,source,account_type,broker&order=created_at.asc",
@@ -161,8 +164,9 @@ export async function GET(): Promise<NextResponse> {
         "trading_performance?select=broker,account_type,all_count,all_wins,all_losses,all_draws,all_win_rate,month_count,month_wins,month_losses,month_draws,month_win_rate,realized_krw_count,realized_krw_profit_loss,realized_krw_return_rate,realized_usd_count,realized_usd_profit_loss,realized_usd_return_rate,excluded_full_exits,updated_at&order=broker.asc,account_type.asc",
         { method: "GET" },
       ),
+      restFetch<BrokerSnapshot[]>(session,"broker_holdings?select=broker,account_kind,market,collected_at,holdings",{method:"GET"}),
     ]);
-    return withSession(NextResponse.json({ holdings, performance }), session);
+    return withSession(NextResponse.json({ holdings:effectiveHoldings(holdings,brokerSnapshots), manualHoldings:holdings.filter(h=>h.source==="manual"), performance, brokerSnapshots }), session);
   } catch (error) {
     return handleKnownError(error);
   }

@@ -29,6 +29,8 @@ test("real proxy blocks forged requests while browser-origin validation reaches 
   expect(equity.status()).toBe(401);
   expect(equity.headers()["set-cookie"]).toBeUndefined();
   expect((await request.put("/api/sync/tax-estimate",{data:{version:1,records:[]}})).status()).toBe(401);
+  expect((await request.put("/api/sync/broker-holdings",{data:{version:1,snapshots:[]}})).status()).toBe(401);
+  expect((await request.put("/api/sync/broker-holdings",{headers:{Authorization:`Bearer sb_sync_${'a'.repeat(43)}`},data:{version:1,snapshots:[{}]}})).status()).toBe(400);
   expect((await request.get("/api/tax-estimate")).status()).toBe(401);
   expect((await request.get("/api/account-equity")).status()).toBe(401);
   expect(errors).toEqual([]);

@@ -108,8 +108,9 @@ async function prepare(page:Page, points:EquityRecord[]=[one], second?:EquityRec
   await expect(page.getByRole('heading',{name:'연동 계좌 자산',exact:true})).toBeVisible();
   await expect(page.getByLabel('계좌 선택').locator('option')).toHaveText([
     '전체 증권사','키움증권','한국투자증권',
+    ...(latest.account_type==='live' ? ['키움증권 ISA','한국투자증권 ISA'] : []),
   ]);
-  await page.getByLabel('계좌 선택').selectOption(`broker:${latest.broker}`);
+  await page.getByLabel('계좌 선택').selectOption(`${latest.account_kind==='isa'?'isa':'broker'}:${latest.broker}`);
   if(latest.scope==='account-total-assets' && latest.account_type==='live') {
     await page.getByRole('button',{name:'전체 기간',exact:true}).click();
     await expect(page.locator('.pf-equity-svg')).toBeVisible();

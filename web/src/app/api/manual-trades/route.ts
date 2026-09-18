@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { applySessionCookies, fetchUser, getSession, supabaseUrl, userHeaders } from "@/lib/server/auth";
 import { serviceRest } from "@/lib/server/holdings-integration";
 import { requestJson, UpstreamError } from "@/lib/server/http";
-import { isManualBroker } from "@/lib/holding-brokers";
+import { isManualBroker, isIsaBroker } from "@/lib/holding-brokers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +17,7 @@ function validTrade(value: unknown): boolean {
   const market = row.market as keyof typeof patterns;
   return Object.hasOwn(patterns, market) && typeof row.stock_code === "string" && patterns[market].test(row.stock_code)
     && typeof row.stock_name === "string" && row.stock_name.trim().length > 0 && row.stock_name.length <= 50
-    && (isManualBroker(row.broker) || row.broker === "MANUAL") && (row.side === "BUY" || row.side === "SELL")
+    && (isManualBroker(row.broker) || row.broker === "MANUAL") && (!isIsaBroker(row.broker) || market==="KR") && (row.side === "BUY" || row.side === "SELL")
     && typeof row.request_id === "string" && /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(row.request_id)
     && typeof row.quantity === "number" && Number.isFinite(row.quantity) && row.quantity > 0 && row.quantity <= 1e8
     && Number(row.quantity.toFixed(4)) === row.quantity

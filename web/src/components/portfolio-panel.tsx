@@ -16,6 +16,8 @@ import { accountStatusMessage, type AccountStatus } from "@/lib/account-status";
 import { equityKey, equityMoney, type EquityRecord } from "@/lib/account-equity";
 import {
   accountGroupKey,
+  baseBroker,
+  isIsaBroker,
   accountGroupLabel,
   brokerLabel,
   isRealAccount,
@@ -24,17 +26,9 @@ import {
   type HoldingBroker,
   type ManualBroker,
 } from "@/lib/holding-brokers";
+import { holdingOwnership, type PortfolioHolding, type BrokerSnapshot } from "@/lib/broker-holdings";
 
-type Holding = {
-  stock_code: string;
-  stock_name: string;
-  quantity: number;
-  avg_price: number;
-  market: "KR" | "US" | "JP";
-  source: "manual" | "stock_trading";
-  account_type: "manual" | "paper" | "live";
-  broker: HoldingBroker;
-};
+type Holding = PortfolioHolding;
 
 type TradingPerformance = {
   broker: "KIWOOM" | "KIS";
@@ -112,6 +106,8 @@ const ACCOUNT_FILTERS: { value: string; label: string; broker?: HoldingBroker }[
   { value: "all", label: "전체 증권사" },
   { value: "broker:KIWOOM", label: "키움증권", broker: "KIWOOM" },
   { value: "broker:KIS", label: "한국투자증권", broker: "KIS" },
+  { value: "isa:KIWOOM", label: "키움증권 ISA", broker: "KIWOOM_ISA" },
+  { value: "isa:KIS", label: "한국투자증권 ISA", broker: "KIS_ISA" },
 ];
 
 function accountRank(key: string): number {
@@ -189,6 +185,8 @@ export function PortfolioPanel() {
 
   // 보유 종목
   const [holdings, setHoldings] = useState<Holding[]>([]);
+  const [manualHoldings, setManualHoldings] = useState<Holding[]>([]);
+  const [brokerSnapshots, setBrokerSnapshots] = useState<BrokerSnapshot[]>([]);
   const [performance, setPerformance] = useState<TradingPerformance[]>([]);
   const [quotes, setQuotes] = useState<Record<string, Quote>>({});
   const [quotesAsOf, setQuotesAsOf] = useState<string | null>(null);
@@ -235,7 +233,7 @@ export function PortfolioPanel() {
 
   const handlePresetChange = (value: string) => {
     setSelectedPreset(value);
-    const selected = holdings.find(
+    const selected = manualHoldings.find(
       (holding) => holding.source === "manual" && holdingKey(holding) === value,
     );
     setManualBroker(selected && isManualBroker(selected.broker) ? selected.broker : "");
@@ -282,8 +280,10 @@ export function PortfolioPanel() {
     setListBusy(true);
     setListError(null);
     try {
-      const data = await api<{ holdings: Holding[]; performance: TradingPerformance[] }>("/api/holdings");
+      const data = await api<{ holdings: Holding[]; manualHoldings?: Holding[]; brokerSnapshots?: BrokerSnapshot[]; performance: TradingPerformance[] }>("/api/holdings");
       setHoldings(data.holdings);
+      setManualHoldings(data.manualHoldings ?? data.holdings.filter(h=>h.source==="manual"));
+      setBrokerSnapshots(data.brokerSnapshots ?? []);
       setPerformance(data.performance);
       await loadQuotes(data.holdings);
     } catch (error) {
@@ -507,6 +507,8 @@ export function PortfolioPanel() {
     await api("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     setUser(null);
     setHoldings([]);
+    setManualHoldings([]);
+    setBrokerSnapshots([]);
     setPerformance([]);
     setEquityState({owner:"",series:[],statuses:[],statusUnavailable:false,error:false});
     setSelectedAccount("all");
@@ -520,7 +522,7 @@ export function PortfolioPanel() {
     setFormBusy(true);
     setFormError(null);
 
-    const owned = holdings.find(
+    const owned = manualHoldings.find(
       (row) => row.source === "manual" && holdingKey(row) === selectedPreset,
     );
     const stockCode = isCustom ? customCode.trim() : owned?.stock_code ?? "";
@@ -572,26 +574,29 @@ export function PortfolioPanel() {
 
   // ---------- 계산 ----------
   const equitySeries = equityState.owner === user?.email ? equityState.series : [];
-  const selection = ACCOUNT_FILTERS.find(option => option.value === selectedAccount) ?? ACCOUNT_FILTERS[0];
+  const selection = ACCOUNT_FILTERS.find(option => option.value === selectedAccount && (!isPaper || !option.value.startsWith("isa:"))) ?? ACCOUNT_FILTERS[0];
   const brokerFilter = selection.broker ?? "all";
+  const matchesAccount = (broker: HoldingBroker, isa = false) => brokerFilter === "all"
+    || (isa ? `${broker}_ISA` : broker) === brokerFilter;
   const visiblePerformance = performance.filter(row => (brokerFilter === "all" || row.broker === brokerFilter) && row.account_type === accountFilter);
   const visibleEquity = equitySeries.filter(row => row.scope === "account-total-assets"
-    && (brokerFilter === "all" || row.broker === brokerFilter)
+    && matchesAccount(row.broker,row.account_kind==="isa")
     && row.account_type === accountFilter)
     .sort((a, b) => accountRank(`${a.broker}:${a.account_type}`) - accountRank(`${b.broker}:${b.account_type}`)
       || equityKey(a).localeCompare(equityKey(b)));
   const visibleStatuses = (equityState.owner === user?.email ? equityState.statuses : []).filter(row =>
-    (brokerFilter === "all" || row.broker === brokerFilter) && row.account_type === accountFilter);
+    matchesAccount(row.broker,equitySeries.some(s=>s.account_kind==="isa" && (s.account_ref===row.account_ref || s.account_group_ref===row.account_ref))) && row.account_type === accountFilter);
   const accountCoverage = new Map<string, {broker: Holding["broker"]; account_type: string; manualOnly: boolean}>();
   for (const row of [
     ...holdings.map(h => ({broker:h.broker,account_type:isRealAccount(h) ? "live" : "paper",manualOnly:h.source === "manual"})),
-    ...[...equitySeries, ...performance, ...(tokenStatus?.sync?.accounts ?? []), ...visibleStatuses].map(row => ({...row,manualOnly:false})),
+    ...[...equitySeries.map(row=>({...row,broker:(row.account_kind==="isa" ? `${row.broker}_ISA` : row.broker) as HoldingBroker})), ...performance, ...(tokenStatus?.sync?.accounts ?? [])].map(row => ({...row,manualOnly:false})),
   ]) {
     if ((brokerFilter !== "all" && row.broker !== brokerFilter) || row.account_type !== accountFilter) continue;
     const key = `${row.broker}:${row.account_type}`;
     accountCoverage.set(key,{broker:row.broker,account_type:row.account_type,manualOnly:row.manualOnly && (accountCoverage.get(key)?.manualOnly ?? true)});
   }
-  const missingTotals = [...accountCoverage.values()].filter(group => !visibleEquity.some(row => row.broker === group.broker && row.account_type === group.account_type));
+  const missingTotals = [...accountCoverage.values()].filter(group => !visibleEquity.some(row => row.broker === baseBroker(group.broker)
+    && (row.account_kind==="isa")===isIsaBroker(group.broker) && row.account_type === group.account_type));
   const computed = (() => {
     // 모든 합산은 원화(KRW) 기준. 해외 종목은 해당 환율로 환산한다.
     const toKrw = (amount: number, currency: "KRW" | "USD" | "JPY"): number | null => {
@@ -664,7 +669,7 @@ export function PortfolioPanel() {
     const holdingGroups = [...accountRows.entries()]
       .sort(([left], [right]) => accountRank(left) - accountRank(right))
       .map(([key, rows]) => ({ key, rows, broker: brokerLabel(rows[0].holding.broker),
-        real: isRealAccount(rows[0].holding), manualCount: rows.filter(row => row.holding.source === "manual").length }));
+        real: isRealAccount(rows[0].holding), manualCount: rows.filter(row => row.holding.source === "manual" || row.holding.automated_quantity===0).length }));
     const charts = holdingGroups.map(({ key, rows: group }) => {
         const bases = group.map((row) => row.valueKrw ?? row.costKrw);
         const total = bases.reduce<number>((sum, value) => sum + (value ?? 0), 0);
@@ -864,7 +869,7 @@ export function PortfolioPanel() {
               onChange={(event) => handlePresetChange(event.target.value)}
             >
               <option value="custom">직접 입력 (새 종목)</option>
-              {holdings.filter((row) => row.source === "manual").map((row) => (
+              {manualHoldings.map((row) => (
                 <option key={holdingKey(row)} value={holdingKey(row)}>
                   {brokerLabel(row.broker)} · {stockLabel(row, quotes[quoteKey(row)] ?? null)} — 갱신
                 </option>
@@ -1035,6 +1040,7 @@ export function PortfolioPanel() {
         <p className="pf-muted pf-hint">
           이 양식은 현재 잔고 보정용이며 거래 이력을 생성하지 않습니다. 매수·매도는 아래 ‘직접 투자 · 매매 이력’에 기록해 주세요. 직접 등록과 자동매매 행은 구분하며 같은 증권사 실계좌의 비중은 함께 계산합니다.
         </p>
+        <p className="pf-muted">연동된 실계좌·ISA 잔고는 자동으로 표시되므로 다시 등록할 필요가 없습니다. 수기 입력은 미연동 계좌용이며, 같은 계좌·시장의 조회 잔고가 있으면 조회값을 우선합니다. 기존 수기 기록은 삭제하지 않습니다. ISA는 국내 상장 종목만 등록할 수 있습니다.</p>
         {formError && <p className="pf-error">{formError}</p>}
       </details>}
 
@@ -1043,7 +1049,7 @@ export function PortfolioPanel() {
           <button type="button" className="pf-ghost" disabled={equityBusy} onClick={() => setEquityRefresh(n => n + 1)}>{equityBusy ? "자산 조회 중…" : "자산 이력 새로고침"}</button>
         </div>
         <div className="pf-filters"><label>계좌 선택<select aria-label="계좌 선택" value={selection.value} onChange={e => setSelectedAccount(e.target.value)}>
-          {ACCOUNT_FILTERS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+          {ACCOUNT_FILTERS.filter(option=>!isPaper || !option.value.startsWith("isa:")).map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select></label></div>
         <p className="pf-muted">선택은 아래 보유종목·계좌별 비중·자동매매 성과에도 적용됩니다. 자산 이력 조회는 Stock-Trading의 새 수집을 실행하지 않습니다.</p>
         <p className="pf-muted">이곳은 현금 포함·수집 당시 환율 기준입니다. 아래 등록 주식 평가는 현금 제외·현재 조회 시세와 환율 기준이므로 금액이 다를 수 있습니다.</p>
@@ -1156,6 +1162,7 @@ export function PortfolioPanel() {
             </div>)}
             {computed.rows.length === 0 && <p className="pf-muted">선택한 조건의 보유 종목이 없습니다.</p>}
 
+            {!isPaper && brokerSnapshots.length>0 && <p className="pf-muted">실계좌는 증권사 조회 잔고를 우선 표시합니다. 매수 주체는 자동매매 체결 기록으로 구분하며, 혼합 보유는 한 행에 각각의 수량을 표시합니다. 기존 수기 입력 {manualHoldings.filter(h=>brokerSnapshots.some(s=>(s.account_kind==="isa" ? `${s.broker}_ISA` : s.broker)===h.broker && s.market===h.market)).length}건은 중복 합산에서 제외했습니다.</p>}
             <div className="pf-table-wrap">
               <table className="pf-table">
                 <thead>
@@ -1179,7 +1186,7 @@ export function PortfolioPanel() {
                         <span className="pf-account-name">{group.broker}<span className="pf-account-kind">{group.real ? "실계좌" : "모의계좌"}</span></span>
                         <span className="pf-account-count">{group.rows.length}종목
                           {group.manualCount > 0 && ` · 직접 ${group.manualCount}`}
-                          {group.rows.length > group.manualCount && ` · 자동 ${group.rows.length - group.manualCount}`}
+                          {group.rows.filter(r=>r.holding.source==="stock_trading" || (r.holding.automated_quantity ?? 0)>0).length>0 && ` · 자동 ${group.rows.filter(r=>r.holding.source==="stock_trading" || (r.holding.automated_quantity ?? 0)>0).length}`}
                         </span>
                       </div>
                     </th>
@@ -1196,8 +1203,9 @@ export function PortfolioPanel() {
                         />
                         {stockLabel(row.holding, row.quote)}
                         <span className={`pf-source-badge${row.holding.source === "stock_trading" ? " pf-source-auto" : ""}`}>
-                          {row.holding.source === "manual" ? "직접" : "자동"}
+                          {holdingOwnership(row.holding)}
                         </span>
+                        {row.holding.source==="broker_sync" && <span className="pf-source-badge" title={`증권사 조회 ${row.holding.collected_at}`}>증권사 조회</span>}
                       </td>
                       <td data-label="수량">{row.holding.quantity.toLocaleString("ko-KR")}</td>
                       <td data-label="평단가">
@@ -1342,7 +1350,7 @@ export function PortfolioPanel() {
           const quote=quotes[quoteKey(h)], rate=h.market==="US" ? usdKrw : jpyKrw;
           return {market:h.market as "US" | "JP",value:quote && rate ? h.quantity*quote.price*rate : null,cost:rate?h.quantity*h.avg_price*rate:null};
         })} />
-      <ManualTradesPanel holdings={holdings.filter((holding) => holding.source === "manual")} onChanged={loadHoldings} disabled={pendingDelete !== null} />
+      <ManualTradesPanel holdings={manualHoldings} onChanged={loadHoldings} disabled={pendingDelete !== null} />
       <BriefingStatusPanel holdings={holdings} />
       <PortfolioBackupPanel onChanged={async()=>{await loadHoldings();window.location.reload();}} />
       </>}
