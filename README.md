@@ -5,7 +5,7 @@
 🇰🇷🇺🇸🇯🇵 3개 시장 포트폴리오의 **최근 조회 시세 기준 수익률을 환율 환산**으로 보여주는 서비스.
 서버 없이 GitHub Actions + Vercel 무료 티어로 동작하며 **월 유지비 0원**.
 
-> 🛠 **[개발 여정 보기 (DEVLOG.md)](DEVLOG.md)** — 7일간 무엇을 왜 그렇게 만들었는지의 기록
+> 🛠 **[개발 여정 보기 (DEVLOG.md)](DEVLOG.md)** — 초기 개발과 이후 연동 변경·검증 범위의 기록
 >
 > 기획 배경과 로드맵은 [docs/PLAN.md](docs/PLAN.md), 설치는 [SETUP.md](SETUP.md),
 > CI/CD와 Vercel 설정은 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) 참고.
@@ -30,8 +30,8 @@
 ```
 [배치 축 — GitHub Actions, 평일 07:30 KST]
   내부 수집: watchlist.yaml + 전 회원 보유 종목(Supabase)
-      → dart.py (DART OpenAPI: 공시 목록·원문)
-      → summarize.py (Gemini flash-lite 요약)
+      → dart.py / edgar.py / edinet.py (한·미·일 공시 목록·원문)
+      → summarize.py (Gemini API 요약, 모델 설정은 아래 참고)
       → embed.py (Gemini 임베딩 → Supabase pgvector, RAG 인덱싱)
       → publish.py (공개 JSON은 watchlist + 공개 동의 종목만)
       → emailer.py + notify.py (회원별 맞춤 메일, 중요 공시 ⚠️)
@@ -46,6 +46,16 @@
 [데이터 축 — Supabase]
   filings · holdings(RLS) · member_settings(RLS) · integration_tokens(서버 전용 해시) · Auth
 ```
+
+### AI 모델과 실행 경계
+
+| 용도 | 코드 기본값 | 설정 |
+|---|---|---|
+| 배치 공시 요약 | `gemini-2.5-flash` | `GEMINI_MODEL` |
+| 웹 공시 Q&A | `gemini-2.5-flash-lite` | `GEMINI_ANSWER_MODEL` → `GEMINI_MODEL` → 기본값 순 |
+| 공시·질문 임베딩 | `gemini-embedding-001` | `EMBEDDING_MODEL` |
+
+위 값은 [배치 설정](pipeline/config.py)과 [웹 설정](web/src/lib/server/config.ts)의 기본값이며 운영 환경의 선택값을 공개한 것이 아닙니다. Stock-Trading의 Discord 대화·시장 브리핑·SEPA는 별도 AI 실행 경로입니다. 그쪽 AGY/Codex 모델을 변경해도 이 저장소의 Gemini API 설정은 바뀌지 않습니다. Stock-Trading의 모델 전환·실행 검증은 해당 저장소 README와 `docs/CHANGELOG.md`를 기준으로 합니다.
 
 ## 모듈 구조
 
@@ -82,6 +92,7 @@
 
 포트폴리오에서 발급한 토큰을 로컬 Stock-Trading 러너에만 저장하고 다음 계약으로 호출합니다.
 같은 종목도 증권사별 행으로 보내며, 같은 증권사·시장·종목·계정유형 안에서만 수량과 가중평균 단가를 합산합니다.
+이 API의 `holdings`는 한 요청에 최대 50행입니다. 초과분을 잘라 보내면 전체 스냅샷 교체에서 잔고가 누락될 수 있으므로 분할·절삭하지 말고 송수신 계약을 함께 변경해야 합니다. 이 한도는 별도 `broker-holdings`·ISA 자산 API의 한도와 구분합니다.
 
 ```http
 PUT /api/sync/holdings
