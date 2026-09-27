@@ -300,6 +300,23 @@ test("직접 등록은 허용되지 않은 증권사를 DB 호출 전에 거부�
   assert.equal(response.status, 400);
 });
 
+test("200행 전체 목록을 한 RPC에 전달하고 잘못된 DB 건수는 성공하지 않는다", async () => {
+  const holdings=Array.from({length:200},(_,i)=>({market:"US",stock_code:`T${i}`,stock_name:"Synthetic",quantity:1,avg_price:10,account_type:"paper",broker:"KIWOOM"}));
+  let calls=0;
+  globalThis.fetch=async (url,init)=>{
+    if(String(url).includes("integration_tokens?")) return Response.json([{user_id:"synthetic-owner"}]);
+    calls++; assert.equal(JSON.parse(init.body).snapshot.length,200);
+    return Response.json(200);
+  };
+  const response=await syncHoldingsRoute(syncRequest(createIntegrationToken(),{holdings,performance:[]}));
+  assert.equal(response.status,200); assert.equal((await response.json()).synced,200); assert.equal(calls,1);
+  assert.equal(typeof parseSnapshot({holdings:[...holdings,{...holdings[0],stock_code:"EXTRA"}],performance:[]}),"string");
+  for(const invalid of [null,"200",0,-1,201]) {
+    globalThis.fetch=async url=>String(url).includes("integration_tokens?")?Response.json([{user_id:"synthetic-owner"}]):Response.json(invalid);
+    assert.equal((await syncHoldingsRoute(syncRequest(createIntegrationToken(),{holdings,performance:[]}))).status,502);
+  }
+});
+
 test("사용자 ID는 토큰 해시 조회 결과에서만 파생하고 빈 전체 스냅샷도 원자 RPC로 전달한다", async () => {
   const token = createIntegrationToken();
   let rpcBody;

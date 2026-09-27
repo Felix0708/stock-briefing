@@ -6,6 +6,20 @@ import { createDatabase } from './db-fixture.mjs';
 const owner = '11111111-1111-4111-8111-111111111111';
 const other = '22222222-2222-4222-8222-222222222222';
 
+test('200-row sync persists, replays without duplicates and rolls back invalid replacements', async()=>{
+  const db=await createDatabase([owner]);
+  try {
+    const holdings=Array.from({length:200},(_,i)=>({market:'US',stock_code:`T${i}`,stock_name:'Synthetic',quantity:1,avg_price:10,account_type:'paper',broker:'KIWOOM'}));
+    const sync=rows=>db.query('select replace_synced_holdings($1,$2::jsonb,$3::jsonb) as n',[owner,JSON.stringify(rows),'[]']);
+    for(let i=0;i<2;i++) assert.equal((await sync(holdings)).rows[0].n,200);
+    assert.equal((await db.query('select count(*)::int as n from holdings')).rows[0].n,200);
+    await assert.rejects(sync([...holdings,{...holdings[0],stock_code:'EXTRA'}]),/200 rows/);
+    await assert.rejects(sync([{...holdings[0],quantity:-1}]));
+    assert.equal((await db.query('select count(*)::int as n from holdings')).rows[0].n,200);
+    assert.equal((await db.query('select holdings_count from integration_sync_status')).rows[0].holdings_count,200);
+  } finally {await db.close();}
+});
+
 test('real PostgreSQL: corrections, rollback, RLS, sync and durable mail', async () => {
   const db = await createDatabase([owner,other],`insert into holdings(user_id,market,stock_code,stock_name,broker,quantity,avg_price) values('${owner}','US','SE','Sea','KIWOOM',10,100)`);
   try {

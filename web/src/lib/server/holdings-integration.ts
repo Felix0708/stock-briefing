@@ -53,7 +53,8 @@ const CODE_PATTERNS = {
   US: /^[A-Z][A-Z0-9.-]{0,9}$/,
   JP: /^[0-9A-Z]{4,5}$/,
 } as const;
-const MAX_HOLDINGS = 50;
+// Full snapshot; this is a transport bound, not a trading position limit.
+const MAX_HOLDINGS = 200;
 const MAX_PERFORMANCE = 4;
 const ALLOWED_ROW_KEYS = new Set([
   "market", "stock_code", "stock_name", "quantity", "avg_price", "account_type", "broker",
@@ -342,7 +343,7 @@ export async function syncSnapshot(token: string, snapshot: SyncPayload): Promis
   const userId = rows[0]?.user_id;
   if (!userId) throw new UpstreamError("Integration token", 401);
 
-  return serviceRest<number>("rpc/replace_synced_holdings", {
+  const synced = await serviceRest<number>("rpc/replace_synced_holdings", {
     method: "POST",
     body: JSON.stringify({
       target_user_id: userId,
@@ -350,4 +351,8 @@ export async function syncSnapshot(token: string, snapshot: SyncPayload): Promis
       performance_snapshot: snapshot.performance,
     }),
   });
+  if (!Number.isInteger(synced) || synced !== snapshot.holdings.length) {
+    throw new UpstreamError("Holdings acknowledgement mismatch", 502);
+  }
+  return synced;
 }
