@@ -1,0 +1,142 @@
+{
+  "date": "2026-09-29",
+  "generated_at": "2026-09-29T11:17:09+09:00",
+  "sections": [
+    {
+      "company": "애플",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>내부자 매도 (Form 4)</b>: 애플의 SVP, GC 및 정부 업무 담당자인 Jennifer Newstead가 2026년 9월 22일 보통주 2,399주를 주당 340.06달러에 매도했습니다. 이는 2026년 5월 5일에 채택된 Rule 10b5-1 거래 계획에 따라 이루어졌습니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001140361-26-037584",
+          "rcept_dt": "20260924",
+          "flr_nm": "AAPL",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000114036126037584/xslF345X06/form4.xml"
+        }
+      ]
+    },
+    {
+      "company": "데이터도그",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>내부자 매도 (Form 4)</b>: 데이터도그의 최고기술책임자(CTO)인 Alexis Le-Quoc가 2026년 9월 23일, 총 33,324주의 Class A 보통주를 평균 약 $251.45에 매도했습니다. 이는 10b5-1 계획에 따라 진행된 거래입니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001561550-26-000320",
+          "rcept_dt": "20260925",
+          "flr_nm": "DDOG",
+          "url": "https://www.sec.gov/Archives/edgar/data/1561550/000156155026000320/xslF345X06/wk-form4_1790369004.xml"
+        }
+      ]
+    },
+    {
+      "company": "팰로 앨토 네트웍스",
+      "market": "US",
+      "summary_html": "<ul><li><b>팰로 앨토 네트웍스 내부자 매도 (Form 4)</b>: 최고재무책임자(CFO)인 Dipak Golechha가 2026년 9월 24일에 총 25,000주 이상의 주식을 매도했습니다. 매도 가격은 주당 약 388달러에서 396달러 사이이며, 이는 사전에 계획된 10b5-1 거래 계획에 따른 것입니다. 내부자의 대량 매도는 투자자들에게 단기적인 매도 압력으로 인식될 수 있습니다.</li></ul><ul>\n<li><b>내부자 매도 (Form 4)</b>: 팰로 앨토 네트웍스의 이사인 Aparna Bawa가 2026년 9월 24일 보통주 260주를 주당 392.685달러에 매도했습니다. 이는 내부자의 주식 매도 거래로, 경영진의 회사 전망에 대한 판단을 엿볼 수 있는 지표가 될 수 있습니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001852540-26-000007",
+          "rcept_dt": "20260928",
+          "flr_nm": "PANW",
+          "url": "https://www.sec.gov/Archives/edgar/data/1327567/000185254026000007/xslF345X06/ownership.xml"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001193125-26-405399",
+          "rcept_dt": "20260928",
+          "flr_nm": "PANW",
+          "url": "https://www.sec.gov/Archives/edgar/data/1327567/000119312526405399/xslF345X06/ownership.xml"
+        }
+      ]
+    },
+    {
+      "company": "씨이에이(ADS)",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>씨이에이(ADS) 내부자 매도 (Form 4)</b>: 씨이에이(ADS)의 CCO 겸 GC인 Wang Yanjun이 2026년 9월 23일과 24일에 걸쳐 총 2,000주 이상의 Class A 보통주를 매도했습니다. 매도 가격은 주당 약 $100.19에서 $103.69 사이이며, 이는 2026년 3월 26일에 채택된 Rule 10b5-1 거래 계획에 따라 이루어졌습니다. 내부자 매도는 경영진의 회사 전망에 대한 신호로 해석될 수 있어 투자자들의 주의가 필요합니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001193125-26-401520",
+          "rcept_dt": "20260925",
+          "flr_nm": "SE",
+          "url": "https://www.sec.gov/Archives/edgar/data/1703399/000119312526401520/xslF345X06/ownership.xml"
+        }
+      ]
+    }
+  ],
+  "important_sections": [],
+  "collection_status": [
+    {
+      "company": "애플",
+      "market": "US",
+      "status": "success",
+      "filing_count": 1,
+      "checked_at": "2026-09-29T02:16:51+00:00"
+    },
+    {
+      "company": "앱셀레라 바이오로직스",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-09-29T02:16:53+00:00"
+    },
+    {
+      "company": "데이터도그",
+      "market": "US",
+      "status": "success",
+      "filing_count": 1,
+      "checked_at": "2026-09-29T02:16:53+00:00"
+    },
+    {
+      "company": "GCT 세미컨덕터 홀딩",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-09-29T02:16:55+00:00"
+    },
+    {
+      "company": "네비우스 그룹",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-09-29T02:16:56+00:00"
+    },
+    {
+      "company": "팰로 앨토 네트웍스",
+      "market": "US",
+      "status": "success",
+      "filing_count": 2,
+      "checked_at": "2026-09-29T02:16:57+00:00"
+    },
+    {
+      "company": "아틀라시언",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-09-29T02:17:05+00:00"
+    },
+    {
+      "company": "SK텔레콤",
+      "market": "KR",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-09-29T02:17:06+00:00"
+    },
+    {
+      "company": "알파벳 A",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-09-29T02:17:07+00:00"
+    },
+    {
+      "company": "씨이에이(ADS)",
+      "market": "US",
+      "status": "success",
+      "filing_count": 1,
+      "checked_at": "2026-09-29T02:17:08+00:00"
+    }
+  ]
+}
