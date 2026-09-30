@@ -1,0 +1,93 @@
+{
+  "date": "2026-09-30",
+  "generated_at": "2026-09-30T10:30:49+09:00",
+  "sections": [
+    {
+      "company": "씨이에이(ADS)",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>내부자 매도 (Form 4)</b>: 씨이에이(ADS)의 CCO 겸 GC인 Wang Yanjun이 2026년 9월 25일부터 9월 28일까지 총 2,194주의 Class A 보통주를 매도했습니다. 매도 가격은 주당 평균 97.06달러에서 100.4달러 사이이며, 이는 10b5-1 거래 계획에 따라 이루어졌습니다. 이는 내부자의 보유 주식 매도이며, 향후 주가에 영향을 줄 수 있습니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001193125-26-405898",
+          "rcept_dt": "20260929",
+          "flr_nm": "SE",
+          "url": "https://www.sec.gov/Archives/edgar/data/1703399/000119312526405898/xslF345X06/ownership.xml"
+        }
+      ]
+    }
+  ],
+  "important_sections": [],
+  "collection_status": [
+    {
+      "company": "애플",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-09-30T01:30:34+00:00"
+    },
+    {
+      "company": "앱셀레라 바이오로직스",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-09-30T01:30:36+00:00"
+    },
+    {
+      "company": "데이터도그",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-09-30T01:30:37+00:00"
+    },
+    {
+      "company": "GCT 세미컨덕터 홀딩",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-09-30T01:30:38+00:00"
+    },
+    {
+      "company": "쇼피파이",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-09-30T01:30:39+00:00"
+    },
+    {
+      "company": "네비우스 그룹",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-09-30T01:30:40+00:00"
+    },
+    {
+      "company": "아틀라시언",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-09-30T01:30:41+00:00"
+    },
+    {
+      "company": "알파벳 A",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-09-30T01:30:41+00:00"
+    },
+    {
+      "company": "씨이에이(ADS)",
+      "market": "US",
+      "status": "success",
+      "filing_count": 1,
+      "checked_at": "2026-09-30T01:30:43+00:00"
+    },
+    {
+      "company": "SK텔레콤",
+      "market": "KR",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-09-30T01:30:48+00:00"
+    }
+  ]
+}
