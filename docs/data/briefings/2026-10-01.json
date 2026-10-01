@@ -1,0 +1,128 @@
+{
+  "date": "2026-10-01",
+  "generated_at": "2026-10-01T10:27:05+09:00",
+  "sections": [
+    {
+      "company": "메타 플랫폼스",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>메타 플랫폼스 내부자 매도 (Form 4)</b>: 최고운영책임자(COO)인 Javier Olivan이 2026년 9월 28일 총 1,406주의 클래스 A 보통주를 약 105만 달러에 매도했습니다. 해당 매도는 2025년 11월 17일에 채택된 Rule 10b5-1 거래 계획에 따라 이루어졌습니다. 이는 내부자의 주식 매도이며, 매도 규모와 거래 계획에 따른 매도라는 점이 투자자에게 중요할 수 있습니다.</li>\n</ul><ul>\n<li><b>내부자 매도 (Form 4)</b>: 메타 플랫폼스의 CEO 마크 저커버그가 2026년 9월 24일, 보유하고 있던 클래스 A 보통주 총 15,436주를 평균 약 776.5달러에 매도했습니다. 이는 10b5-1 거래 계획에 따라 이루어졌으며, 매도된 주식은 CZI Holdings, LLC를 통해 간접적으로 보유하고 있던 물량입니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0000950103-26-014886",
+          "rcept_dt": "20260930",
+          "flr_nm": "META",
+          "url": "https://www.sec.gov/Archives/edgar/data/1326801/000095010326014886/xslF345X06/ownership.xml"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0000950103-26-014647",
+          "rcept_dt": "20260928",
+          "flr_nm": "META",
+          "url": "https://www.sec.gov/Archives/edgar/data/1326801/000095010326014647/xslF345X06/ownership.xml"
+        }
+      ]
+    },
+    {
+      "company": "씨이에이(ADS)",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>내부자 매도 (Form 4)</b>: 씨이에이(ADS)의 CCO 겸 GC인 Wang Yanjun이 2026년 9월 25일부터 9월 28일까지 총 2,194주의 Class A 보통주를 매도했습니다. 매도 가격은 주당 평균 97.06달러에서 100.4달러 사이이며, 이는 10b5-1 거래 계획에 따라 이루어졌습니다. 이는 내부자의 보유 주식 매도이며, 향후 주가에 영향을 줄 수 있습니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001193125-26-405898",
+          "rcept_dt": "20260929",
+          "flr_nm": "SE",
+          "url": "https://www.sec.gov/Archives/edgar/data/1703399/000119312526405898/xslF345X06/ownership.xml"
+        }
+      ]
+    }
+  ],
+  "important_sections": [],
+  "collection_status": [
+    {
+      "company": "애플",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-01T01:26:49+00:00"
+    },
+    {
+      "company": "앱셀레라 바이오로직스",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-01T01:26:51+00:00"
+    },
+    {
+      "company": "데이터도그",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-01T01:26:51+00:00"
+    },
+    {
+      "company": "GCT 세미컨덕터 홀딩",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-01T01:26:52+00:00"
+    },
+    {
+      "company": "쇼피파이",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-01T01:26:53+00:00"
+    },
+    {
+      "company": "메타 플랫폼스",
+      "market": "US",
+      "status": "success",
+      "filing_count": 2,
+      "checked_at": "2026-10-01T01:26:53+00:00"
+    },
+    {
+      "company": "네비우스 그룹",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-01T01:27:01+00:00"
+    },
+    {
+      "company": "아틀라시언",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-01T01:27:01+00:00"
+    },
+    {
+      "company": "알파벳 A",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-01T01:27:02+00:00"
+    },
+    {
+      "company": "인텔",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-01T01:27:03+00:00"
+    },
+    {
+      "company": "씨이에이(ADS)",
+      "market": "US",
+      "status": "success",
+      "filing_count": 1,
+      "checked_at": "2026-10-01T01:27:03+00:00"
+    },
+    {
+      "company": "SK텔레콤",
+      "market": "KR",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-01T01:27:04+00:00"
+    }
+  ]
+}
