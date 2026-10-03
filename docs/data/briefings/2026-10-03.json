@@ -1,0 +1,142 @@
+{
+  "date": "2026-10-03",
+  "generated_at": "2026-10-03T10:23:47+09:00",
+  "sections": [
+    {
+      "company": "애플",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>애플 (AAPL) 내부자 매도 (Form 4)</b>: 애플의 SVP, GC and Government Affairs인 Jennifer Newstead가 2026년 9월 29일 보통주 2,399주를 주당 336.18달러에 매도했습니다. 이는 2026년 5월 5일에 채택된 Rule 10b5-1 거래 계획에 따른 것입니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001140361-26-038307",
+          "rcept_dt": "20261001",
+          "flr_nm": "AAPL",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000114036126038307/xslF345X06/form4.xml"
+        }
+      ]
+    },
+    {
+      "company": "네비우스 그룹",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>외국기업 수시보고 (6-K)</b>: 네비우스 그룹이 AI 모델 출시 및 확장을 가속화하는 기술을 보유한 Inferize를 인수했다고 발표했습니다. 이번 인수는 네비우스 토큰 팩토리의 생산 추론 스택을 강화하고 GPU 활용도를 높여 토큰 경제성을 개선할 것으로 기대됩니다.</li>\n</ul><ul>\n<li><b>내부자 매도 (Form 4)</b>: 네비우스 그룹의 이사인 John Wilson Boynton IV가 2026년 9월 29일 클래스 A 주식 50주를 주당 235.01달러에 매도했습니다. 이는 2026년 3월 6일에 채택된 Rule 10b5-1 거래 계획에 따라 이루어졌습니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "외국기업 수시보고 (6-K)",
+          "rcept_no": "0001104659-26-112824",
+          "rcept_dt": "20261001",
+          "flr_nm": "NBIS",
+          "url": "https://www.sec.gov/Archives/edgar/data/1513845/000110465926112824/tm2626792d1_6k.htm"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001513845-26-000118",
+          "rcept_dt": "20261001",
+          "flr_nm": "NBIS",
+          "url": "https://www.sec.gov/Archives/edgar/data/1513845/000151384526000118/xslF345X06/form4.xml"
+        }
+      ]
+    },
+    {
+      "company": "알파벳 A",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>알파벳 A 내부자 매도 (Form 4)</b>: 알파벳 A의 이사인 Frances Arnold가 2026년 9월 30일에 클래스 C 보통주 83주를 주당 340.45달러에 매도했습니다. 이는 2025년 8월 21일에 채택된 Rule 10b5-1 거래 계획에 따라 이루어졌습니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001193125-26-412669",
+          "rcept_dt": "20261002",
+          "flr_nm": "GOOGL",
+          "url": "https://www.sec.gov/Archives/edgar/data/1652044/000119312526412669/xslF345X06/ownership.xml"
+        }
+      ]
+    }
+  ],
+  "important_sections": [],
+  "collection_status": [
+    {
+      "company": "애플",
+      "market": "US",
+      "status": "success",
+      "filing_count": 1,
+      "checked_at": "2026-10-03T01:23:28+00:00"
+    },
+    {
+      "company": "앱셀레라 바이오로직스",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-03T01:23:30+00:00"
+    },
+    {
+      "company": "데이터도그",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-03T01:23:31+00:00"
+    },
+    {
+      "company": "GCT 세미컨덕터 홀딩",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-03T01:23:32+00:00"
+    },
+    {
+      "company": "쇼피파이",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-03T01:23:35+00:00"
+    },
+    {
+      "company": "메타 플랫폼스",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-03T01:23:36+00:00"
+    },
+    {
+      "company": "네비우스 그룹",
+      "market": "US",
+      "status": "success",
+      "filing_count": 2,
+      "checked_at": "2026-10-03T01:23:36+00:00"
+    },
+    {
+      "company": "아틀라시언",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-03T01:23:38+00:00"
+    },
+    {
+      "company": "알파벳 A",
+      "market": "US",
+      "status": "success",
+      "filing_count": 1,
+      "checked_at": "2026-10-03T01:23:39+00:00"
+    },
+    {
+      "company": "인텔",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-03T01:23:44+00:00"
+    },
+    {
+      "company": "제타 글로벌 홀딩스",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-03T01:23:45+00:00"
+    },
+    {
+      "company": "SK텔레콤",
+      "market": "KR",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-03T01:23:46+00:00"
+    }
+  ]
+}
