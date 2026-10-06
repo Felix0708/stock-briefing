@@ -1,0 +1,184 @@
+{
+  "date": "2026-10-06",
+  "generated_at": "2026-10-06T11:27:06+09:00",
+  "sections": [
+    {
+      "company": "애플",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>내부자 매도 (Form 4)</b>: 애플 CEO 팀 쿡이 2026년 10월 1일과 2일에 걸쳐 총 156,700주 이상의 애플 주식을 매도했습니다. 이는 성과 기반 제한 주식 단위(RSU)의 이행 및 세금 납부를 위한 주식 차압, 그리고 10b5-1 거래 계획에 따른 매도입니다.</li>\n</ul><ul>\n<li><b>애플 내부자 매도 (Form 4)</b>: 애플의 Senior Vice President인 Deirdre O&#x27;Brien이 2026년 10월 1일과 2일에 걸쳐 총 105,503주의 애플 주식을 매도했습니다. 이 중 99,878주는 성과 기반 제한주식단위(RSU)가 베스팅되어 행사된 것이며, 53,489주는 세금 납부를 위해 회사에 반환되었습니다. 나머지 46,389주는 10b5-1 거래 계획에 따라 매도되었습니다. 이는 내부자의 대량 매도라는 점에서 투자자들의 주목을 받을 수 있습니다.</li>\n</ul><ul>\n<li><b>내부자 매도 (Form 4)</b>: 애플 CEO인 John Ternus가 2026년 10월 1일과 2일에 걸쳐 총 69,146주의 애플 주식을 매도했습니다. 이는 RSU(Restricted Stock Unit)의 베스팅 및 세금 납부를 위한 것으로, 10b5-1 거래 계획에 따라 이루어졌습니다. 매도 가격은 주당 약 $330.32에서 $334.49 사이입니다.</li>\n</ul><ul>\n<li><b>애플 (AAPL) 내부자 매도 (Form 4)</b>: 애플의 SVP, GC and Government Affairs인 Jennifer Newstead가 2026년 9월 29일 보통주 2,399주를 주당 336.18달러에 매도했습니다. 이는 2026년 5월 5일에 채택된 Rule 10b5-1 거래 계획에 따른 것입니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001140361-26-038674",
+          "rcept_dt": "20261005",
+          "flr_nm": "AAPL",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000114036126038674/xslF345X06/form4.xml"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001140361-26-038672",
+          "rcept_dt": "20261005",
+          "flr_nm": "AAPL",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000114036126038672/xslF345X06/form4.xml"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001140361-26-038669",
+          "rcept_dt": "20261005",
+          "flr_nm": "AAPL",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000114036126038669/xslF345X06/form4.xml"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001140361-26-038307",
+          "rcept_dt": "20261001",
+          "flr_nm": "AAPL",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000114036126038307/xslF345X06/form4.xml"
+        }
+      ]
+    },
+    {
+      "company": "네비우스 그룹",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>내부자 매도 (Form 4)</b>: 네비우스 그룹의 최고 인프라 책임자인 안드레이 코롤렌코가 2026년 10월 1일, 세금 납부를 위해 29,090주의 클래스 A 주식을 주당 234.16달러에 매도했습니다. 이는 제한 조건부 주식 단위(RSU)의 베스팅과 관련된 세금 납부를 위한 자동 매도 지시에 따른 것으로, 보고자의 재량에 따른 거래가 아닙니다.</li>\n</ul><ul>\n<li><b>내부자 매도 (Form 4)</b>: 네비우스 그룹의 최고 기술 책임자(CTO)인 Danila Shtan이 2026년 10월 1일, 14,546주의 Class A 주식을 주당 234.16달러에 매도했습니다. 이는 제한 조건부 주식 단위(RSU)의 베스팅(vesting)으로 인한 세금 납부를 위한 자동 매도이며, 보고자의 재량 거래가 아닙니다.</li>\n</ul><ul>\n<li><b>내부자 매도 (Form 4)</b>: 네비우스 그룹의 CEO이자 이사인 Arkadiy Volozh가 10월 1일, Class A 주식 37,778주를 주당 $234.16에 매도했습니다. 이는 제한적 주식 단위(RSU)의 베스팅과 동시에 발생했으며, 세금 납부를 위한 자동 매도 지시에 따른 것으로, 보고자의 재량 거래가 아니라고 명시되어 있습니다.</li>\n</ul><ul>\n<li><b>외국기업 수시보고 (6-K)</b>: 네비우스 그룹이 AI 모델 출시 및 확장을 가속화하는 기술을 보유한 Inferize를 인수했다고 발표했습니다. 이번 인수는 네비우스 토큰 팩토리의 생산 추론 스택을 강화하고 GPU 활용도를 높여 토큰 경제성을 개선할 것으로 기대됩니다.</li>\n</ul><ul>\n<li><b>내부자 매도 (Form 4)</b>: 네비우스 그룹의 이사인 John Wilson Boynton IV가 2026년 9월 29일 클래스 A 주식 50주를 주당 235.01달러에 매도했습니다. 이는 2026년 3월 6일에 채택된 Rule 10b5-1 거래 계획에 따라 이루어졌습니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001513845-26-000124",
+          "rcept_dt": "20261005",
+          "flr_nm": "NBIS",
+          "url": "https://www.sec.gov/Archives/edgar/data/1513845/000151384526000124/xslF345X06/form4.xml"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001513845-26-000122",
+          "rcept_dt": "20261005",
+          "flr_nm": "NBIS",
+          "url": "https://www.sec.gov/Archives/edgar/data/1513845/000151384526000122/xslF345X06/form4.xml"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001513845-26-000120",
+          "rcept_dt": "20261005",
+          "flr_nm": "NBIS",
+          "url": "https://www.sec.gov/Archives/edgar/data/1513845/000151384526000120/xslF345X06/form4.xml"
+        },
+        {
+          "report_nm": "외국기업 수시보고 (6-K)",
+          "rcept_no": "0001104659-26-112824",
+          "rcept_dt": "20261001",
+          "flr_nm": "NBIS",
+          "url": "https://www.sec.gov/Archives/edgar/data/1513845/000110465926112824/tm2626792d1_6k.htm"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001513845-26-000118",
+          "rcept_dt": "20261001",
+          "flr_nm": "NBIS",
+          "url": "https://www.sec.gov/Archives/edgar/data/1513845/000151384526000118/xslF345X06/form4.xml"
+        }
+      ]
+    },
+    {
+      "company": "알파벳 A",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>알파벳 A 내부자 매도 (Form 4)</b>: 알파벳 A의 이사인 Frances Arnold가 2026년 9월 30일에 클래스 C 보통주 83주를 주당 340.45달러에 매도했습니다. 이는 2025년 8월 21일에 채택된 Rule 10b5-1 거래 계획에 따라 이루어졌습니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001193125-26-412669",
+          "rcept_dt": "20261002",
+          "flr_nm": "GOOGL",
+          "url": "https://www.sec.gov/Archives/edgar/data/1652044/000119312526412669/xslF345X06/ownership.xml"
+        }
+      ]
+    }
+  ],
+  "important_sections": [],
+  "collection_status": [
+    {
+      "company": "애플",
+      "market": "US",
+      "status": "success",
+      "filing_count": 4,
+      "checked_at": "2026-10-06T02:26:34+00:00"
+    },
+    {
+      "company": "앱셀레라 바이오로직스",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-06T02:26:46+00:00"
+    },
+    {
+      "company": "데이터도그",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-06T02:26:47+00:00"
+    },
+    {
+      "company": "GCT 세미컨덕터 홀딩",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-06T02:26:48+00:00"
+    },
+    {
+      "company": "쇼피파이",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-06T02:26:50+00:00"
+    },
+    {
+      "company": "메타 플랫폼스",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-06T02:26:51+00:00"
+    },
+    {
+      "company": "네비우스 그룹",
+      "market": "US",
+      "status": "success",
+      "filing_count": 5,
+      "checked_at": "2026-10-06T02:26:52+00:00"
+    },
+    {
+      "company": "아틀라시언",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-06T02:27:02+00:00"
+    },
+    {
+      "company": "알파벳 A",
+      "market": "US",
+      "status": "success",
+      "filing_count": 1,
+      "checked_at": "2026-10-06T02:27:03+00:00"
+    },
+    {
+      "company": "인텔",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-06T02:27:04+00:00"
+    },
+    {
+      "company": "제타 글로벌 홀딩스",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-06T02:27:04+00:00"
+    },
+    {
+      "company": "SK텔레콤",
+      "market": "KR",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-06T02:27:05+00:00"
+    }
+  ]
+}
