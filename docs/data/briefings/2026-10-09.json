@@ -1,0 +1,114 @@
+{
+  "date": "2026-10-09",
+  "generated_at": "2026-10-09T11:27:28+09:00",
+  "sections": [
+    {
+      "company": "애플",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>내부자 매도 (Form 4)</b>: 애플의 SVP, GC 및 정부 업무 담당자인 Jennifer Newstead가 2026년 10월 6일, 주당 332.01달러에 보통주 2,399주를 매도했습니다. 이는 2026년 5월 5일에 채택된 10b5-1 거래 계획에 따라 이루어졌습니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001140361-26-039158",
+          "rcept_dt": "20261008",
+          "flr_nm": "AAPL",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000114036126039158/xslF345X06/form4.xml"
+        }
+      ]
+    },
+    {
+      "company": "메타 플랫폼스",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>메타 플랫폼스 내부자 매도 (Form 4)</b>: 최고운영책임자(COO)인 Javier Olivan이 2026년 10월 5일, 주당 728.08달러에 총 1,500주 이상의 클래스 A 보통주를 매도했습니다. 이는 2025년 11월 17일에 채택된 Rule 10b5-1 거래 계획에 따라 이루어졌습니다. 내부자의 매도는 투자자들에게 회사의 미래 전망에 대한 신호로 해석될 수 있습니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0000950103-26-015324",
+          "rcept_dt": "20261007",
+          "flr_nm": "META",
+          "url": "https://www.sec.gov/Archives/edgar/data/1326801/000095010326015324/xslF345X06/ownership.xml"
+        }
+      ]
+    },
+    {
+      "company": "네비우스 그룹",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>내부자 매도 (Form 4)</b>: 네비우스 그룹의 COO이자 이사인 Ophir Nave가 2026년 10월 5일에 총 434,199주의 Class A 주식을 평균 약 $234.39에 매도했습니다. 이는 내부자의 상당한 매도 물량으로, 향후 주가에 영향을 줄 수 있습니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001513845-26-000126",
+          "rcept_dt": "20261006",
+          "flr_nm": "NBIS",
+          "url": "https://www.sec.gov/Archives/edgar/data/1513845/000151384526000126/xslF345X06/form4.xml"
+        }
+      ]
+    }
+  ],
+  "important_sections": [],
+  "collection_status": [
+    {
+      "company": "애플",
+      "market": "US",
+      "status": "success",
+      "filing_count": 1,
+      "checked_at": "2026-10-09T02:27:12+00:00"
+    },
+    {
+      "company": "앱셀레라 바이오로직스",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-09T02:27:18+00:00"
+    },
+    {
+      "company": "데이터도그",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-09T02:27:19+00:00"
+    },
+    {
+      "company": "GCT 세미컨덕터 홀딩",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-09T02:27:20+00:00"
+    },
+    {
+      "company": "쇼피파이",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-09T02:27:22+00:00"
+    },
+    {
+      "company": "메타 플랫폼스",
+      "market": "US",
+      "status": "success",
+      "filing_count": 1,
+      "checked_at": "2026-10-09T02:27:23+00:00"
+    },
+    {
+      "company": "네비우스 그룹",
+      "market": "US",
+      "status": "success",
+      "filing_count": 1,
+      "checked_at": "2026-10-09T02:27:25+00:00"
+    },
+    {
+      "company": "아틀라시언",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-09T02:27:27+00:00"
+    },
+    {
+      "company": "알파벳 A",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-09T02:27:28+00:00"
+    }
+  ]
+}
