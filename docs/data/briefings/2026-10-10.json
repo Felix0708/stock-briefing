@@ -1,0 +1,93 @@
+{
+  "date": "2026-10-10",
+  "generated_at": "2026-10-10T10:52:47+09:00",
+  "sections": [
+    {
+      "company": "애플",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>내부자 매도 (Form 4)</b>: 애플의 SVP, GC 및 정부 업무 담당자인 Jennifer Newstead가 2026년 10월 6일, 주당 332.01달러에 보통주 2,399주를 매도했습니다. 이는 2026년 5월 5일에 채택된 10b5-1 거래 계획에 따라 이루어졌습니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001140361-26-039158",
+          "rcept_dt": "20261008",
+          "flr_nm": "AAPL",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000114036126039158/xslF345X06/form4.xml"
+        }
+      ]
+    },
+    {
+      "company": "데이터도그",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>내부자 매도 (Form 4)</b>: 데이터도그의 최고 기술 책임자(CTO)인 Alexis Le-Quoc가 2026년 10월 7일에 총 71,217주의 Class A 보통주를 약 271.39달러에서 280.43달러 사이의 가중 평균 가격으로 매도했습니다. 이는 2025년 6월 13일에 체결된 Rule 10b5-1 거래 계획에 따른 것입니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001561550-26-000324",
+          "rcept_dt": "20261009",
+          "flr_nm": "DDOG",
+          "url": "https://www.sec.gov/Archives/edgar/data/1561550/000156155026000324/xslF345X06/wk-form4_1791579105.xml"
+        }
+      ]
+    }
+  ],
+  "important_sections": [],
+  "collection_status": [
+    {
+      "company": "애플",
+      "market": "US",
+      "status": "success",
+      "filing_count": 1,
+      "checked_at": "2026-10-10T01:52:38+00:00"
+    },
+    {
+      "company": "앱셀레라 바이오로직스",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-10T01:52:39+00:00"
+    },
+    {
+      "company": "데이터도그",
+      "market": "US",
+      "status": "success",
+      "filing_count": 1,
+      "checked_at": "2026-10-10T01:52:40+00:00"
+    },
+    {
+      "company": "GCT 세미컨덕터 홀딩",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-10T01:52:44+00:00"
+    },
+    {
+      "company": "쇼피파이",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-10T01:52:45+00:00"
+    },
+    {
+      "company": "메타 플랫폼스",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-10T01:52:46+00:00"
+    },
+    {
+      "company": "아틀라시언",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-10T01:52:46+00:00"
+    },
+    {
+      "company": "알파벳 A",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-10T01:52:47+00:00"
+    }
+  ]
+}
