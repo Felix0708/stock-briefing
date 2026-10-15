@@ -1,0 +1,93 @@
+{
+  "date": "2026-10-15",
+  "generated_at": "2026-10-15T09:45:49+09:00",
+  "sections": [
+    {
+      "company": "메타 플랫폼스",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>내부자 매도 (Form 4)</b>: 메타 플랫폼스의 최고운영책임자(COO)인 하비에르 올리반(Javier Olivan)이 2026년 10월 12일, 주당 728.1달러에 총 1,464주(Class A 보통주)를 매도했습니다. 이는 2025년 11월 17일에 채택된 Rule 10b5-1 거래 계획에 따라 이루어졌습니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0000950103-26-015598",
+          "rcept_dt": "20261014",
+          "flr_nm": "META",
+          "url": "https://www.sec.gov/Archives/edgar/data/1326801/000095010326015598/xslF345X06/ownership.xml"
+        }
+      ]
+    },
+    {
+      "company": "아틀라시언",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>아틀라시언 주주총회 위임장 (DEF 14A)</b>: 2026년 12월 1일 가상으로 개최되는 주주총회 안건으로 9명의 이사 선임, Ernst &amp; Young LLP를 2027 회계연도 감사인으로 선임하는 안건, 임원 보수 승인 안건 등을 포함합니다. 주주총회는 온라인으로 진행되며, 2026년 10월 7일 기준 주주가 의결권을 행사할 수 있습니다.</li>\n</ul><ul>\n<li><b>내부자 매도 (Form 4)</b>: 아틀라시언의 최고 회계 책임자(Chief Accounting Officer)인 Gene Liu가 2026년 10월 12일에 클래스 A 보통주 337주를 주당 210달러에 매도했습니다. 이는 2025년 12월 5일에 채택된 Rule 10b5-1 거래 계획에 따라 이루어졌습니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "주주총회 위임장 (DEF 14A)",
+          "rcept_no": "0001650372-26-000044",
+          "rcept_dt": "20261014",
+          "flr_nm": "TEAM",
+          "url": "https://www.sec.gov/Archives/edgar/data/1650372/000165037226000044/team-20261013.htm"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001946411-26-000010",
+          "rcept_dt": "20261013",
+          "flr_nm": "TEAM",
+          "url": "https://www.sec.gov/Archives/edgar/data/1650372/000194641126000010/xslF345X06/primarydocument.xml"
+        }
+      ]
+    }
+  ],
+  "important_sections": [],
+  "collection_status": [
+    {
+      "company": "애플",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-15T00:45:35+00:00"
+    },
+    {
+      "company": "앱셀레라 바이오로직스",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-15T00:45:36+00:00"
+    },
+    {
+      "company": "데이터도그",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-15T00:45:36+00:00"
+    },
+    {
+      "company": "쇼피파이",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-15T00:45:37+00:00"
+    },
+    {
+      "company": "메타 플랫폼스",
+      "market": "US",
+      "status": "success",
+      "filing_count": 1,
+      "checked_at": "2026-10-15T00:45:38+00:00"
+    },
+    {
+      "company": "아틀라시언",
+      "market": "US",
+      "status": "success",
+      "filing_count": 2,
+      "checked_at": "2026-10-15T00:45:44+00:00"
+    },
+    {
+      "company": "알파벳 A",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-15T00:45:49+00:00"
+    }
+  ]
+}
