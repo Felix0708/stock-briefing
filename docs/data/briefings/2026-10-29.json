@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-29",
+  "generated_at": "2026-10-29T10:55:24+09:00",
+  "sections": [],
+  "important_sections": [],
+  "collection_status": [
+    {
+      "company": "애플",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-29T01:55:21+00:00"
+    },
+    {
+      "company": "쇼피파이",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-29T01:55:22+00:00"
+    },
+    {
+      "company": "아틀라시언",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-10-29T01:55:24+00:00"
+    }
+  ]
+}
