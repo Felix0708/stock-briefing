@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-03",
+  "generated_at": "2026-11-03T12:38:59+09:00",
+  "sections": [
+    {
+      "company": "애플",
+      "market": "US",
+      "summary_html": "<ul>\n<li><b>수시보고 (8-K)</b>: 애플은 2026년 9월 26일 마감된 2026 회계연도 4분기에 매출 1,145억 달러를 기록하며 전년 대비 12% 증가했습니다. 아이폰 매출과 주당순이익(EPS)도 9월 분기 역대 최고치를 기록했으며, 서비스 부문 매출은 사상 최고치를 경신했습니다.</li>\n<li><b>재무 결과 발표</b>: 2026년 4분기 매출은 1,145억 달러로 전년 동기 대비 12% 증가했으며, 희석 주당순이익(EPS)은 2.10달러로 14% 증가했습니다. 이는 관세 환급으로 인한 긍정적인 영향이 포함된 수치입니다.</li>\n<li><b>주주 환원</b>: 4분기에 280억 달러의 영업 현금 흐름을 창출했으며, 이 중 280억 달러를 주주에게 환원했습니다.</li>\n<li><b>배당금 지급</b>: 보통주 주당 0.27달러의 현금 배당금을 선언했으며, 2026년 11월 16일에 지급될 예정입니다.</li>\n</ul><ul>\n<li><b>애플 내부자 매도 (Form 4)</b>: 애플의 SVP, GC 및 정부 업무 담당자인 Jennifer Newstead가 2026년 10월 27일, 343.36달러에 2,399주의 애플 주식을 매도했습니다. 이는 2026년 5월 5일에 채택된 Rule 10b5-1 거래 계획에 따라 이루어졌습니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "수시보고 (8-K)",
+          "rcept_no": "0000320193-26-000024",
+          "rcept_dt": "20261102",
+          "flr_nm": "AAPL",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000024/aapl-20261102.htm"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001140361-26-041201",
+          "rcept_dt": "20261029",
+          "flr_nm": "AAPL",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000114036126041201/xslF345X06/form4.xml"
+        }
+      ]
+    }
+  ],
+  "important_sections": [],
+  "collection_status": [
+    {
+      "company": "애플",
+      "market": "US",
+      "status": "success",
+      "filing_count": 2,
+      "checked_at": "2026-11-03T03:38:51+00:00"
+    },
+    {
+      "company": "쇼피파이",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-11-03T03:38:58+00:00"
+    },
+    {
+      "company": "아틀라시언",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-11-03T03:38:59+00:00"
+    }
+  ]
+}
