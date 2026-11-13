@@ -1,0 +1,93 @@
+{
+  "date": "2026-11-13",
+  "generated_at": "2026-11-13T11:50:26+09:00",
+  "sections": [
+    {
+      "company": "애플",
+      "market": "US",
+      "summary_html": "<ul><li>내부자 매도 (Form 4)</li></ul><p>AI 요약 생성 실패 · 재처리 대기</p><ul><li>수시보고 (8-K)</li></ul><p>AI 요약 생성 실패 · 재처리 대기</p><ul><li>내부자 매도 (Form 4)</li></ul><p>AI 요약 생성 실패 · 재처리 대기</p><ul>\n<li><b>연차보고서 (10-K)</b>: 애플은 2026년 9월 26일 기준 보통주, 2026년 만기 1.625% 무담보채권, 2027년 만기 2.000% 무담보채권, 2029년 만기 1.375% 무담보채권 등 7가지 종류의 증권을 등록했습니다.</li>\n<li><b>2022년 직원 주식 계획 제한 주식 단위 부여 계약</b>: 애플은 2022년 직원 주식 계획에 따라 참가자에게 제한 주식 단위(RSU)를 부여하는 계약 내용을 공개했습니다. 이는 임직원 보상과 관련된 중요한 내용입니다.</li>\n<li><b>2022년 직원 주식 계획 성과 기반 제한 주식 단위 부여 계약</b>: 성과 목표 달성에 따라 부여되는 RSU에 대한 계약 내용입니다. 회사의 성과와 임직원 보상이 연동됨을 보여줍니다.</li>\n<li><b>2022년 직원 주식 계획 기간제한 제한 주식 단위 부여 계약</b>: 특정 기간 근무 조건에 따라 부여되는 RSU에 대한 계약 내용입니다.</li>\n<li><b>2022년 직원 주식 계획 성과 기반 제한 주식 단위 부여 계약 (추가)</b>: 성과 기반 RSU 부여 계약에 대한 추가적인 내용을 담고 있습니다.</li>\n<li><b>내부자 거래 정책</b>: 중요 비공개 정보 취득 시 증권 거래를 금지하는 정책을 명시하고 있으며, 위반 시 처벌 규정을 포함하고 있습니다. 이는 투자자 보호 및 시장 투명성 확보와 관련된 중요한 정책입니다.</li>\n<li><b>자회사 목록</b>: 애플의 홍콩, 미국, 캐나다, 중국, 아일랜드, 영국, 인도, 일본, 한국 등 다양한 국가에 설립된 자회사 목록을 공개했습니다. 이는 회사의 글로벌 사업 구조를 파악하는 데 도움이 됩니다.</li>\n<li><b>독립 등록 공인 회계 법인의 동의서</b>: 애플의 연차보고서 및 등록 서류에 대한 독립 회계 법인의 감사를 받았음을 나타냅니다.</li>\n<li><b>대표이사 및 재무이사 인증서 (10-K)</b>: 존 터누스(John Ternus)가 연차보고서의 내용이 사실과 부합하며 중요 정보 누락이 없음을 인증하는 내용입니다.</li>\n<li><b>재무이사 인증서 (10-K)</b>: 케반 파렉(Kevan Parekh)이 연차보고서의 내용이 사실과 부합하며 중요 정보 누락이 없음을 인증하는 내용입니다.</li>\n<li><b>대표이사 및 최고재무책임자 인증서 (Sarbanes-Oxley Act)</b>: 존 터누스(John Ternus)가 2026 회계연도 연차보고서가 Sarbanes-Oxley Act의 요구사항을 충족함을 인증하는 내용입니다.</li>\n</ul>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001140361-26-043484",
+          "rcept_dt": "20261112",
+          "flr_nm": "AAPL",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000114036126043484/xslF345X06/form4.xml"
+        },
+        {
+          "report_nm": "수시보고 (8-K)",
+          "rcept_no": "0001140361-26-042798",
+          "rcept_dt": "20261109",
+          "flr_nm": "AAPL",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000114036126042798/ef20085077_8k.htm"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001140361-26-042149",
+          "rcept_dt": "20261105",
+          "flr_nm": "AAPL",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000114036126042149/xslF345X06/form4.xml"
+        },
+        {
+          "report_nm": "연차보고서 (10-K)",
+          "rcept_no": "0000320193-26-000026",
+          "rcept_dt": "20261103",
+          "flr_nm": "AAPL",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000026/aapl-20260926.htm"
+        }
+      ]
+    },
+    {
+      "company": "아틀라시언",
+      "market": "US",
+      "summary_html": "<ul><li>내부자 매수 (Form 4)</li></ul><p>AI 요약 생성 실패 · 재처리 대기</p><ul><li>분기보고서 (10-Q)</li></ul><p>AI 요약 생성 실패 · 재처리 대기</p><ul><li>수시보고 (8-K)</li></ul><p>AI 요약 생성 실패 · 재처리 대기</p>",
+      "filings": [
+        {
+          "report_nm": "내부자 매수 (Form 4)",
+          "rcept_no": "0001666120-26-000033",
+          "rcept_dt": "20261112",
+          "flr_nm": "TEAM",
+          "url": "https://www.sec.gov/Archives/edgar/data/1650372/000166612026000033/xslF345X06/primarydocument.xml"
+        },
+        {
+          "report_nm": "분기보고서 (10-Q)",
+          "rcept_no": "0001650372-26-000054",
+          "rcept_dt": "20261106",
+          "flr_nm": "TEAM",
+          "url": "https://www.sec.gov/Archives/edgar/data/1650372/000165037226000054/team-20260930.htm"
+        },
+        {
+          "report_nm": "수시보고 (8-K)",
+          "rcept_no": "0001650372-26-000049",
+          "rcept_dt": "20261105",
+          "flr_nm": "TEAM",
+          "url": "https://www.sec.gov/Archives/edgar/data/1650372/000165037226000049/team-20261105.htm"
+        }
+      ]
+    }
+  ],
+  "important_sections": [],
+  "collection_status": [
+    {
+      "company": "애플",
+      "market": "US",
+      "status": "partial",
+      "filing_count": 4,
+      "checked_at": "2026-11-13T02:50:01+00:00"
+    },
+    {
+      "company": "쇼피파이",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-11-13T02:50:13+00:00"
+    },
+    {
+      "company": "아틀라시언",
+      "market": "US",
+      "status": "partial",
+      "filing_count": 3,
+      "checked_at": "2026-11-13T02:50:15+00:00"
+    }
+  ]
+}
