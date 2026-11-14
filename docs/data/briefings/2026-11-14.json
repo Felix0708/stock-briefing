@@ -1,0 +1,93 @@
+{
+  "date": "2026-11-14",
+  "generated_at": "2026-11-14T11:37:48+09:00",
+  "sections": [
+    {
+      "company": "애플",
+      "market": "US",
+      "summary_html": "<ul><li>내부자 매도 (Form 4)</li></ul><p>AI 요약 생성 실패 · 재처리 대기</p><ul><li>수시보고 (8-K)</li></ul><p>AI 요약 생성 실패 · 재처리 대기</p><ul><li>내부자 매도 (Form 4)</li></ul><p>AI 요약 생성 실패 · 재처리 대기</p>",
+      "filings": [
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001140361-26-043484",
+          "rcept_dt": "20261112",
+          "flr_nm": "AAPL",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000114036126043484/xslF345X06/form4.xml"
+        },
+        {
+          "report_nm": "수시보고 (8-K)",
+          "rcept_no": "0001140361-26-042798",
+          "rcept_dt": "20261109",
+          "flr_nm": "AAPL",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000114036126042798/ef20085077_8k.htm"
+        },
+        {
+          "report_nm": "내부자 매도 (Form 4)",
+          "rcept_no": "0001140361-26-042149",
+          "rcept_dt": "20261105",
+          "flr_nm": "AAPL",
+          "url": "https://www.sec.gov/Archives/edgar/data/320193/000114036126042149/xslF345X06/form4.xml"
+        }
+      ]
+    },
+    {
+      "company": "아틀라시언",
+      "market": "US",
+      "summary_html": "<ul><li>내부자 매수 (Form 4)</li></ul><p>AI 요약 생성 실패 · 재처리 대기</p><ul><li>내부자 매수 (Form 4)</li></ul><p>AI 요약 생성 실패 · 재처리 대기</p><ul><li>분기보고서 (10-Q)</li></ul><p>AI 요약 생성 실패 · 재처리 대기</p><ul><li>수시보고 (8-K)</li></ul><p>AI 요약 생성 실패 · 재처리 대기</p>",
+      "filings": [
+        {
+          "report_nm": "내부자 매수 (Form 4)",
+          "rcept_no": "0001666120-26-000034",
+          "rcept_dt": "20261113",
+          "flr_nm": "TEAM",
+          "url": "https://www.sec.gov/Archives/edgar/data/1650372/000166612026000034/xslF345X06/primarydocument.xml"
+        },
+        {
+          "report_nm": "내부자 매수 (Form 4)",
+          "rcept_no": "0001666120-26-000033",
+          "rcept_dt": "20261112",
+          "flr_nm": "TEAM",
+          "url": "https://www.sec.gov/Archives/edgar/data/1650372/000166612026000033/xslF345X06/primarydocument.xml"
+        },
+        {
+          "report_nm": "분기보고서 (10-Q)",
+          "rcept_no": "0001650372-26-000054",
+          "rcept_dt": "20261106",
+          "flr_nm": "TEAM",
+          "url": "https://www.sec.gov/Archives/edgar/data/1650372/000165037226000054/team-20260930.htm"
+        },
+        {
+          "report_nm": "수시보고 (8-K)",
+          "rcept_no": "0001650372-26-000049",
+          "rcept_dt": "20261105",
+          "flr_nm": "TEAM",
+          "url": "https://www.sec.gov/Archives/edgar/data/1650372/000165037226000049/team-20261105.htm"
+        }
+      ]
+    }
+  ],
+  "important_sections": [],
+  "collection_status": [
+    {
+      "company": "애플",
+      "market": "US",
+      "status": "partial",
+      "filing_count": 3,
+      "checked_at": "2026-11-14T02:37:30+00:00"
+    },
+    {
+      "company": "쇼피파이",
+      "market": "US",
+      "status": "empty",
+      "filing_count": 0,
+      "checked_at": "2026-11-14T02:37:37+00:00"
+    },
+    {
+      "company": "아틀라시언",
+      "market": "US",
+      "status": "partial",
+      "filing_count": 4,
+      "checked_at": "2026-11-14T02:37:38+00:00"
+    }
+  ]
+}
